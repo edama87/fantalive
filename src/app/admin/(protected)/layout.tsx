@@ -6,6 +6,7 @@
  */
 
 import { redirect } from 'next/navigation';
+import { connection } from 'next/server';
 import { isAdminAuthenticated, isAdminConfigured } from '@/lib/auth/admin';
 
 export const instant = false;
@@ -15,6 +16,8 @@ export default async function ProtectedAdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+  await connection();
+  
   const configured = isAdminConfigured();
   const authenticated = await isAdminAuthenticated();
 
