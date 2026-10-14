@@ -30,4 +30,4 @@
 export * from './types';
 export * from './factory';
 export { MockProvider, createMockProvider } from './mock-provider';
-export { EspnProvider, createEspnProvider } from './espn-provider.stub';
+export { EspnProvider, createEspnProvider } from './espn-provider';

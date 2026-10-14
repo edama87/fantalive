@@ -7,30 +7,30 @@
  * 
  * Environment variables:
  * - NEXT_PUBLIC_SUPABASE_URL: Supabase project URL
- * - NEXT_PUBLIC_SUPABASE_ANON_KEY: Supabase anon key
+ * - NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: Supabase publishable key
  * - NEXT_PUBLIC_USE_LOCAL_DB: Set to 'true' to force local client
  */
 
 import { createLocalClient, LocalDbClient } from './local-client';
+import { createSupabaseDbClient, SupabaseDbClient } from './supabase-client';
+import { isSupabaseConfigured } from './supabase';
 
-export type DbClient = LocalDbClient;
+export type DbClient = LocalDbClient | SupabaseDbClient;
 
 let client: DbClient | null = null;
 
 export function getDbClient(): DbClient {
   if (client) return client;
 
-  const useLocal = 
-    process.env.NEXT_PUBLIC_USE_LOCAL_DB === 'true' ||
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const forceLocal = process.env.NEXT_PUBLIC_USE_LOCAL_DB === 'true';
+  const supabaseReady = isSupabaseConfigured();
 
-  if (useLocal) {
+  if (forceLocal || !supabaseReady) {
     console.log('[DB] Using local mock database');
     client = createLocalClient();
   } else {
-    console.log('[DB] Supabase client not implemented, using local');
-    client = createLocalClient();
+    console.log('[DB] Using Supabase');
+    client = createSupabaseDbClient();
   }
 
   return client;
@@ -39,3 +39,6 @@ export function getDbClient(): DbClient {
 export function resetDbClient(): void {
   client = null;
 }
+
+export { createLocalClient } from './local-client';
+export { createSupabaseDbClient } from './supabase-client';

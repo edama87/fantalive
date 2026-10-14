@@ -1,5 +1,6 @@
 -- FantaLive Bundlesliga - Initial Schema
 -- Supabase PostgreSQL Migration
+-- Idempotent: uses CREATE IF NOT EXISTS / DO blocks
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -7,7 +8,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- =============================================================================
 -- TEAMS: Fantasy teams in the league
 -- =============================================================================
-CREATE TABLE teams (
+CREATE TABLE IF NOT EXISTS teams (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     manager_name TEXT NOT NULL,
@@ -21,28 +22,48 @@ COMMENT ON TABLE teams IS 'Fantasy teams participating in the Bundlesliga';
 -- =============================================================================
 -- PLAYERS: All Serie A players available for fantasy
 -- =============================================================================
-CREATE TABLE players (
+CREATE TABLE IF NOT EXISTS players (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('P', 'D', 'C', 'A')),
     real_team TEXT,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    auction_price INTEGER,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_players_role ON players(role);
-CREATE INDEX idx_players_real_team ON players(real_team);
-CREATE INDEX idx_players_active ON players(is_active) WHERE is_active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_players_role ON players(role);
+CREATE INDEX IF NOT EXISTS idx_players_real_team ON players(real_team);
+CREATE INDEX IF NOT EXISTS idx_players_active ON players(is_active) WHERE is_active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_players_name ON players(name);
 
 COMMENT ON TABLE players IS 'All Serie A players available in the fantasy game';
 COMMENT ON COLUMN players.role IS 'P=Portiere, D=Difensore, C=Centrocampista, A=Attaccante';
 
 -- =============================================================================
+-- PLAYER_ALIASES: Manual alias mappings for ESPN name resolution
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS player_aliases (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    alias TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'espn',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    UNIQUE(alias, source)
+);
+
+CREATE INDEX IF NOT EXISTS idx_player_aliases_alias ON player_aliases(alias);
+CREATE INDEX IF NOT EXISTS idx_player_aliases_player ON player_aliases(player_id);
+
+COMMENT ON TABLE player_aliases IS 'Manual name mappings for external data sources (ESPN, etc.)';
+
+-- =============================================================================
 -- ROSTER_VERSIONS: Point-in-time snapshots of team rosters
 -- Each roster version is valid from effective_from until the next version
 -- =============================================================================
-CREATE TABLE roster_versions (
+CREATE TABLE IF NOT EXISTS roster_versions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     team_id TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     version_number INTEGER NOT NULL,
@@ -56,8 +77,8 @@ CREATE TABLE roster_versions (
     UNIQUE(team_id, version_number)
 );
 
-CREATE INDEX idx_roster_versions_team ON roster_versions(team_id);
-CREATE INDEX idx_roster_versions_effective ON roster_versions(effective_from, effective_until);
+CREATE INDEX IF NOT EXISTS idx_roster_versions_team ON roster_versions(team_id);
+CREATE INDEX IF NOT EXISTS idx_roster_versions_effective ON roster_versions(effective_from, effective_until);
 
 COMMENT ON TABLE roster_versions IS 'Point-in-time roster snapshots; each round uses the version valid at kickoff';
 COMMENT ON COLUMN roster_versions.credits_remaining IS 'Auction credits remaining (from initial 260)';
@@ -66,7 +87,7 @@ COMMENT ON COLUMN roster_versions.market_credits IS 'Weekly market credits (init
 -- =============================================================================
 -- ROSTER_PLAYERS: Players in each roster version
 -- =============================================================================
-CREATE TABLE roster_players (
+CREATE TABLE IF NOT EXISTS roster_players (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     roster_version_id UUID NOT NULL REFERENCES roster_versions(id) ON DELETE CASCADE,
     player_id TEXT NOT NULL REFERENCES players(id),
@@ -77,39 +98,44 @@ CREATE TABLE roster_players (
     UNIQUE(roster_version_id, player_id)
 );
 
-CREATE INDEX idx_roster_players_version ON roster_players(roster_version_id);
-CREATE INDEX idx_roster_players_player ON roster_players(player_id);
+CREATE INDEX IF NOT EXISTS idx_roster_players_version ON roster_players(roster_version_id);
+CREATE INDEX IF NOT EXISTS idx_roster_players_player ON roster_players(player_id);
 
 COMMENT ON TABLE roster_players IS 'Players belonging to a specific roster version';
 
 -- =============================================================================
 -- MARKET_TRANSACTIONS: History of all market operations
 -- =============================================================================
-CREATE TABLE market_transactions (
+CREATE TABLE IF NOT EXISTS market_transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     team_id TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-    transaction_type TEXT NOT NULL CHECK (transaction_type IN ('buy', 'sell', 'auction')),
+    transaction_type TEXT NOT NULL CHECK (transaction_type IN ('buy', 'sell', 'auction', 'loan_in', 'loan_out')),
     player_id TEXT NOT NULL REFERENCES players(id),
     credits_paid INTEGER NOT NULL DEFAULT 0,
     credits_refunded INTEGER NOT NULL DEFAULT 0,
     market_week INTEGER,
     effective_round INTEGER,
+    release_reason TEXT,
+    is_loan BOOLEAN NOT NULL DEFAULT FALSE,
+    is_injured BOOLEAN NOT NULL DEFAULT FALSE,
+    loan_return_round INTEGER,
+    raw_import_data JSONB,
     notes TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_market_transactions_team ON market_transactions(team_id);
-CREATE INDEX idx_market_transactions_player ON market_transactions(player_id);
-CREATE INDEX idx_market_transactions_week ON market_transactions(market_week);
-CREATE INDEX idx_market_transactions_date ON market_transactions(created_at);
+CREATE INDEX IF NOT EXISTS idx_market_transactions_team ON market_transactions(team_id);
+CREATE INDEX IF NOT EXISTS idx_market_transactions_player ON market_transactions(player_id);
+CREATE INDEX IF NOT EXISTS idx_market_transactions_week ON market_transactions(market_week);
+CREATE INDEX IF NOT EXISTS idx_market_transactions_date ON market_transactions(created_at);
 
 COMMENT ON TABLE market_transactions IS 'Complete history of market buy/sell operations';
-COMMENT ON COLUMN market_transactions.credits_refunded IS 'Always 0 for sells (no refund for active Serie A players)';
+COMMENT ON COLUMN market_transactions.credits_refunded IS 'Refund depends on release reason (left_serie_a vs still_in_serie_a)';
 
 -- =============================================================================
 -- ROUNDS: Fantasy league rounds mapped to Serie A matchdays
 -- =============================================================================
-CREATE TABLE rounds (
+CREATE TABLE IF NOT EXISTS rounds (
     number INTEGER PRIMARY KEY,
     serie_a_matchday INTEGER NOT NULL,
     kickoff_date DATE NOT NULL,
@@ -121,15 +147,15 @@ CREATE TABLE rounds (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_rounds_status ON rounds(status);
-CREATE INDEX idx_rounds_kickoff ON rounds(kickoff_date);
+CREATE INDEX IF NOT EXISTS idx_rounds_status ON rounds(status);
+CREATE INDEX IF NOT EXISTS idx_rounds_kickoff ON rounds(kickoff_date);
 
 COMMENT ON TABLE rounds IS 'Fantasy rounds with Serie A matchday mapping';
 
 -- =============================================================================
 -- MATCH_PAIRINGS: Head-to-head pairings for each round
 -- =============================================================================
-CREATE TABLE match_pairings (
+CREATE TABLE IF NOT EXISTS match_pairings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     round_number INTEGER NOT NULL REFERENCES rounds(number) ON DELETE CASCADE,
     home_team_id TEXT NOT NULL REFERENCES teams(id),
@@ -139,12 +165,12 @@ CREATE TABLE match_pairings (
     UNIQUE(round_number, away_team_id)
 );
 
-CREATE INDEX idx_match_pairings_round ON match_pairings(round_number);
+CREATE INDEX IF NOT EXISTS idx_match_pairings_round ON match_pairings(round_number);
 
 -- =============================================================================
 -- LINEUPS: Team lineups for each round
 -- =============================================================================
-CREATE TABLE lineups (
+CREATE TABLE IF NOT EXISTS lineups (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     team_id TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     round_number INTEGER NOT NULL REFERENCES rounds(number) ON DELETE CASCADE,
@@ -158,13 +184,13 @@ CREATE TABLE lineups (
     UNIQUE(team_id, round_number)
 );
 
-CREATE INDEX idx_lineups_round ON lineups(round_number);
-CREATE INDEX idx_lineups_team ON lineups(team_id);
+CREATE INDEX IF NOT EXISTS idx_lineups_round ON lineups(round_number);
+CREATE INDEX IF NOT EXISTS idx_lineups_team ON lineups(team_id);
 
 -- =============================================================================
 -- LINEUP_SLOTS: Individual player slots in a lineup
 -- =============================================================================
-CREATE TABLE lineup_slots (
+CREATE TABLE IF NOT EXISTS lineup_slots (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     lineup_id UUID NOT NULL REFERENCES lineups(id) ON DELETE CASCADE,
     player_id TEXT NOT NULL REFERENCES players(id),
@@ -174,12 +200,12 @@ CREATE TABLE lineup_slots (
     UNIQUE(lineup_id, player_id)
 );
 
-CREATE INDEX idx_lineup_slots_lineup ON lineup_slots(lineup_id);
+CREATE INDEX IF NOT EXISTS idx_lineup_slots_lineup ON lineup_slots(lineup_id);
 
 -- =============================================================================
 -- LIVE_EVENTS: Real-time match events from providers
 -- =============================================================================
-CREATE TABLE live_events (
+CREATE TABLE IF NOT EXISTS live_events (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     round_number INTEGER NOT NULL REFERENCES rounds(number),
     player_id TEXT NOT NULL REFERENCES players(id),
@@ -192,41 +218,46 @@ CREATE TABLE live_events (
     related_player_id TEXT REFERENCES players(id),
     source_provider TEXT NOT NULL,
     source_event_id TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    UNIQUE(round_number, player_id, event_type, minute, source_provider)
 );
 
-CREATE INDEX idx_live_events_round ON live_events(round_number);
-CREATE INDEX idx_live_events_player ON live_events(player_id);
-CREATE INDEX idx_live_events_type ON live_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_live_events_round ON live_events(round_number);
+CREATE INDEX IF NOT EXISTS idx_live_events_player ON live_events(player_id);
+CREATE INDEX IF NOT EXISTS idx_live_events_type ON live_events(event_type);
 
 COMMENT ON TABLE live_events IS 'Real-time events from live data providers';
 
 -- =============================================================================
 -- LIVE_VOTES: Estimated votes during matches (from providers)
 -- =============================================================================
-CREATE TABLE live_votes (
+CREATE TABLE IF NOT EXISTS live_votes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     round_number INTEGER NOT NULL REFERENCES rounds(number),
     player_id TEXT NOT NULL REFERENCES players(id),
     estimated_vote NUMERIC(3,1),
+    is_estimated BOOLEAN NOT NULL DEFAULT TRUE,
     source_rating NUMERIC(3,1),
     minutes_played INTEGER NOT NULL DEFAULT 0,
     is_playing BOOLEAN NOT NULL DEFAULT FALSE,
+    is_subbed_out BOOLEAN NOT NULL DEFAULT FALSE,
     source_provider TEXT NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
     UNIQUE(round_number, player_id, source_provider)
 );
 
-CREATE INDEX idx_live_votes_round ON live_votes(round_number);
-CREATE INDEX idx_live_votes_player ON live_votes(player_id);
+CREATE INDEX IF NOT EXISTS idx_live_votes_round ON live_votes(round_number);
+CREATE INDEX IF NOT EXISTS idx_live_votes_player ON live_votes(player_id);
+CREATE INDEX IF NOT EXISTS idx_live_votes_updated ON live_votes(updated_at);
 
-COMMENT ON TABLE live_votes IS 'Estimated votes during live matches';
+COMMENT ON TABLE live_votes IS 'Estimated votes during live matches (marked stimato until reconciled)';
 
 -- =============================================================================
 -- OFFICIAL_VOTES: Final official votes after matches
 -- =============================================================================
-CREATE TABLE official_votes (
+CREATE TABLE IF NOT EXISTS official_votes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     round_number INTEGER NOT NULL REFERENCES rounds(number),
     player_id TEXT NOT NULL REFERENCES players(id),
@@ -251,16 +282,41 @@ CREATE TABLE official_votes (
     UNIQUE(round_number, player_id)
 );
 
-CREATE INDEX idx_official_votes_round ON official_votes(round_number);
-CREATE INDEX idx_official_votes_player ON official_votes(player_id);
+CREATE INDEX IF NOT EXISTS idx_official_votes_round ON official_votes(round_number);
+CREATE INDEX IF NOT EXISTS idx_official_votes_player ON official_votes(player_id);
 
 COMMENT ON TABLE official_votes IS 'Official votes from newspapers (Gazzetta, Corriere, Tuttosport)';
 COMMENT ON COLUMN official_votes.vote_average IS 'Calculated average of available votes';
 
 -- =============================================================================
+-- SERIE_A_MATCHES: Current state of real Serie A matches
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS serie_a_matches (
+    id TEXT PRIMARY KEY,
+    round_number INTEGER NOT NULL REFERENCES rounds(number),
+    home_team TEXT NOT NULL,
+    away_team TEXT NOT NULL,
+    home_score INTEGER NOT NULL DEFAULT 0,
+    away_score INTEGER NOT NULL DEFAULT 0,
+    minute INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'live', 'halftime', 'finished')),
+    kickoff_time TIMESTAMPTZ,
+    venue TEXT,
+    source_provider TEXT NOT NULL,
+    source_match_id TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_serie_a_matches_round ON serie_a_matches(round_number);
+CREATE INDEX IF NOT EXISTS idx_serie_a_matches_status ON serie_a_matches(status);
+
+COMMENT ON TABLE serie_a_matches IS 'Current state of Serie A matches for live display';
+
+-- =============================================================================
 -- MATCH_SCORES: Calculated fantasy match scores
 -- =============================================================================
-CREATE TABLE match_scores (
+CREATE TABLE IF NOT EXISTS match_scores (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     round_number INTEGER NOT NULL REFERENCES rounds(number),
     home_team_id TEXT NOT NULL REFERENCES teams(id),
@@ -283,12 +339,12 @@ CREATE TABLE match_scores (
     UNIQUE(round_number, home_team_id, away_team_id)
 );
 
-CREATE INDEX idx_match_scores_round ON match_scores(round_number);
+CREATE INDEX IF NOT EXISTS idx_match_scores_round ON match_scores(round_number);
 
 -- =============================================================================
 -- STANDINGS: League standings (updated after each round)
 -- =============================================================================
-CREATE TABLE standings (
+CREATE TABLE IF NOT EXISTS standings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     team_id TEXT NOT NULL REFERENCES teams(id),
     after_round INTEGER NOT NULL REFERENCES rounds(number),
@@ -306,13 +362,13 @@ CREATE TABLE standings (
     UNIQUE(team_id, after_round)
 );
 
-CREATE INDEX idx_standings_round ON standings(after_round);
-CREATE INDEX idx_standings_position ON standings(after_round, position);
+CREATE INDEX IF NOT EXISTS idx_standings_round ON standings(after_round);
+CREATE INDEX IF NOT EXISTS idx_standings_position ON standings(after_round, position);
 
 -- =============================================================================
 -- MARKET_WINDOWS: Track market opening/closing periods
 -- =============================================================================
-CREATE TABLE market_windows (
+CREATE TABLE IF NOT EXISTS market_windows (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     week_number INTEGER NOT NULL,
     opens_at TIMESTAMPTZ NOT NULL,
@@ -323,10 +379,29 @@ CREATE TABLE market_windows (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_market_windows_status ON market_windows(status);
-CREATE INDEX idx_market_windows_dates ON market_windows(opens_at, closes_at);
+CREATE INDEX IF NOT EXISTS idx_market_windows_status ON market_windows(status);
+CREATE INDEX IF NOT EXISTS idx_market_windows_dates ON market_windows(opens_at, closes_at);
 
 COMMENT ON TABLE market_windows IS 'Weekly market windows (Mon 00:00 - Thu 18:59), closed in January';
+
+-- =============================================================================
+-- CRON_RUNS: Track cron job executions for debugging
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS cron_runs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    job_name TEXT NOT NULL,
+    round_number INTEGER,
+    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    finished_at TIMESTAMPTZ,
+    status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'success', 'error')),
+    events_ingested INTEGER DEFAULT 0,
+    votes_updated INTEGER DEFAULT 0,
+    matches_updated INTEGER DEFAULT 0,
+    error_message TEXT,
+    metadata JSONB
+);
+
+CREATE INDEX IF NOT EXISTS idx_cron_runs_job ON cron_runs(job_name, started_at DESC);
 
 -- =============================================================================
 -- FUNCTIONS: Helper functions
@@ -368,38 +443,32 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS teams_updated_at ON teams;
 CREATE TRIGGER teams_updated_at
     BEFORE UPDATE ON teams
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
+DROP TRIGGER IF EXISTS players_updated_at ON players;
 CREATE TRIGGER players_updated_at
     BEFORE UPDATE ON players
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
+DROP TRIGGER IF EXISTS lineups_updated_at ON lineups;
 CREATE TRIGGER lineups_updated_at
     BEFORE UPDATE ON lineups
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
+DROP TRIGGER IF EXISTS match_scores_updated_at ON match_scores;
 CREATE TRIGGER match_scores_updated_at
     BEFORE UPDATE ON match_scores
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
--- =============================================================================
--- ROW LEVEL SECURITY (RLS) - Prepared for Supabase Auth
--- =============================================================================
+DROP TRIGGER IF EXISTS live_votes_updated_at ON live_votes;
+CREATE TRIGGER live_votes_updated_at
+    BEFORE UPDATE ON live_votes
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
--- Enable RLS on sensitive tables (disabled by default for development)
--- ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE lineups ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE market_transactions ENABLE ROW LEVEL SECURITY;
-
--- Example policy for team managers (uncomment when auth is enabled):
--- CREATE POLICY "Team managers can view their own team"
---     ON teams FOR SELECT
---     USING (manager_email = auth.jwt() ->> 'email');
-
--- CREATE POLICY "Team managers can update their own lineups"
---     ON lineups FOR ALL
---     USING (team_id IN (
---         SELECT id FROM teams WHERE manager_email = auth.jwt() ->> 'email'
---     ));
+DROP TRIGGER IF EXISTS serie_a_matches_updated_at ON serie_a_matches;
+CREATE TRIGGER serie_a_matches_updated_at
+    BEFORE UPDATE ON serie_a_matches
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at();

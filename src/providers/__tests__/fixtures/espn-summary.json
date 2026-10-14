@@ -1,0 +1,139 @@
+{
+  "boxscore": {
+    "players": [
+      {
+        "team": { "id": "103" },
+        "statistics": [
+          {
+            "names": ["MIN", "G", "A", "SH", "SOG"],
+            "athletes": [
+              {
+                "athlete": { "id": "12345", "displayName": "Mike Maignan", "shortName": "M. Maignan" },
+                "stats": ["90", "0", "0", "0", "0"],
+                "starter": true,
+                "didNotPlay": false,
+                "subbedIn": false,
+                "subbedOut": false
+              },
+              {
+                "athlete": { "id": "12346", "displayName": "Fikayo Tomori", "shortName": "F. Tomori" },
+                "stats": ["90", "0", "0", "1", "0"],
+                "starter": true,
+                "didNotPlay": false,
+                "subbedIn": false,
+                "subbedOut": false
+              },
+              {
+                "athlete": { "id": "12347", "displayName": "Christian Pulisic", "shortName": "C. Pulisic" },
+                "stats": ["78", "1", "1", "4", "2"],
+                "starter": true,
+                "didNotPlay": false,
+                "subbedIn": false,
+                "subbedOut": true
+              },
+              {
+                "athlete": { "id": "12348", "displayName": "Adrien Rabiot", "shortName": "A. Rabiot" },
+                "stats": ["90", "0", "0", "2", "1"],
+                "starter": true,
+                "didNotPlay": false,
+                "subbedIn": false,
+                "subbedOut": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "team": { "id": "110" },
+        "statistics": [
+          {
+            "names": ["MIN", "G", "A", "SH", "SOG"],
+            "athletes": [
+              {
+                "athlete": { "id": "22345", "displayName": "Hakan Calhanoglu", "shortName": "H. Calhanoglu" },
+                "stats": ["90", "1", "0", "3", "2"],
+                "starter": true,
+                "didNotPlay": false,
+                "subbedIn": false,
+                "subbedOut": false
+              },
+              {
+                "athlete": { "id": "22346", "displayName": "Alessandro Bastoni", "shortName": "A. Bastoni" },
+                "stats": ["90", "0", "1", "0", "0"],
+                "starter": true,
+                "didNotPlay": false,
+                "subbedIn": false,
+                "subbedOut": false
+              },
+              {
+                "athlete": { "id": "22347", "displayName": "Lautaro Martinez", "shortName": "L. Martinez" },
+                "stats": ["85", "1", "0", "5", "3"],
+                "starter": true,
+                "didNotPlay": false,
+                "subbedIn": false,
+                "subbedOut": true
+              },
+              {
+                "athlete": { "id": "22348", "displayName": "Federico Dimarco", "shortName": "F. Dimarco" },
+                "stats": ["90", "0", "1", "1", "1"],
+                "starter": true,
+                "didNotPlay": false,
+                "subbedIn": false,
+                "subbedOut": false
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "plays": [
+    {
+      "id": "play1",
+      "type": { "id": "505", "text": "Goal" },
+      "clock": { "displayValue": "12'" },
+      "period": { "number": 1 },
+      "participants": [
+        { "athlete": { "id": "22345", "displayName": "Hakan Calhanoglu" }, "type": "scorer" }
+      ],
+      "text": "Goal! H. Calhanoglu scores",
+      "scoringPlay": true,
+      "penaltyKick": true
+    },
+    {
+      "id": "play2",
+      "type": { "id": "505", "text": "Goal" },
+      "clock": { "displayValue": "25'" },
+      "period": { "number": 1 },
+      "participants": [
+        { "athlete": { "id": "12347", "displayName": "Christian Pulisic" }, "type": "scorer" },
+        { "athlete": { "id": "12348", "displayName": "Adrien Rabiot" }, "type": "assist" }
+      ],
+      "text": "Goal! C. Pulisic scores, assisted by A. Rabiot",
+      "scoringPlay": true
+    },
+    {
+      "id": "play3",
+      "type": { "id": "505", "text": "Goal" },
+      "clock": { "displayValue": "67'" },
+      "period": { "number": 2 },
+      "participants": [
+        { "athlete": { "id": "22347", "displayName": "Lautaro Martinez" }, "type": "scorer" },
+        { "athlete": { "id": "22348", "displayName": "Federico Dimarco" }, "type": "assist" }
+      ],
+      "text": "Goal! L. Martinez scores, assisted by F. Dimarco",
+      "scoringPlay": true
+    },
+    {
+      "id": "play4",
+      "type": { "id": "83", "text": "Yellow Card" },
+      "clock": { "displayValue": "55'" },
+      "period": { "number": 2 },
+      "participants": [
+        { "athlete": { "id": "12346", "displayName": "Fikayo Tomori" } }
+      ],
+      "text": "Yellow card shown to F. Tomori",
+      "yellowCard": true
+    }
+  ]
+}

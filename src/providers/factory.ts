@@ -7,7 +7,7 @@
 
 import { LiveDataProvider, ProviderType, ProviderConfig } from './types';
 import { createMockProvider } from './mock-provider';
-import { createEspnProvider } from './espn-provider.stub';
+import { createEspnProvider } from './espn-provider';
 
 export function getProviderType(): ProviderType {
   const envProvider = process.env.NEXT_PUBLIC_LIVE_PROVIDER || process.env.LIVE_PROVIDER || 'mock';

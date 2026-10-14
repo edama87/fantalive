@@ -1,6 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { LiveDataProvider, NormalizedMatchData } from '../types';
 import { MockProvider } from '../mock-provider';
+import { EspnProvider } from '../espn-provider';
+import scoreboardFixture from './fixtures/espn-scoreboard.json';
+import summaryFixture from './fixtures/espn-summary.json';
 
 function runProviderContractTests(
   providerName: string,
@@ -172,3 +175,114 @@ function runProviderContractTests(
 }
 
 runProviderContractTests('MockProvider', () => new MockProvider(12345));
+
+describe('EspnProvider with fixtures', () => {
+  let provider: EspnProvider;
+
+  beforeEach(() => {
+    provider = new EspnProvider();
+    
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/scoreboard')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(scoreboardFixture),
+        });
+      }
+      if (url.includes('/summary')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(summaryFixture),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected URL: ${url}`));
+    });
+  });
+
+  afterEach(() => {
+    provider.dispose();
+    vi.restoreAllMocks();
+  });
+
+  it('has correct name and type', async () => {
+    await provider.initialize();
+    expect(provider.name).toBe('ESPN Provider');
+    expect(provider.type).toBe('espn');
+  });
+
+  it('parses scoreboard into matches', async () => {
+    await provider.initialize();
+    const data = await provider.fetchLiveData(7);
+    
+    expect(data.serieAMatches.length).toBe(3);
+    
+    const milanDerby = data.serieAMatches.find(m => m.matchId === '704001');
+    expect(milanDerby).toBeDefined();
+    expect(milanDerby!.homeTeam).toBe('Milan');
+    expect(milanDerby!.awayTeam).toBe('Inter');
+    expect(milanDerby!.homeScore).toBe(1);
+    expect(milanDerby!.awayScore).toBe(2);
+    expect(milanDerby!.status).toBe('live');
+    expect(milanDerby!.minute).toBe(35);
+  });
+
+  it('parses match statuses correctly', async () => {
+    await provider.initialize();
+    const data = await provider.fetchLiveData(7);
+    
+    const liveMatch = data.serieAMatches.find(m => m.matchId === '704001');
+    const scheduledMatch = data.serieAMatches.find(m => m.matchId === '704002');
+    const finishedMatch = data.serieAMatches.find(m => m.matchId === '704003');
+    
+    expect(liveMatch!.status).toBe('live');
+    expect(scheduledMatch!.status).toBe('scheduled');
+    expect(finishedMatch!.status).toBe('finished');
+  });
+
+  it('processes player events from plays', async () => {
+    await provider.initialize();
+    const data = await provider.fetchLiveData(7);
+    
+    const pulisic = data.playerData.get('fc-pulisic');
+    expect(pulisic).toBeDefined();
+    expect(pulisic!.events.some(e => e.type === 'goal')).toBe(true);
+    
+    const rabiot = data.playerData.get('ym-rabiot');
+    expect(rabiot).toBeDefined();
+    expect(rabiot!.events.some(e => e.type === 'assist')).toBe(true);
+  });
+
+  it('matches players using aliases', async () => {
+    await provider.initialize();
+    const data = await provider.fetchLiveData(7);
+    
+    const calhanoglu = data.playerData.get('st-calhanoglu');
+    expect(calhanoglu).toBeDefined();
+    expect(calhanoglu!.minutesPlayed).toBe(90);
+    expect(calhanoglu!.events.some(e => e.type === 'penalty_scored')).toBe(true);
+  });
+
+  it('estimates votes correctly', async () => {
+    await provider.initialize();
+    const data = await provider.fetchLiveData(7);
+    
+    const lautaro = data.playerData.get('psg-lautaro-martinez');
+    expect(lautaro).toBeDefined();
+    expect(lautaro!.estimatedVote).not.toBeNull();
+    expect(lautaro!.estimatedVote).toBeGreaterThanOrEqual(6);
+  });
+
+  it('returns isLive true when matches are in progress', async () => {
+    await provider.initialize();
+    const data = await provider.fetchLiveData(7);
+    
+    expect(data.isLive).toBe(true);
+  });
+
+  it('initializes player data for all fantasy players', async () => {
+    await provider.initialize();
+    const data = await provider.fetchLiveData(7);
+    
+    expect(data.playerData.size).toBeGreaterThan(200);
+  });
+});
