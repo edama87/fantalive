@@ -53,6 +53,7 @@ export default function RoseAdminPage() {
     try {
       const response = await fetch('/api/admin/rosters/fetch', {
         method: 'POST',
+        credentials: 'include',
       });
 
       const data = await response.json();
@@ -85,6 +86,7 @@ export default function RoseAdminPage() {
       const response = await fetch('/api/admin/rosters/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ teams }),
       });
 

@@ -550,6 +550,7 @@ export async function fetchAllFMSRevoRosters(): Promise<FMSRevoAllRostersResult>
 
   const teams: FMSRevoTeamRoster[] = [];
   let rawHtmlSample: string | undefined;
+  let debugSnippet: string | undefined;
 
   for (let fmsTeamId = 1; fmsTeamId <= 12; fmsTeamId++) {
     const result = await fetchTeamRosterPage(loginResult.cookies, fmsTeamId);
@@ -560,8 +561,8 @@ export async function fetchAllFMSRevoRosters(): Promise<FMSRevoAllRostersResult>
       continue;
     }
 
-    if (!rawHtmlSample && fmsTeamId === 1) {
-      rawHtmlSample = result.html.substring(0, 5000);
+    if (fmsTeamId === 1) {
+      debugSnippet = extractSanitizedDebugSnippet(result.html);
     }
 
     const players = parseRosterFromHtml(result.html);
@@ -573,15 +574,77 @@ export async function fetchAllFMSRevoRosters(): Promise<FMSRevoAllRostersResult>
         players,
       });
       console.log(`[FMSRevo] Team ${fmsTeamId} (${result.teamName}): ${players.length} players`);
+      
+      if (players.length === 0 && !rawHtmlSample) {
+        rawHtmlSample = debugSnippet;
+      }
     }
   }
 
+  const totalPlayers = teams.reduce((sum, t) => sum + t.players.length, 0);
+  
   return {
     success: teams.length > 0,
     teams,
-    rawHtmlSample,
-    error: teams.length === 0 ? 'Nessuna rosa trovata' : undefined,
+    rawHtmlSample: totalPlayers === 0 ? debugSnippet : undefined,
+    error: teams.length === 0 ? 'Nessuna rosa trovata' : (totalPlayers === 0 ? 'Pagine squadre trovate ma nessun giocatore parsato. Vedi debug snippet.' : undefined),
   };
+}
+
+/**
+ * Extract sanitized debug snippet from HTML (title + table headers, no credentials)
+ */
+function extractSanitizedDebugSnippet(html: string): string {
+  const lines: string[] = [];
+  
+  const titleMatch = html.match(/<title>([^<]*)<\/title>/i);
+  if (titleMatch) {
+    lines.push(`Title: ${titleMatch[1]}`);
+  }
+  
+  const h1Match = html.match(/<h1[^>]*>([^<]*)<\/h1>/i);
+  const h2Match = html.match(/<h2[^>]*>([^<]*)<\/h2>/i);
+  if (h1Match) lines.push(`H1: ${h1Match[1]}`);
+  if (h2Match) lines.push(`H2: ${h2Match[1]}`);
+  
+  const tableHeaders: string[] = [];
+  const thRegex = /<th[^>]*>([^<]*)<\/th>/gi;
+  let thMatch;
+  while ((thMatch = thRegex.exec(html)) !== null && tableHeaders.length < 20) {
+    const text = thMatch[1].trim();
+    if (text && text.length < 50) {
+      tableHeaders.push(text);
+    }
+  }
+  if (tableHeaders.length > 0) {
+    lines.push(`Table headers: ${tableHeaders.join(' | ')}`);
+  }
+  
+  const tableCount = (html.match(/<table/gi) || []).length;
+  const trCount = (html.match(/<tr/gi) || []).length;
+  const tdCount = (html.match(/<td/gi) || []).length;
+  lines.push(`Tables: ${tableCount}, Rows: ${trCount}, Cells: ${tdCount}`);
+  
+  const roleMatches = html.match(/\b(POR|DIF|CEN|ATT|[PDCA])\b/gi) || [];
+  const uniqueRoles = [...new Set(roleMatches.map(r => r.toUpperCase()))];
+  if (uniqueRoles.length > 0) {
+    lines.push(`Role-like patterns found: ${uniqueRoles.join(', ')}`);
+  }
+  
+  const sampleTd: string[] = [];
+  const tdRegex = /<td[^>]*>([^<]{2,50})<\/td>/gi;
+  let tdMatch;
+  while ((tdMatch = tdRegex.exec(html)) !== null && sampleTd.length < 10) {
+    const text = tdMatch[1].trim();
+    if (text && !text.includes('password') && !text.includes('Password')) {
+      sampleTd.push(text);
+    }
+  }
+  if (sampleTd.length > 0) {
+    lines.push(`Sample TD content: ${sampleTd.join(' | ')}`);
+  }
+  
+  return lines.join('\n');
 }
 
 export const _testExports = {

@@ -95,4 +95,67 @@ test.describe('Admin Authentication', () => {
     await page.getByRole('link', { name: /Formazioni/ }).click();
     await expect(page).toHaveURL('/admin/formazioni');
   });
+
+  test('authenticated user can access /admin/rose', async ({ page }) => {
+    await page.goto('/admin/login');
+    await page.getByLabel('Password').fill('test');
+    await page.getByRole('button', { name: 'Entra' }).click();
+    await expect(page).toHaveURL('/admin');
+    
+    await page.goto('/admin/rose');
+    await expect(page).toHaveURL('/admin/rose');
+    await expect(page.getByText('Importa Rose da FMS Revo')).toBeVisible();
+  });
+
+  test('all admin APIs return non-401 for authenticated user', async ({ page, request }) => {
+    await page.goto('/admin/login');
+    await page.getByLabel('Password').fill('test');
+    await page.getByRole('button', { name: 'Entra' }).click();
+    await expect(page).toHaveURL('/admin');
+    
+    const cookies = await page.context().cookies();
+    const cookieHeader = cookies.map(c => `${c.name}=${c.value}`).join('; ');
+    
+    const lineupsResponse = await request.post('/api/admin/lineups/fetch', {
+      headers: { Cookie: cookieHeader, 'Content-Type': 'application/json' },
+      data: { roundNumber: 1 },
+    });
+    expect(lineupsResponse.status()).not.toBe(401);
+    
+    const rostersFetchResponse = await request.post('/api/admin/rosters/fetch', {
+      headers: { Cookie: cookieHeader },
+    });
+    expect(rostersFetchResponse.status()).not.toBe(401);
+    
+    const rostersImportResponse = await request.post('/api/admin/rosters/import', {
+      headers: { Cookie: cookieHeader, 'Content-Type': 'application/json' },
+      data: { teams: [] },
+    });
+    expect(rostersImportResponse.status()).not.toBe(401);
+    
+    const rostersDiscoverResponse = await request.post('/api/admin/rosters/discover', {
+      headers: { Cookie: cookieHeader },
+    });
+    expect(rostersDiscoverResponse.status()).not.toBe(401);
+  });
+
+  test('admin APIs return 401 for unauthenticated user', async ({ request }) => {
+    const lineupsResponse = await request.post('/api/admin/lineups/fetch', {
+      headers: { 'Content-Type': 'application/json' },
+      data: { roundNumber: 1 },
+    });
+    expect(lineupsResponse.status()).toBe(401);
+    
+    const rostersFetchResponse = await request.post('/api/admin/rosters/fetch');
+    expect(rostersFetchResponse.status()).toBe(401);
+    
+    const rostersImportResponse = await request.post('/api/admin/rosters/import', {
+      headers: { 'Content-Type': 'application/json' },
+      data: { teams: [] },
+    });
+    expect(rostersImportResponse.status()).toBe(401);
+    
+    const rostersDiscoverResponse = await request.post('/api/admin/rosters/discover');
+    expect(rostersDiscoverResponse.status()).toBe(401);
+  });
 });

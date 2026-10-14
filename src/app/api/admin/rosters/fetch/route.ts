@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { isAdminAuthenticated } from '@/lib/auth/admin';
 import { fetchAllFMSRevoRosters } from '@/lib/fmsrevo-client';
 
 export async function POST() {
-  const cookieStore = await cookies();
-  const adminSession = cookieStore.get('admin_session');
-  
-  if (!adminSession || adminSession.value !== 'authenticated') {
+  const isAdmin = await isAdminAuthenticated();
+  if (!isAdmin) {
     return NextResponse.json(
       { success: false, error: 'Non autorizzato' },
       { status: 401 }

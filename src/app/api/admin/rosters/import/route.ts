@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { isAdminAuthenticated } from '@/lib/auth/admin';
 
 interface RosterPlayer {
   name: string;
@@ -15,10 +15,8 @@ interface TeamRoster {
 }
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const adminSession = cookieStore.get('admin_session');
-  
-  if (!adminSession || adminSession.value !== 'authenticated') {
+  const isAdmin = await isAdminAuthenticated();
+  if (!isAdmin) {
     return NextResponse.json(
       { success: false, error: 'Non autorizzato' },
       { status: 401 }
