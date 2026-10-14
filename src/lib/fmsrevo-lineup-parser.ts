@@ -58,6 +58,37 @@ const ROLE_MAP: Record<string, PlayerRole> = {
   'A': 'A',
 };
 
+const FMS_CLUB_CODE_TO_REAL_TEAM: Record<string, string> = {
+  'ATA': 'Atalanta',
+  'BOL': 'Bologna',
+  'CAG': 'Cagliari',
+  'COM': 'Como',
+  'EMP': 'Empoli',
+  'FIO': 'Fiorentina',
+  'GEN': 'Genoa',
+  'INT': 'Inter',
+  'JUV': 'Juventus',
+  'LAZ': 'Lazio',
+  'LEC': 'Lecce',
+  'MIL': 'Milan',
+  'MON': 'Monza',
+  'NAP': 'Napoli',
+  'PAR': 'Parma',
+  'ROM': 'Roma',
+  'SAL': 'Salernitana',
+  'SAM': 'Sampdoria',
+  'SAS': 'Sassuolo',
+  'SPE': 'Spezia',
+  'TOR': 'Torino',
+  'UDI': 'Udinese',
+  'VEN': 'Venezia',
+  'VER': 'Verona',
+};
+
+export function getFMSClubRealTeam(clubCode: string): string | null {
+  return FMS_CLUB_CODE_TO_REAL_TEAM[clubCode.toUpperCase()] || null;
+}
+
 function normalizeString(s: string): string {
   return s
     .toLowerCase()
@@ -66,6 +97,50 @@ function normalizeString(s: string): string {
     .replace(/[''`]/g, "'")
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/**
+ * Extract surname from PDF player name.
+ * PDF names can be:
+ * - "Frendrup M. W." (surname + initials) -> "Frendrup"
+ * - "MURIC Arijanet Anan" (SURNAME First Middle) -> "MURIC"
+ * - "De Ketelaere C." (multi-word surname + initial) -> "De Ketelaere"
+ */
+export function extractSurnameFromPDFName(pdfName: string): string {
+  const parts = pdfName.trim().split(/\s+/);
+  if (parts.length === 0) return pdfName;
+  if (parts.length === 1) return parts[0];
+  
+  const firstPart = parts[0];
+  const isFirstAllCaps = firstPart === firstPart.toUpperCase() && firstPart.length > 1;
+  
+  if (isFirstAllCaps) {
+    const surnameWords: string[] = [firstPart];
+    for (let i = 1; i < parts.length; i++) {
+      const part = parts[i];
+      if (part === part.toUpperCase() && part.length > 1 && !/^[A-Z]\.?$/.test(part)) {
+        surnameWords.push(part);
+      } else {
+        break;
+      }
+    }
+    return surnameWords.join(' ');
+  }
+  
+  const surnamePartIndices: number[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    const isInitial = /^[A-Z]\.?$/.test(part) || /^[A-Z]\.[A-Z]\.?$/.test(part);
+    if (!isInitial) {
+      surnamePartIndices.push(i);
+    }
+  }
+  
+  if (surnamePartIndices.length === 0) {
+    return parts[0];
+  }
+  
+  return surnamePartIndices.map(i => parts[i]).join(' ');
 }
 
 function levenshteinDistance(a: string, b: string): number {
@@ -109,60 +184,192 @@ function similarityScore(a: string, b: string): number {
 }
 
 /**
- * Match a player name in "SURNAME First" format to our player database
+ * Match a player name from PDF to our player database.
+ * PDF names are like "Frendrup M. W." - surname + initials.
+ * DB names may be just "Frendrup" or "Luka Modric".
+ * 
+ * Matching strategy:
+ * 1. Extract surname from PDF name (strip initials)
+ * 2. Match by normalized surname + role + club (real team)
+ * 3. Use initials only to disambiguate (e.g., Martinez L. vs Martinez J.)
  */
 export function fuzzyMatchPlayer(
   rawName: string,
   allPlayers: Player[],
-  preferredRole?: PlayerRole | null
+  preferredRole?: PlayerRole | null,
+  fmsClubCode?: string | null
 ): { playerId: string | null; confidence: number; playerName: string | null } {
   if (!rawName || rawName === '-' || rawName.trim() === '') {
     return { playerId: null, confidence: 0, playerName: null };
   }
 
-  const normalized = normalizeString(rawName);
+  const pdfSurname = extractSurnameFromPDFName(rawName);
+  const normalizedPdfSurname = normalizeString(pdfSurname);
+  const normalizedFullName = normalizeString(rawName);
   
-  const parts = normalized.split(' ');
-  const surname = parts[0];
-  const firstName = parts.slice(1).join(' ');
+  const pdfParts = rawName.trim().split(/\s+/);
+  const initials = pdfParts
+    .filter(p => /^[A-Z]\.?$/.test(p))
+    .map(p => p.replace('.', '').toUpperCase());
+  
+  const expectedRealTeam = fmsClubCode ? getFMSClubRealTeam(fmsClubCode) : null;
 
-  let bestMatch: { player: Player; score: number } | null = null;
+  interface MatchCandidate {
+    player: Player;
+    score: number;
+    matchType: 'exact_surname' | 'surname_similarity' | 'full_similarity';
+  }
+
+  const candidates: MatchCandidate[] = [];
 
   for (const player of allPlayers) {
     const playerNorm = normalizeString(player.name);
     const playerParts = playerNorm.split(' ');
-    const playerFirstName = playerParts[0];
-    const playerSurname = playerParts.slice(1).join(' ');
+    
+    const playerSurname = playerParts.length > 1 
+      ? playerParts[playerParts.length - 1]
+      : playerParts[0];
+    const playerFirstName = playerParts.length > 1 
+      ? playerParts.slice(0, -1).join(' ')
+      : '';
+    
+    const playerFirstAsSurname = playerParts[0];
+    
+    const pdfSurnameParts = normalizedPdfSurname.split(' ');
+    const pdfLastSurnamePart = pdfSurnameParts[pdfSurnameParts.length - 1];
 
-    if (playerSurname === surname) {
-      const score = preferredRole && player.role === preferredRole ? 1.0 : 0.95;
-      if (!bestMatch || score > bestMatch.score) {
-        bestMatch = { player, score };
+    const surnameMatches = 
+      normalizedPdfSurname === playerSurname || 
+      normalizedPdfSurname === playerNorm ||
+      normalizedPdfSurname === playerFirstAsSurname ||
+      pdfLastSurnamePart === playerSurname ||
+      (pdfSurnameParts.length > 1 && pdfSurnameParts.join('') === playerSurname);
+
+    if (surnameMatches) {
+      let score = 0.92;
+      
+      if (preferredRole && player.role === preferredRole) {
+        score += 0.05;
       }
+      
+      if (expectedRealTeam && player.realTeam) {
+        const playerRealTeam = normalizeString(player.realTeam);
+        const expectedNorm = normalizeString(expectedRealTeam);
+        if (playerRealTeam === expectedNorm || playerRealTeam.includes(expectedNorm) || expectedNorm.includes(playerRealTeam)) {
+          score += 0.05;
+        }
+      }
+      
+      if (initials.length > 0 && playerFirstName) {
+        const playerInitials = playerFirstName.split(' ')
+          .map(p => p[0]?.toUpperCase())
+          .filter(Boolean);
+        const initialsMatch = initials.some(i => playerInitials.includes(i));
+        if (initialsMatch) {
+          score = Math.min(1.0, score + 0.02);
+        }
+      }
+
+      candidates.push({ player, score, matchType: 'exact_surname' });
       continue;
     }
 
-    const directScore = similarityScore(normalized, playerNorm);
-    
-    const reversedName = `${playerSurname} ${playerFirstName}`;
-    const reversedScore = similarityScore(normalized, reversedName);
-    
-    let score = Math.max(directScore, reversedScore);
-    
-    if (preferredRole && player.role === preferredRole && score > 0.6) {
-      score = Math.min(1, score + 0.05);
+    const surnameScore = similarityScore(normalizedPdfSurname, playerSurname);
+    if (surnameScore >= 0.85) {
+      let score = surnameScore * 0.9;
+      
+      if (preferredRole && player.role === preferredRole) {
+        score += 0.05;
+      }
+      
+      if (expectedRealTeam && player.realTeam) {
+        const playerRealTeam = normalizeString(player.realTeam);
+        const expectedNorm = normalizeString(expectedRealTeam);
+        if (playerRealTeam === expectedNorm || playerRealTeam.includes(expectedNorm)) {
+          score += 0.05;
+        }
+      }
+
+      candidates.push({ player, score, matchType: 'surname_similarity' });
+      continue;
     }
 
-    if (!bestMatch || score > bestMatch.score) {
-      bestMatch = { player, score };
+    const directScore = similarityScore(normalizedFullName, playerNorm);
+    const reversedName = `${playerSurname} ${playerFirstName}`.trim();
+    const reversedScore = similarityScore(normalizedFullName, reversedName);
+    const fullScore = Math.max(directScore, reversedScore);
+    
+    if (fullScore >= 0.7) {
+      let score = fullScore * 0.8;
+      
+      if (preferredRole && player.role === preferredRole) {
+        score += 0.05;
+      }
+
+      candidates.push({ player, score, matchType: 'full_similarity' });
     }
   }
 
-  if (bestMatch && bestMatch.score >= 0.6) {
+  if (candidates.length === 0) {
+    return { playerId: null, confidence: 0, playerName: null };
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+
+  if (candidates.length > 1 && candidates[0].score - candidates[1].score < 0.05) {
+    const topCandidates = candidates.filter(c => candidates[0].score - c.score < 0.05);
+    
+    if (preferredRole) {
+      const roleMatches = topCandidates.filter(c => c.player.role === preferredRole);
+      if (roleMatches.length === 1) {
+        return {
+          playerId: roleMatches[0].player.id,
+          confidence: roleMatches[0].score,
+          playerName: roleMatches[0].player.name,
+        };
+      }
+    }
+    
+    if (expectedRealTeam) {
+      const teamMatches = topCandidates.filter(c => {
+        if (!c.player.realTeam) return false;
+        return normalizeString(c.player.realTeam).includes(normalizeString(expectedRealTeam));
+      });
+      if (teamMatches.length === 1) {
+        return {
+          playerId: teamMatches[0].player.id,
+          confidence: teamMatches[0].score,
+          playerName: teamMatches[0].player.name,
+        };
+      }
+    }
+    
+    if (initials.length > 0) {
+      const initialMatches = topCandidates.filter(c => {
+        const playerNorm = normalizeString(c.player.name);
+        const playerParts = playerNorm.split(' ');
+        const playerFirstName = playerParts.length > 1 ? playerParts.slice(0, -1).join(' ') : '';
+        const playerInitials = playerFirstName.split(' ')
+          .map(p => p[0]?.toUpperCase())
+          .filter(Boolean);
+        return initials.some(i => playerInitials.includes(i));
+      });
+      if (initialMatches.length === 1) {
+        return {
+          playerId: initialMatches[0].player.id,
+          confidence: initialMatches[0].score,
+          playerName: initialMatches[0].player.name,
+        };
+      }
+    }
+  }
+
+  const best = candidates[0];
+  if (best.score >= 0.6) {
     return {
-      playerId: bestMatch.player.id,
-      confidence: bestMatch.score,
-      playerName: bestMatch.player.name,
+      playerId: best.player.id,
+      confidence: best.score,
+      playerName: best.player.name,
     };
   }
 

@@ -260,6 +260,156 @@ export async function fetchFMSRevoLineups(serieAMatchday: number): Promise<FMSRe
   return lineupsResult;
 }
 
+export interface FMSRevoRostersResult {
+  success: boolean;
+  data?: Uint8Array;
+  contentType?: string;
+  candidateLinks?: Array<{ href: string; text: string }>;
+  error?: string;
+}
+
+/**
+ * Discover rosters page by exploring the logged-in homepage for links
+ */
+async function discoverRostersPage(sessionCookies: string): Promise<{
+  rostersUrl: string | null;
+  candidateLinks: Array<{ href: string; text: string }>;
+  error?: string;
+}> {
+  try {
+    const homeResponse = await fetch(`${FMSREVO_BASE_URL}/home/`, {
+      method: 'GET',
+      headers: {
+        'User-Agent': USER_AGENT,
+        'Accept': 'text/html,*/*;q=0.8',
+        'Cookie': sessionCookies,
+        'Referer': `${FMSREVO_BASE_URL}/`,
+      },
+    });
+
+    if (!homeResponse.ok) {
+      return { rostersUrl: null, candidateLinks: [], error: `Home page non raggiungibile (HTTP ${homeResponse.status})` };
+    }
+
+    const html = await homeResponse.text();
+    
+    const linkRegex = /<a[^>]+href=["']([^"']+)["'][^>]*>([^<]*)<\/a>/gi;
+    const allLinks: Array<{ href: string; text: string }> = [];
+    
+    let match;
+    while ((match = linkRegex.exec(html)) !== null) {
+      const href = match[1];
+      const text = match[2].trim();
+      if (href && text) {
+        allLinks.push({ href, text: text.toLowerCase() });
+      }
+    }
+
+    const rostersKeywords = ['rose', 'squadre', 'roster', 'elenco', 'giocator'];
+    const candidates = allLinks.filter(link => 
+      rostersKeywords.some(kw => 
+        link.text.includes(kw) || link.href.toLowerCase().includes(kw)
+      )
+    );
+
+    console.log('[FMSRevo] Found candidate roster links:', candidates.length);
+    candidates.forEach(c => console.log(`  - ${c.href}: "${c.text}"`));
+
+    const priorityPatterns = [
+      /rose/i,
+      /squadre/i,
+      /roster/i,
+      /all_rose/i,
+      /elenco.*giocator/i,
+    ];
+
+    for (const pattern of priorityPatterns) {
+      const match = candidates.find(c => pattern.test(c.href) || pattern.test(c.text));
+      if (match) {
+        const url = match.href.startsWith('http') 
+          ? match.href 
+          : `${FMSREVO_BASE_URL}${match.href.startsWith('/') ? '' : '/'}${match.href}`;
+        return { rostersUrl: url, candidateLinks: candidates };
+      }
+    }
+
+    return { rostersUrl: null, candidateLinks: candidates };
+  } catch (error) {
+    console.error('[FMSRevo] Error discovering rosters page:', error);
+    return { rostersUrl: null, candidateLinks: [], error: 'Errore nella ricerca della pagina rose' };
+  }
+}
+
+/**
+ * Fetch rosters page content
+ */
+async function fetchRostersPage(sessionCookies: string, url: string): Promise<FMSRevoRostersResult> {
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': USER_AGENT,
+        'Accept': 'application/pdf,text/html,*/*;q=0.8',
+        'Cookie': sessionCookies,
+        'Referer': `${FMSREVO_BASE_URL}/home/`,
+      },
+    });
+
+    console.log('[FMSRevo] Rosters GET status:', response.status);
+
+    if (!response.ok) {
+      return { success: false, error: `Pagina rose non raggiungibile (HTTP ${response.status})` };
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    const arrayBuffer = await response.arrayBuffer();
+    const data = new Uint8Array(arrayBuffer);
+    
+    console.log('[FMSRevo] Rosters response content-type:', contentType, 'size:', data.length);
+
+    return { success: true, data, contentType };
+  } catch (error) {
+    console.error('[FMSRevo] Error fetching rosters:', error);
+    return { success: false, error: 'Errore nel download delle rose' };
+  }
+}
+
+/**
+ * Main function: Login to FMS Revo and fetch rosters
+ */
+export async function fetchFMSRevoRosters(): Promise<FMSRevoRostersResult> {
+  const username = process.env.FMSREVO_USERNAME;
+  const password = process.env.FMSREVO_PASSWORD;
+
+  if (!username || !password) {
+    return { success: false, error: 'Credenziali FMS Revo non configurate sul server' };
+  }
+
+  const initialSession = await getInitialSession();
+  if (initialSession.error) {
+    return { success: false, error: initialSession.error };
+  }
+
+  const loginResult = await performLogin(username, password, initialSession.cookies);
+  if (!loginResult.success) {
+    return { success: false, error: loginResult.error };
+  }
+
+  const discovery = await discoverRostersPage(loginResult.cookies);
+  
+  if (!discovery.rostersUrl) {
+    return {
+      success: false,
+      candidateLinks: discovery.candidateLinks,
+      error: discovery.error || 'Pagina rose non trovata automaticamente. Link candidati disponibili.',
+    };
+  }
+
+  const rostersResult = await fetchRostersPage(loginResult.cookies, discovery.rostersUrl);
+  rostersResult.candidateLinks = discovery.candidateLinks;
+  return rostersResult;
+}
+
 export const _testExports = {
   parseCookies,
   mergeCookieMaps,
@@ -267,4 +417,6 @@ export const _testExports = {
   getInitialSession,
   performLogin,
   fetchLineupsPageInternal,
+  discoverRostersPage,
+  fetchRostersPage,
 };

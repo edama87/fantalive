@@ -444,7 +444,7 @@ export function convertPDFResultToLineupResult(
   
   const teams: import('./fmsrevo-lineup-parser').ParsedTeamLineup[] = pdfResult.teams.map(pdfTeam => {
     const starters = pdfTeam.starters.map(p => {
-      const match = fuzzyMatchPlayer(p.rawName, allPlayers, p.role);
+      const match = fuzzyMatchPlayer(p.rawName, allPlayers, p.role, p.serieAClub);
       return {
         rawName: p.rawName,
         role: p.role,
@@ -459,7 +459,7 @@ export function convertPDFResultToLineupResult(
     });
     
     const bench = pdfTeam.bench.map(p => {
-      const match = fuzzyMatchPlayer(p.rawName, allPlayers, p.role);
+      const match = fuzzyMatchPlayer(p.rawName, allPlayers, p.role, p.serieAClub);
       return {
         rawName: p.rawName,
         role: p.role,
