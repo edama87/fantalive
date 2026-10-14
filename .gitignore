@@ -41,3 +41,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# FMS Revo HTML dumps (may contain session data)
+uploads/fmsrevo/

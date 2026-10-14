@@ -5,9 +5,18 @@
  * Uses server-only credentials FMSREVO_USERNAME and FMSREVO_PASSWORD.
  */
 
+import {
+  parseRosterFromHtml as parseRosterHtml,
+  validateTeamRoster,
+  countRoles,
+  type ParsedTeamRoster,
+  type RosterValidationResult,
+} from '@/lib/fmsrevo-roster-parser';
+
 const FMSREVO_BASE_URL = 'https://bundlesliga.fmsrevo.it';
 const FMSREVO_LOGIN_ENDPOINT = `${FMSREVO_BASE_URL}/core_main/controller/ctrlLogin.php`;
 const FMSREVO_LINEUPS_ENDPOINT = `${FMSREVO_BASE_URL}/home/statoformazioni/all_formaz.php`;
+const FMSREVO_WIDGET_ENDPOINT = `${FMSREVO_BASE_URL}/template/controller/ctrlWidget.php`;
 
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -419,17 +428,127 @@ export interface FMSRevoTeamRoster {
     realTeam: string;
     price?: number;
   }>;
+  validation?: RosterValidationResult;
 }
 
 export interface FMSRevoAllRostersResult {
   success: boolean;
   teams: FMSRevoTeamRoster[];
+  allValid: boolean;
   error?: string;
   rawHtmlSample?: string;
 }
 
+function extractConfigLayout(html: string): Array<{ id?: string }> {
+  // Site uses value='[...json with double quotes...]'
+  const single = html.match(
+    /name=["']configLayout["'][^>]*value='([^']*)'/i
+  );
+  const dbl = html.match(
+    /name=["']configLayout["'][^>]*value="([^"]*)"/i
+  );
+  const raw = (single?.[1] || dbl?.[1] || '')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&');
+  if (!raw) return [];
+  try {
+    const data = JSON.parse(raw);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+function widgetNameFromId(widgetId: string): string {
+  const first = widgetId.split('-')[0]?.split('_')[0] || 'Widget';
+  return first.charAt(0).toUpperCase() + first.slice(1);
+}
+
+async function fetchWidgetHtml(
+  sessionCookies: string,
+  widgetId: string,
+  param: string
+): Promise<string | null> {
+  try {
+    const body = new URLSearchParams({
+      azione: 'CREALAYOUTWID',
+      dati: widgetId,
+      nomeWidget: widgetNameFromId(widgetId),
+      reqPaginazione: 'false',
+      param,
+    });
+
+    const response = await fetch(FMSREVO_WIDGET_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'User-Agent': USER_AGENT,
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        Accept: 'application/json, text/javascript, */*; q=0.01',
+        'X-Requested-With': 'XMLHttpRequest',
+        Cookie: sessionCookies,
+        Referer: `${FMSREVO_BASE_URL}/index.php?param=${param}`,
+      },
+      body: body.toString(),
+    });
+
+    if (!response.ok) return null;
+    const parsed = JSON.parse(await response.text()) as {
+      esito?: string;
+      contenuto?: string;
+    };
+    if (parsed.esito === 'OK' && parsed.contenuto) return parsed.contenuto;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function hydratePageWidgets(
+  sessionCookies: string,
+  html: string,
+  fmsTeamId: number
+): Promise<string> {
+  const param = `idFsq${fmsTeamId}`;
+  const layout = extractConfigLayout(html);
+  if (layout.length === 0) return html;
+
+  // Team roster HTML lives in the ultime_notizie widget when param=idFsqN
+  const prioritized = [
+    ...layout.filter((item) => item.id?.startsWith('ultime_notizie')),
+    ...layout.filter((item) => !item.id?.startsWith('ultime_notizie')),
+  ];
+
+  let composed = html;
+  for (const item of prioritized) {
+    if (!item.id) continue;
+    const contenuto = await fetchWidgetHtml(sessionCookies, item.id, param);
+    if (!contenuto) continue;
+
+    const safeId = item.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(
+      `(<[^>]+\\bid=["']${safeId}["'][^>]*>)([\\s\\S]*?)(</div>)`,
+      'i'
+    );
+    if (re.test(composed)) {
+      composed = composed.replace(re, `$1${contenuto}$3`);
+    } else {
+      composed += `\n<div id="${item.id}">${contenuto}</div>\n`;
+    }
+
+    // Fast path: once we have a roster table, stop fetching other widgets
+    if (
+      item.id.startsWith('ultime_notizie') &&
+      /squadra__player-name|squadra__role/.test(contenuto)
+    ) {
+      break;
+    }
+  }
+  return composed;
+}
+
 /**
- * Fetch a single team's roster page and parse players
+ * Fetch a single team's roster page (shell + hydrated widgets)
  */
 async function fetchTeamRosterPage(sessionCookies: string, fmsTeamId: number): Promise<{
   success: boolean;
@@ -439,14 +558,14 @@ async function fetchTeamRosterPage(sessionCookies: string, fmsTeamId: number): P
 }> {
   try {
     const url = `${FMSREVO_BASE_URL}/index.php?param=idFsq${fmsTeamId}`;
-    
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
         'User-Agent': USER_AGENT,
-        'Accept': 'text/html,*/*;q=0.8',
-        'Cookie': sessionCookies,
-        'Referer': `${FMSREVO_BASE_URL}/`,
+        Accept: 'text/html,*/*;q=0.8',
+        Cookie: sessionCookies,
+        Referer: `${FMSREVO_BASE_URL}/`,
       },
     });
 
@@ -454,109 +573,79 @@ async function fetchTeamRosterPage(sessionCookies: string, fmsTeamId: number): P
       return { success: false, error: `HTTP ${response.status}` };
     }
 
-    const html = await response.text();
-    
-    const teamNameMatch = html.match(/param=idFsq\d+">([^<]+)<\/a>/);
-    const menuMatch = html.match(new RegExp(`param=idFsq${fmsTeamId}">([^<]+)<`));
-    const teamName = menuMatch?.[1] || teamNameMatch?.[1] || null;
+    const rawHtml = await response.text();
+    const html = await hydratePageWidgets(sessionCookies, rawHtml, fmsTeamId);
+    const parsed = parseRosterHtml(html, fmsTeamId);
 
-    return { success: true, html, teamName: teamName || undefined };
+    return {
+      success: true,
+      html,
+      teamName: parsed.teamName,
+    };
   } catch (error) {
     console.error(`[FMSRevo] Error fetching team ${fmsTeamId}:`, error);
     return { success: false, error: 'Network error' };
   }
 }
 
-/**
- * Parse roster from HTML - discovers structure automatically
- */
-function parseRosterFromHtml(html: string): Array<{
-  name: string;
-  role: 'P' | 'D' | 'C' | 'A';
-  realTeam: string;
-  price?: number;
-}> {
-  const players: Array<{
-    name: string;
-    role: 'P' | 'D' | 'C' | 'A';
-    realTeam: string;
-    price?: number;
-  }> = [];
-
-  const roleMap: Record<string, 'P' | 'D' | 'C' | 'A'> = {
-    'P': 'P', 'POR': 'P',
-    'D': 'D', 'DIF': 'D',
-    'C': 'C', 'CEN': 'C',
-    'A': 'A', 'ATT': 'A',
-  };
-
-  const playerRowRegex = /<tr[^>]*>[\s\S]*?<td[^>]*>([PDCA]|POR|DIF|CEN|ATT)<\/td>[\s\S]*?<td[^>]*>([^<]+)<\/td>[\s\S]*?<td[^>]*>([^<]+)<\/td>[\s\S]*?(?:<td[^>]*>(\d+(?:[.,]\d+)?)<\/td>)?[\s\S]*?<\/tr>/gi;
-  
-  let match;
-  while ((match = playerRowRegex.exec(html)) !== null) {
-    const roleRaw = match[1].trim().toUpperCase();
-    const name = match[2].trim();
-    const realTeam = match[3].trim();
-    const priceStr = match[4];
-    
-    const role = roleMap[roleRaw];
-    if (role && name && realTeam) {
-      players.push({
-        name,
-        role,
-        realTeam,
-        price: priceStr ? parseFloat(priceStr.replace(',', '.')) : undefined,
-      });
-    }
-  }
-
-  if (players.length === 0) {
-    const simpleRegex = /([PDCA])\s*[-|]\s*([^-|<]+)\s*[-|]\s*([A-Za-z]+)/gi;
-    while ((match = simpleRegex.exec(html)) !== null) {
-      const roleRaw = match[1].toUpperCase();
-      const name = match[2].trim();
-      const realTeam = match[3].trim();
-      
-      const role = roleMap[roleRaw];
-      if (role && name.length > 2) {
-        players.push({ name, role, realTeam });
-      }
-    }
-  }
-
-  return players;
+function parseRosterFromHtml(
+  html: string,
+  fmsTeamId = 1
+): ParsedTeamRoster {
+  return parseRosterHtml(html, fmsTeamId);
 }
 
 /**
- * Fetch all team rosters from FMS Revo
+ * Fetch all team rosters from FMS Revo.
+ * Stops at the first page with zero players.
  */
 export async function fetchAllFMSRevoRosters(): Promise<FMSRevoAllRostersResult> {
   const username = process.env.FMSREVO_USERNAME;
   const password = process.env.FMSREVO_PASSWORD;
 
   if (!username || !password) {
-    return { success: false, teams: [], error: 'Credenziali FMS Revo non configurate' };
+    return {
+      success: false,
+      teams: [],
+      allValid: false,
+      error: 'Credenziali FMS Revo non configurate',
+    };
   }
 
   const initialSession = await getInitialSession();
   if (initialSession.error) {
-    return { success: false, teams: [], error: initialSession.error };
+    return {
+      success: false,
+      teams: [],
+      allValid: false,
+      error: initialSession.error,
+    };
   }
 
-  const loginResult = await performLogin(username, password, initialSession.cookies);
+  const loginResult = await performLogin(
+    username,
+    password,
+    initialSession.cookies
+  );
   if (!loginResult.success) {
-    return { success: false, teams: [], error: loginResult.error };
+    return {
+      success: false,
+      teams: [],
+      allValid: false,
+      error: loginResult.error,
+    };
   }
 
   const teams: FMSRevoTeamRoster[] = [];
-  let rawHtmlSample: string | undefined;
   let debugSnippet: string | undefined;
 
   for (let fmsTeamId = 1; fmsTeamId <= 12; fmsTeamId++) {
     const result = await fetchTeamRosterPage(loginResult.cookies, fmsTeamId);
-    
+
     if (!result.success || !result.html) {
       console.log(`[FMSRevo] Team ${fmsTeamId}: ${result.error || 'no data'}`);
+      // Missing page after we already have teams → stop
+      if (teams.length > 0) break;
       if (fmsTeamId > 10) break;
       continue;
     }
@@ -565,29 +654,57 @@ export async function fetchAllFMSRevoRosters(): Promise<FMSRevoAllRostersResult>
       debugSnippet = extractSanitizedDebugSnippet(result.html);
     }
 
-    const players = parseRosterFromHtml(result.html);
-    
-    if (result.teamName) {
-      teams.push({
-        fmsTeamId,
-        teamName: result.teamName,
-        players,
-      });
-      console.log(`[FMSRevo] Team ${fmsTeamId} (${result.teamName}): ${players.length} players`);
-      
-      if (players.length === 0 && !rawHtmlSample) {
-        rawHtmlSample = debugSnippet;
+    const parsed = parseRosterFromHtml(result.html, fmsTeamId);
+
+    // Stop at first page without players (end of league list)
+    if (parsed.players.length === 0) {
+      console.log(
+        `[FMSRevo] Team ${fmsTeamId}: nessun giocatore — stop`
+      );
+      if (teams.length === 0 && !debugSnippet) {
+        debugSnippet = extractSanitizedDebugSnippet(result.html);
       }
+      break;
     }
+
+    const validation = validateTeamRoster(parsed);
+    teams.push({
+      fmsTeamId,
+      teamName: parsed.teamName,
+      players: parsed.players,
+      validation,
+    });
+
+    console.log(
+      `[FMSRevo] Team ${fmsTeamId} (${parsed.teamName}): ${parsed.players.length} players`,
+      countRoles(parsed.players),
+      validation.ok ? 'OK' : 'INVALID'
+    );
   }
 
   const totalPlayers = teams.reduce((sum, t) => sum + t.players.length, 0);
-  
+  const allValid =
+    teams.length > 0 && teams.every((t) => t.validation?.ok === true);
+
+  let error: string | undefined;
+  if (teams.length === 0) {
+    error = 'Nessuna rosa trovata';
+  } else if (totalPlayers === 0) {
+    error =
+      'Pagine squadre trovate ma nessun giocatore parsato. Vedi debug snippet.';
+  } else if (!allValid) {
+    const issues = teams
+      .flatMap((t) => t.validation?.issues.map((i) => i.message) || [])
+      .slice(0, 8);
+    error = `Rose incomplete o non valide: ${issues.join('; ')}`;
+  }
+
   return {
-    success: teams.length > 0,
+    success: teams.length > 0 && totalPlayers > 0,
     teams,
+    allValid,
     rawHtmlSample: totalPlayers === 0 ? debugSnippet : undefined,
-    error: teams.length === 0 ? 'Nessuna rosa trovata' : (totalPlayers === 0 ? 'Pagine squadre trovate ma nessun giocatore parsato. Vedi debug snippet.' : undefined),
+    error,
   };
 }
 

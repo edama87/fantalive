@@ -33,6 +33,8 @@ interface TeamSummary {
   teamName: string;
   playerCount: number;
   roleBreakdown: { P: number; D: number; C: number; A: number };
+  isValid?: boolean;
+  issues?: string[];
 }
 
 type ImportStep = 'fetch' | 'review' | 'confirm' | 'done';
@@ -45,6 +47,7 @@ export default function RoseAdminPage() {
   const [teamsSummary, setTeamsSummary] = useState<TeamSummary[]>([]);
   const [rawHtmlSample, setRawHtmlSample] = useState<string | null>(null);
   const [expandedTeam, setExpandedTeam] = useState<number | null>(null);
+  const [allValid, setAllValid] = useState(false);
 
   const handleFetch = useCallback(async () => {
     setIsLoading(true);
@@ -65,9 +68,13 @@ export default function RoseAdminPage() {
       setTeams(data.teams || []);
       setTeamsSummary(data.teamsSummary || []);
       setRawHtmlSample(data.rawHtmlSample || null);
-      
+      setAllValid(Boolean(data.allValid));
+
       if (data.teams && data.teams.length > 0) {
         setStep('review');
+        if (!data.allValid && data.error) {
+          setError(data.error);
+        }
       } else {
         setError('Nessuna rosa trovata. Verifica le credenziali FMS Revo.');
       }
@@ -111,10 +118,12 @@ export default function RoseAdminPage() {
     setError(null);
     setRawHtmlSample(null);
     setExpandedTeam(null);
+    setAllValid(false);
   };
 
   const totalPlayers = teamsSummary.reduce((sum, t) => sum + t.playerCount, 0);
   const expectedRoles = { P: 3, D: 8, C: 8, A: 6 };
+  const canConfirm = allValid && teams.length > 0;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -222,11 +231,13 @@ export default function RoseAdminPage() {
                   {teamsSummary.map(team => {
                     const fullTeam = teams.find(t => t.fmsTeamId === team.fmsTeamId);
                     const isExpanded = expandedTeam === team.fmsTeamId;
-                    const hasCorrectRoles = 
-                      team.roleBreakdown.P >= 2 &&
-                      team.roleBreakdown.D >= 6 &&
-                      team.roleBreakdown.C >= 6 &&
-                      team.roleBreakdown.A >= 4;
+                    const hasCorrectRoles =
+                      team.isValid === true ||
+                      (team.playerCount === 25 &&
+                        team.roleBreakdown.P === expectedRoles.P &&
+                        team.roleBreakdown.D === expectedRoles.D &&
+                        team.roleBreakdown.C === expectedRoles.C &&
+                        team.roleBreakdown.A === expectedRoles.A);
 
                     return (
                       <div 
@@ -251,10 +262,10 @@ export default function RoseAdminPage() {
                             </Badge>
                           </div>
                           <div className="flex items-center gap-2 text-sm">
-                            <span className="text-blue-600">P:{team.roleBreakdown.P}</span>
-                            <span className="text-green-600">D:{team.roleBreakdown.D}</span>
-                            <span className="text-amber-600">C:{team.roleBreakdown.C}</span>
-                            <span className="text-red-600">A:{team.roleBreakdown.A}</span>
+                            <span className="text-blue-600">P:{team.roleBreakdown.P}/{expectedRoles.P}</span>
+                            <span className="text-green-600">D:{team.roleBreakdown.D}/{expectedRoles.D}</span>
+                            <span className="text-amber-600">C:{team.roleBreakdown.C}/{expectedRoles.C}</span>
+                            <span className="text-red-600">A:{team.roleBreakdown.A}/{expectedRoles.A}</span>
                             {!hasCorrectRoles && (
                               <AlertTriangle size={16} className="text-amber-500" />
                             )}
@@ -291,6 +302,13 @@ export default function RoseAdminPage() {
               </CardContent>
             </Card>
 
+            {!canConfirm && (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+                Conferma bloccata: ogni squadra deve avere esattamente 25 giocatori (3/8/8/6).
+                Controlla le squadre evidenziate in giallo.
+              </div>
+            )}
+
             <div className="flex items-center justify-between">
               <button
                 onClick={handleReset}
@@ -301,10 +319,10 @@ export default function RoseAdminPage() {
               
               <button
                 onClick={() => setStep('confirm')}
-                disabled={teams.length === 0}
+                disabled={!canConfirm}
                 className={cn(
                   'px-6 py-2 rounded-lg font-medium',
-                  teams.length > 0
+                  canConfirm
                     ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 )}

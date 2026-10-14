@@ -1,18 +1,9 @@
 import { NextResponse } from 'next/server';
 import { isAdminAuthenticated } from '@/lib/auth/admin';
-
-interface RosterPlayer {
-  name: string;
-  role: 'P' | 'D' | 'C' | 'A';
-  realTeam: string;
-  price?: number;
-}
-
-interface TeamRoster {
-  fmsTeamId: number;
-  teamName: string;
-  players: RosterPlayer[];
-}
+import {
+  validateTeamRoster,
+  type ParsedTeamRoster,
+} from '@/lib/fmsrevo-roster-parser';
 
 export async function POST(request: Request) {
   const isAdmin = await isAdminAuthenticated();
@@ -25,11 +16,24 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const teams: TeamRoster[] = body.teams;
+    const teams: ParsedTeamRoster[] = body.teams;
 
     if (!teams || teams.length === 0) {
       return NextResponse.json(
         { success: false, error: 'Nessuna squadra da importare' },
+        { status: 400 }
+      );
+    }
+
+    const validations = teams.map((t) => validateTeamRoster(t));
+    const invalid = validations.filter((v) => !v.ok);
+    if (invalid.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Conferma bloccata: una o più rose non sono valide (25 giocatori, 3/8/8/6).',
+          issues: invalid.flatMap((v) => v.issues.map((i) => i.message)).slice(0, 20),
+        },
         { status: 400 }
       );
     }
@@ -39,7 +43,7 @@ export async function POST(request: Request) {
     console.log('[API] Importing rosters:', {
       teamCount: teams.length,
       totalPlayers,
-      teams: teams.map(t => ({ name: t.teamName, players: t.players.length })),
+      teams: teams.map((t) => ({ name: t.teamName, players: t.players.length })),
     });
 
     return NextResponse.json({
@@ -50,7 +54,6 @@ export async function POST(request: Request) {
       },
       message: `Importati ${totalPlayers} giocatori da ${teams.length} squadre`,
     });
-
   } catch (error) {
     console.error('[API] Error importing rosters:', error);
     return NextResponse.json(
