@@ -1,11 +1,10 @@
-'use client';
-
-import { useEffect, useState, useCallback } from 'react';
+import { Suspense } from 'react';
+import { connection } from 'next/server';
 import { Header } from '@/components/layout/header';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { cn, formatNumber } from '@/lib/utils';
-import { LiveStandingsEntry, FantasyMatchResult } from '@/types';
+import { cn } from '@/lib/utils';
+import { LiveStandingsEntry } from '@/types';
 import { getCurrentRound, calendar } from '@/data/calendar';
 import { getTeamById, USER_TEAM_ID, teams } from '@/data/teams';
 import { 
@@ -15,81 +14,52 @@ import {
   convertProviderDataToPlayerMatchData,
 } from '@/lib/live-data';
 import { createMockProvider } from '@/providers/mock-provider';
+import { ClassificaClient } from './classifica-client';
 
-type Tab = 'classifica' | 'calendario';
+export const instant = false;
 
-export default function ClassificaPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('classifica');
-  const [standings, setStandings] = useState<LiveStandingsEntry[]>([]);
-  const [isLive, setIsLive] = useState(false);
-
+async function getStandingsData(): Promise<{ standings: LiveStandingsEntry[]; isLive: boolean }> {
+  await connection();
   const currentRound = getCurrentRound();
+  
+  const provider = createMockProvider(42);
+  await provider.initialize();
+  
+  const data = await provider.fetchLiveData(currentRound.serieAMatchday);
+  const playerDataMap = convertProviderDataToPlayerMatchData(data);
+  
+  const matchStatuses = new Map<string, 'scheduled' | 'live' | 'halftime' | 'finished'>();
+  for (const pairing of currentRound.pairings) {
+    matchStatuses.set(`${pairing.homeTeamId}-${pairing.awayTeamId}`, 
+      data.isLive ? 'live' : 'scheduled');
+  }
+  
+  const matches = calculateAllMatches(currentRound.number, playerDataMap, matchStatuses);
+  const standings = calculateLiveStandings(matches, getInitialStandings());
+  
+  provider.dispose();
+  
+  return { standings, isLive: data.isLive };
+}
 
-  const fetchData = useCallback(async () => {
-    const provider = createMockProvider(42);
-    await provider.initialize();
-    
-    const data = await provider.fetchLiveData(currentRound.serieAMatchday);
-    const playerDataMap = convertProviderDataToPlayerMatchData(data);
-    
-    const matches = calculateAllMatches(currentRound.number, playerDataMap);
-    const liveStandings = calculateLiveStandings(matches, getInitialStandings());
-    
-    setStandings(liveStandings);
-    setIsLive(data.isLive);
-    
-    provider.dispose();
-  }, [currentRound]);
-
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 60000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+export default async function ClassificaPage() {
+  const { standings: initialStandings, isLive: initialIsLive } = await getStandingsData();
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      <Header isLive={isLive} />
+      <Header isLive={initialIsLive} />
       
       <div className="px-4 py-4 space-y-4">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setActiveTab('classifica')}
-            className={cn(
-              'px-4 py-2 rounded-lg font-medium text-sm transition-colors',
-              activeTab === 'classifica'
-                ? 'bg-emerald-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            )}
-          >
-            Classifica
-          </button>
-          <button
-            onClick={() => setActiveTab('calendario')}
-            className={cn(
-              'px-4 py-2 rounded-lg font-medium text-sm transition-colors',
-              activeTab === 'calendario'
-                ? 'bg-emerald-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            )}
-          >
-            Calendario
-          </button>
-        </div>
-
-        {activeTab === 'classifica' && (
-          <StandingsTable standings={standings} isLive={isLive} />
-        )}
-
-        {activeTab === 'calendario' && (
-          <CalendarView currentRound={currentRound.number} />
-        )}
+        <ClassificaClient 
+          initialStandings={initialStandings}
+          initialIsLive={initialIsLive}
+        />
       </div>
     </div>
   );
 }
 
-function StandingsTable({ 
+export function StandingsTable({ 
   standings, 
   isLive 
 }: { 
@@ -174,31 +144,17 @@ function StandingsTable({
   );
 }
 
-function CalendarView({ currentRound }: { currentRound: number }) {
-  const [selectedRound, setSelectedRound] = useState(currentRound);
-  const round = calendar.find(r => r.number === selectedRound);
+export function CalendarView({ 
+  currentRound,
+  selectedRound: initialSelectedRound 
+}: { 
+  currentRound: number;
+  selectedRound?: number;
+}) {
+  const round = calendar.find(r => r.number === (initialSelectedRound || currentRound));
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 overflow-x-auto pb-2">
-        {calendar.slice(0, 9).map(r => (
-          <button
-            key={r.number}
-            onClick={() => setSelectedRound(r.number)}
-            className={cn(
-              'px-3 py-1 rounded-full text-sm whitespace-nowrap',
-              selectedRound === r.number
-                ? 'bg-emerald-600 text-white'
-                : r.number === currentRound
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : 'bg-gray-100 text-gray-600'
-            )}
-          >
-            {r.number}ª
-          </button>
-        ))}
-      </div>
-
       {round && (
         <Card>
           <CardHeader className="pb-2">

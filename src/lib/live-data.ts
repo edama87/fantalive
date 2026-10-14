@@ -38,7 +38,8 @@ export function convertProviderDataToPlayerMatchData(
 
 export function calculateAllMatches(
   roundNumber: number,
-  playerDataMap: Map<string, PlayerMatchData>
+  playerDataMap: Map<string, PlayerMatchData>,
+  matchStatuses?: Map<string, 'scheduled' | 'live' | 'halftime' | 'finished'>
 ): FantasyMatchResult[] {
   const round = getRoundByNumber(roundNumber);
   if (!round) return [];
@@ -47,12 +48,22 @@ export function calculateAllMatches(
 
   const results: FantasyMatchResult[] = [];
 
+  const hasAnyPlayerData = playerDataMap.size > 0 && 
+    [...playerDataMap.values()].some(p => p.minutesPlayed > 0 || p.isPlaying);
+  const anyLive = [...playerDataMap.values()].some(p => p.isPlaying);
+
   for (const pairing of round.pairings) {
     const homeLineup = getOrCreateLineup(pairing.homeTeamId, roundNumber);
     const awayLineup = getOrCreateLineup(pairing.awayTeamId, roundNumber);
 
-    const anyLive = [...playerDataMap.values()].some(p => p.isPlaying);
-    const status = anyLive ? 'live' : 'finished';
+    let status: 'scheduled' | 'live' | 'halftime' | 'finished' = 'scheduled';
+    
+    if (matchStatuses) {
+      const matchKey = `${pairing.homeTeamId}-${pairing.awayTeamId}`;
+      status = matchStatuses.get(matchKey) || 'scheduled';
+    } else if (hasAnyPlayerData) {
+      status = anyLive ? 'live' : 'finished';
+    }
 
     const result = calculateMatch(homeLineup, awayLineup, playerDataMap, status);
     results.push(result);
@@ -73,21 +84,23 @@ export function calculateLiveStandings(
 ): LiveStandingsEntry[] {
   const standingsMap = new Map<string, LiveStandingsEntry>();
 
-  for (const team of teams) {
-    const prev = previousStandings.find(s => s.teamId === team.id) || {
-      teamId: team.id,
-      teamName: team.name,
-      played: 0,
-      won: 0,
-      drawn: 0,
-      lost: 0,
-      goalsFor: 0,
-      goalsAgainst: 0,
-      points: 0,
-      fantaPoints: 0,
-    };
+  const standingsSource = previousStandings.length > 0 
+    ? previousStandings 
+    : teams.map(team => ({
+        teamId: team.id,
+        teamName: team.name,
+        played: 0,
+        won: 0,
+        drawn: 0,
+        lost: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+        points: 0,
+        fantaPoints: 0,
+      }));
 
-    standingsMap.set(team.id, {
+  for (const prev of standingsSource) {
+    standingsMap.set(prev.teamId, {
       ...prev,
       liveFantaPoints: prev.fantaPoints,
       liveGoalsFor: prev.goalsFor,
@@ -95,6 +108,10 @@ export function calculateLiveStandings(
   }
 
   for (const match of matches) {
+    if (match.status !== 'live' && match.status !== 'halftime' && match.status !== 'finished') {
+      continue;
+    }
+
     const homeEntry = standingsMap.get(match.homeTeamId);
     const awayEntry = standingsMap.get(match.awayTeamId);
 
