@@ -137,6 +137,9 @@ describe('FMS Revo Client', () => {
     });
 
     it('returns error when lineups page requires authentication', async () => {
+      const authContent = '<html>Questa pagina è accessibile solo da utenti autenticati</html>';
+      const authBytes = new TextEncoder().encode(authContent);
+      
       global.fetch = vi.fn()
         .mockResolvedValueOnce({
           ok: true,
@@ -152,8 +155,11 @@ describe('FMS Revo Client', () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          headers: { getSetCookie: () => [] },
-          text: () => Promise.resolve('<html>Questa pagina è accessibile solo da utenti autenticati</html>'),
+          headers: { 
+            getSetCookie: () => [],
+            get: (name: string) => name === 'content-type' ? 'text/html' : null,
+          },
+          arrayBuffer: () => Promise.resolve(authBytes.buffer),
         });
 
       const result = await fetchFMSRevoLineups(1);
@@ -162,8 +168,9 @@ describe('FMS Revo Client', () => {
       expect(result.error).toBe('Login riuscito ma pagina formazioni non accessibile');
     });
 
-    it('returns success with HTML when full flow works', async () => {
-      const lineupsHtml = '<html><body><div class="formazioni">Team A: Player 1, Player 2</div></body></html>';
+    it('returns success with data when full flow works', async () => {
+      const lineupsContent = '<html><body><div class="formazioni">Team A: Player 1, Player 2</div></body></html>';
+      const lineupsBytes = new TextEncoder().encode(lineupsContent);
       
       global.fetch = vi.fn()
         .mockResolvedValueOnce({
@@ -180,14 +187,18 @@ describe('FMS Revo Client', () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          headers: { getSetCookie: () => [] },
-          text: () => Promise.resolve(lineupsHtml),
+          headers: { 
+            getSetCookie: () => [],
+            get: (name: string) => name === 'content-type' ? 'text/html' : null,
+          },
+          arrayBuffer: () => Promise.resolve(lineupsBytes.buffer),
         });
 
       const result = await fetchFMSRevoLineups(7);
 
       expect(result.success).toBe(true);
-      expect(result.html).toBe(lineupsHtml);
+      expect(result.data).toBeDefined();
+      expect(result.contentType).toBe('text/html');
     });
 
     it('sends correct headers in login request', async () => {
@@ -220,7 +231,8 @@ describe('FMS Revo Client', () => {
     });
 
     it('sends correct URL for lineups with matchday parameter', async () => {
-      const lineupsHtml = '<html>lineups</html>';
+      const lineupsContent = '<html>lineups</html>';
+      const lineupsBytes = new TextEncoder().encode(lineupsContent);
       
       global.fetch = vi.fn()
         .mockResolvedValueOnce({
@@ -237,8 +249,11 @@ describe('FMS Revo Client', () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          headers: { getSetCookie: () => [] },
-          text: () => Promise.resolve(lineupsHtml),
+          headers: { 
+            getSetCookie: () => [],
+            get: (name: string) => name === 'content-type' ? 'text/html' : null,
+          },
+          arrayBuffer: () => Promise.resolve(lineupsBytes.buffer),
         });
 
       await fetchFMSRevoLineups(12);

@@ -8,12 +8,16 @@
  * Body: { roundNumber: number }
  * 
  * Uses FMSREVO_USERNAME and FMSREVO_PASSWORD env vars (server-only).
+ * FMS Revo returns a PDF with lineup data, which we parse server-side.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { isAdminAuthenticated } from '@/lib/auth/admin';
 import { getRoundByNumber } from '@/data/calendar';
 import { fetchFMSRevoLineups } from '@/lib/fmsrevo-client';
+import { isPDFContent, parseFMSRevoPDF, convertPDFResultToLineupResult } from '@/lib/fmsrevo-pdf-parser';
+import { parseLineupsContent } from '@/lib/fmsrevo-lineup-parser';
+import { getAllPlayers, teams } from '@/data/teams';
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     const result = await fetchFMSRevoLineups(serieAMatchday);
 
-    if (!result.success) {
+    if (!result.success || !result.data) {
       const errorMessage = result.error || 'Errore sconosciuto';
       
       let statusCode = 500;
@@ -65,12 +69,50 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      html: result.html,
-      serieAMatchday,
-      roundNumber,
-    });
+    const allPlayers = getAllPlayers();
+    const fantasyTeams = teams.map(t => ({ id: t.id, name: t.name }));
+
+    if (isPDFContent(result.data)) {
+      console.log('[Admin Lineups] Parsing PDF response');
+      
+      const pdfResult = await parseFMSRevoPDF(result.data, fantasyTeams);
+      
+      if (!pdfResult.success) {
+        return NextResponse.json(
+          { 
+            error: pdfResult.message || 'Errore parsing PDF',
+            isPDF: true,
+          },
+          { status: 500 }
+        );
+      }
+      
+      const lineupResult = convertPDFResultToLineupResult(pdfResult, allPlayers, fantasyTeams);
+      
+      return NextResponse.json({
+        success: true,
+        teams: lineupResult.teams,
+        serieAMatchday: pdfResult.serieAMatchday,
+        fantasyMatchday: pdfResult.fantasyMatchday,
+        roundNumber,
+        isPDF: true,
+        message: pdfResult.message,
+      });
+    } else {
+      console.log('[Admin Lineups] Parsing HTML response');
+      
+      const htmlContent = new TextDecoder().decode(result.data);
+      const lineupResult = parseLineupsContent(htmlContent, allPlayers, fantasyTeams);
+      
+      return NextResponse.json({
+        success: lineupResult.success,
+        teams: lineupResult.teams,
+        serieAMatchday: lineupResult.serieAMatchday,
+        roundNumber,
+        isPDF: false,
+        parseErrors: lineupResult.parseErrors,
+      });
+    }
 
   } catch (error) {
     console.error('[Admin Lineups Fetch] Unexpected error:', error);

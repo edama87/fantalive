@@ -19,7 +19,8 @@ export interface FMSRevoLoginResult {
 
 export interface FMSRevoLineupsResult {
   success: boolean;
-  html?: string;
+  data?: Uint8Array;
+  contentType?: string;
   error?: string;
 }
 
@@ -174,7 +175,7 @@ async function performLogin(
 }
 
 /**
- * Step 3: Fetch lineups page
+ * Step 3: Fetch lineups page (returns raw bytes - may be PDF or HTML)
  */
 async function fetchLineupsPageInternal(
   sessionCookies: string, 
@@ -187,7 +188,7 @@ async function fetchLineupsPageInternal(
       method: 'GET',
       headers: {
         'User-Agent': USER_AGENT,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept': 'application/pdf,text/html,application/xhtml+xml,*/*;q=0.8',
         'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
         'Cookie': sessionCookies,
         'Referer': `${FMSREVO_BASE_URL}/`,
@@ -203,18 +204,25 @@ async function fetchLineupsPageInternal(
       };
     }
 
-    const html = await response.text();
+    const contentType = response.headers.get('content-type') || '';
+    const arrayBuffer = await response.arrayBuffer();
+    const data = new Uint8Array(arrayBuffer);
+    
+    console.log('[FMSRevo] Lineups response content-type:', contentType, 'size:', data.length);
 
-    if (html.includes('Questa pagina è accessibile solo da utenti autenticati') ||
-        html.includes('accessibile solo') ||
-        html.includes('autenticat')) {
-      return { 
-        success: false, 
-        error: 'Login riuscito ma pagina formazioni non accessibile' 
-      };
+    if (contentType.includes('text/html') || (!contentType.includes('pdf') && data.length < 1000)) {
+      const text = new TextDecoder().decode(data);
+      if (text.includes('Questa pagina è accessibile solo da utenti autenticati') ||
+          text.includes('accessibile solo') ||
+          text.includes('autenticat')) {
+        return { 
+          success: false, 
+          error: 'Login riuscito ma pagina formazioni non accessibile' 
+        };
+      }
     }
 
-    return { success: true, html };
+    return { success: true, data, contentType };
   } catch (error) {
     console.error('[FMSRevo] Network error fetching lineups:', error);
     return { 

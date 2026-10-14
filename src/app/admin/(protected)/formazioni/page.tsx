@@ -68,10 +68,16 @@ export default function FormazioniAdminPage() {
         throw new Error(data.error || 'Failed to fetch lineups');
       }
 
-      const result = parseLineupsContent(data.html, allPlayers, fantasyTeams);
-      setParseResult(result);
+      let teamsData: ParsedTeamLineup[] = [];
       
-      const reviewable = result.teams.map(t => ({
+      if (data.teams && Array.isArray(data.teams)) {
+        teamsData = data.teams;
+      } else if (data.html) {
+        const result = parseLineupsContent(data.html, allPlayers, fantasyTeams);
+        teamsData = result.teams;
+      }
+      
+      const reviewable: ReviewableLineup[] = teamsData.map(t => ({
         ...t,
         isConfirmed: false,
         isSkipped: false,
@@ -94,14 +100,18 @@ export default function FormazioniAdminPage() {
             formation: null,
             starters: [],
             bench: [],
-            errors: ['No lineup submitted'],
-            warnings: [],
+            errors: [],
+            warnings: ['Formazione non ancora inserita'],
             hasLineup: false,
             isConfirmed: false,
             isSkipped: false,
             usePreviousLineup: false,
           });
         }
+      }
+      
+      if (data.message) {
+        setFetchError(data.message);
       }
       
       setReviewableLineups(reviewable);
