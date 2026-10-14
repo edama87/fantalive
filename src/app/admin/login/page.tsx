@@ -95,7 +95,7 @@ export default function AdminLoginPage() {
               ) : (
                 <>
                   <LogIn size={18} />
-                  Accedi
+                  Entra
                 </>
               )}
             </button>

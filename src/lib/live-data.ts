@@ -1,5 +1,3 @@
-'use client';
-
 import { 
   FantasyMatchResult, 
   PlayerMatchData, 
@@ -10,8 +8,8 @@ import {
 import { teams, getTeamById } from '@/data/teams';
 import { getRoundByNumber } from '@/data/calendar';
 import { calculateMatch } from './scoring-engine';
-import { getOrCreateLineup, initializeAllLineups } from './lineup-store';
 import { NormalizedMatchData } from '@/providers/types';
+import { generateDefaultLineup } from './lineup-utils';
 
 export function convertProviderDataToPlayerMatchData(
   normalizedData: NormalizedMatchData
@@ -39,12 +37,13 @@ export function convertProviderDataToPlayerMatchData(
 export function calculateAllMatches(
   roundNumber: number,
   playerDataMap: Map<string, PlayerMatchData>,
-  matchStatuses?: Map<string, 'scheduled' | 'live' | 'halftime' | 'finished'>
+  matchStatuses?: Map<string, 'scheduled' | 'live' | 'halftime' | 'finished'>,
+  lineupProvider?: (teamId: string, roundNumber: number) => Lineup
 ): FantasyMatchResult[] {
   const round = getRoundByNumber(roundNumber);
   if (!round) return [];
 
-  initializeAllLineups(roundNumber);
+  const getLineup = lineupProvider || ((teamId: string, rn: number) => generateDefaultLineup(teamId, rn));
 
   const results: FantasyMatchResult[] = [];
 
@@ -53,8 +52,8 @@ export function calculateAllMatches(
   const anyLive = [...playerDataMap.values()].some(p => p.isPlaying);
 
   for (const pairing of round.pairings) {
-    const homeLineup = getOrCreateLineup(pairing.homeTeamId, roundNumber);
-    const awayLineup = getOrCreateLineup(pairing.awayTeamId, roundNumber);
+    const homeLineup = getLineup(pairing.homeTeamId, roundNumber);
+    const awayLineup = getLineup(pairing.awayTeamId, roundNumber);
 
     let status: 'scheduled' | 'live' | 'halftime' | 'finished' = 'scheduled';
     

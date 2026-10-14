@@ -1,5 +1,5 @@
 /**
- * Admin Layout
+ * Protected Admin Layout
  * 
  * Server component that checks admin authentication.
  * Redirects to login if not authenticated.
@@ -10,7 +10,7 @@ import { isAdminAuthenticated, isAdminConfigured } from '@/lib/auth/admin';
 
 export const instant = false;
 
-export default async function AdminLayout({
+export default async function ProtectedAdminLayout({
   children,
 }: {
   children: React.ReactNode;
