@@ -53,6 +53,9 @@ Run the SQL migrations in Supabase Dashboard > SQL Editor, in order:
 1. `supabase/migrations/00001_initial_schema.sql`
 2. `supabase/migrations/00002_row_level_security.sql`
 3. `supabase/migrations/00003_seed_data.sql`
+4. `supabase/migrations/00004_realtime_publication.sql`
+5. `supabase/migrations/00005_function_search_path.sql`
+6. `supabase/migrations/00006_live_cron.sql` (see pg_cron setup below)
 
 ### 4. Deploy
 ```bash
@@ -62,8 +65,45 @@ npx vercel --prod
 # Or push to main branch for automatic deploy
 ```
 
-### 5. Verify Cron
-The `/api/cron/live` endpoint runs every minute via Vercel Cron (configured in `vercel.json`).
+### 5. Configure Live Ingestion (pg_cron)
+
+Live data ingestion runs every minute via **Supabase pg_cron + pg_net** (not Vercel Cron, which only supports daily schedules on Hobby plan).
+
+#### Setup Vault Secrets
+
+Before applying `00006_live_cron.sql`, add these secrets in Supabase Dashboard > Project Settings > Vault:
+
+| Secret Name | Value |
+|-------------|-------|
+| `fantalive_app_url` | Your Vercel app URL, e.g. `https://fantalive.vercel.app` |
+| `fantalive_cron_secret` | Same value as `CRON_SECRET` env var in Vercel |
+
+```sql
+-- Or via SQL:
+SELECT vault.create_secret('https://fantalive.vercel.app', 'fantalive_app_url');
+SELECT vault.create_secret('your-cron-secret-here', 'fantalive_cron_secret');
+```
+
+#### How it Works
+
+1. pg_cron schedules the `fantalive-live` job every minute
+2. pg_net makes an HTTP GET to `/api/cron/live` with `Authorization: Bearer <secret>`
+3. The endpoint performs a **cheap early-exit** if no Serie A match is:
+   - Currently live or at halftime
+   - Within -15 minutes (pre-kickoff) to +150 minutes (post-kickoff) of scheduled time
+4. Only when matches are in the active window does it fetch from ESPN and write to DB
+
+This ensures minimal resource usage outside match windows while maintaining minute-level updates during live matches.
+
+#### Verify the Cron Job
+
+```sql
+-- List scheduled jobs
+SELECT * FROM cron.job;
+
+-- Check recent job runs
+SELECT * FROM cron.job_run_details ORDER BY start_time DESC LIMIT 10;
+```
 
 ## Environment Variables Reference
 

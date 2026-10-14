@@ -1,11 +1,13 @@
 /**
  * Live Data Cron Route
- * POST /api/cron/live
+ * GET/POST /api/cron/live
  * 
- * Protected by CRON_SECRET header (Vercel Cron sends this automatically).
+ * Protected by CRON_SECRET in Authorization: Bearer header.
  * Fetches live data from the configured provider and writes to Supabase.
  * 
- * Called every minute during match windows via Vercel Cron.
+ * Called every minute via Supabase pg_cron + pg_net during match windows.
+ * Returns fast (cheap early exit) when no Serie A match is live or within
+ * -15/+150 minutes of kickoff.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -30,6 +32,75 @@ async function verifyCronSecret(request: NextRequest): Promise<boolean> {
   return false;
 }
 
+/**
+ * Check if any Serie A match is live or within the active window (-15/+150 min of kickoff).
+ * Uses DB data (serie_a_matches/rounds) for the check, not the external provider.
+ */
+async function isWithinMatchWindow(
+  supabase: ReturnType<typeof getServerClient>
+): Promise<{ active: boolean; reason: string; roundNumber?: number }> {
+  const now = new Date();
+  const windowStartMs = 15 * 60 * 1000;
+  const windowEndMs = 150 * 60 * 1000;
+
+  const { data: liveMatches } = await supabase
+    .from('serie_a_matches')
+    .select('id, status')
+    .in('status', ['live', 'halftime'])
+    .limit(1);
+
+  if (liveMatches && liveMatches.length > 0) {
+    return { active: true, reason: 'live_match_in_progress' };
+  }
+
+  const { data: upcomingRounds } = await supabase
+    .from('rounds')
+    .select('number, kickoff_date, kickoff_time, status')
+    .in('status', ['scheduled', 'live'])
+    .order('kickoff_date', { ascending: true })
+    .limit(5);
+
+  if (!upcomingRounds || upcomingRounds.length === 0) {
+    return { active: false, reason: 'no_scheduled_rounds' };
+  }
+
+  for (const round of upcomingRounds) {
+    if (round.status === 'live') {
+      return { active: true, reason: 'round_is_live', roundNumber: round.number };
+    }
+
+    const kickoffStr = `${round.kickoff_date}T${round.kickoff_time || '00:00:00'}`;
+    const kickoffTime = new Date(kickoffStr);
+    const diffMs = kickoffTime.getTime() - now.getTime();
+
+    if (diffMs >= -windowEndMs && diffMs <= windowStartMs) {
+      return { active: true, reason: 'within_kickoff_window', roundNumber: round.number };
+    }
+  }
+
+  const { data: recentMatches } = await supabase
+    .from('serie_a_matches')
+    .select('id, kickoff_time, status')
+    .eq('status', 'scheduled')
+    .not('kickoff_time', 'is', null)
+    .order('kickoff_time', { ascending: true })
+    .limit(10);
+
+  if (recentMatches) {
+    for (const match of recentMatches) {
+      if (!match.kickoff_time) continue;
+      const kickoffTime = new Date(match.kickoff_time);
+      const diffMs = kickoffTime.getTime() - now.getTime();
+
+      if (diffMs >= -windowEndMs && diffMs <= windowStartMs) {
+        return { active: true, reason: 'match_within_window' };
+      }
+    }
+  }
+
+  return { active: false, reason: 'outside_match_window' };
+}
+
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   
@@ -48,6 +119,18 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = getServerClient();
+
+  const windowCheck = await isWithinMatchWindow(supabase);
+  if (!windowCheck.active) {
+    return NextResponse.json({
+      success: true,
+      skipped: true,
+      reason: windowCheck.reason,
+      message: 'No match within active window (-15/+150 min of kickoff)',
+      durationMs: Date.now() - startTime,
+    });
+  }
+
   let cronRunId: string | null = null;
 
   try {
