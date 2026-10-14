@@ -189,9 +189,10 @@ function similarityScore(a: string, b: string): number {
  * DB names may be just "Frendrup" or "Luka Modric".
  * 
  * Matching strategy:
- * 1. Extract surname from PDF name (strip initials)
- * 2. Match by normalized surname + role + club (real team)
- * 3. Use initials only to disambiguate (e.g., Martinez L. vs Martinez J.)
+ * 1. Try exact match on FMS name first (names imported from FMS)
+ * 2. Extract surname from PDF name (strip initials)
+ * 3. Match by normalized surname + role + club (real team)
+ * 4. Use initials only to disambiguate (e.g., Martinez L. vs Martinez J.)
  */
 export function fuzzyMatchPlayer(
   rawName: string,
@@ -201,6 +202,19 @@ export function fuzzyMatchPlayer(
 ): { playerId: string | null; confidence: number; playerName: string | null } {
   if (!rawName || rawName === '-' || rawName.trim() === '') {
     return { playerId: null, confidence: 0, playerName: null };
+  }
+
+  const normalizedInput = normalizeString(rawName);
+  
+  for (const player of allPlayers) {
+    const playerNorm = normalizeString(player.name);
+    if (playerNorm === normalizedInput) {
+      return {
+        playerId: player.id,
+        confidence: 1.0,
+        playerName: player.name,
+      };
+    }
   }
 
   const pdfSurname = extractSurnameFromPDFName(rawName);

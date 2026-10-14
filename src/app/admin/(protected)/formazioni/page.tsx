@@ -649,11 +649,22 @@ function LineupReviewCard({
                 <div className="font-medium text-gray-500 mb-1">Titolari</div>
                 {lineup.starters.slice(0, 6).map((p, i) => (
                   <div key={i} className={cn(
-                    'py-0.5',
+                    'py-0.5 flex items-center gap-1',
                     p.matchedPlayerId ? 'text-gray-700' : 'text-red-600'
                   )}>
-                    {p.matchedPlayerName || p.rawName}
-                    {p.role && <span className="text-gray-400 ml-1">({p.role})</span>}
+                    <span>{p.matchedPlayerName || p.rawName}</span>
+                    {p.role && <span className="text-gray-400">({p.role})</span>}
+                    {!p.matchedPlayerId && (
+                      <button 
+                        className="text-xs text-blue-600 hover:text-blue-800 underline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          alert(`Aggiungi giocatore: ${p.rawName} (${p.role}) - ${p.serieAClub}\n\nQuesta funzione salverà il giocatore nel database.`);
+                        }}
+                      >
+                        +aggiungi
+                      </button>
+                    )}
                   </div>
                 ))}
                 {lineup.starters.length > 6 && (
@@ -664,10 +675,21 @@ function LineupReviewCard({
                 <div className="font-medium text-gray-500 mb-1">Panchina</div>
                 {lineup.bench.slice(0, 4).map((p, i) => (
                   <div key={i} className={cn(
-                    'py-0.5',
+                    'py-0.5 flex items-center gap-1',
                     p.matchedPlayerId ? 'text-gray-700' : 'text-amber-600'
                   )}>
-                    {p.matchedPlayerName || p.rawName}
+                    <span>{p.matchedPlayerName || p.rawName}</span>
+                    {!p.matchedPlayerId && (
+                      <button 
+                        className="text-xs text-blue-600 hover:text-blue-800 underline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          alert(`Aggiungi giocatore: ${p.rawName} (${p.role}) - ${p.serieAClub}\n\nQuesta funzione salverà il giocatore nel database.`);
+                        }}
+                      >
+                        +aggiungi
+                      </button>
+                    )}
                   </div>
                 ))}
                 {lineup.bench.length > 4 && (

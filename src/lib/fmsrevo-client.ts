@@ -410,6 +410,180 @@ export async function fetchFMSRevoRosters(): Promise<FMSRevoRostersResult> {
   return rostersResult;
 }
 
+export interface FMSRevoTeamRoster {
+  fmsTeamId: number;
+  teamName: string;
+  players: Array<{
+    name: string;
+    role: 'P' | 'D' | 'C' | 'A';
+    realTeam: string;
+    price?: number;
+  }>;
+}
+
+export interface FMSRevoAllRostersResult {
+  success: boolean;
+  teams: FMSRevoTeamRoster[];
+  error?: string;
+  rawHtmlSample?: string;
+}
+
+/**
+ * Fetch a single team's roster page and parse players
+ */
+async function fetchTeamRosterPage(sessionCookies: string, fmsTeamId: number): Promise<{
+  success: boolean;
+  html?: string;
+  teamName?: string;
+  error?: string;
+}> {
+  try {
+    const url = `${FMSREVO_BASE_URL}/index.php?param=idFsq${fmsTeamId}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': USER_AGENT,
+        'Accept': 'text/html,*/*;q=0.8',
+        'Cookie': sessionCookies,
+        'Referer': `${FMSREVO_BASE_URL}/`,
+      },
+    });
+
+    if (!response.ok) {
+      return { success: false, error: `HTTP ${response.status}` };
+    }
+
+    const html = await response.text();
+    
+    const teamNameMatch = html.match(/param=idFsq\d+">([^<]+)<\/a>/);
+    const menuMatch = html.match(new RegExp(`param=idFsq${fmsTeamId}">([^<]+)<`));
+    const teamName = menuMatch?.[1] || teamNameMatch?.[1] || null;
+
+    return { success: true, html, teamName: teamName || undefined };
+  } catch (error) {
+    console.error(`[FMSRevo] Error fetching team ${fmsTeamId}:`, error);
+    return { success: false, error: 'Network error' };
+  }
+}
+
+/**
+ * Parse roster from HTML - discovers structure automatically
+ */
+function parseRosterFromHtml(html: string): Array<{
+  name: string;
+  role: 'P' | 'D' | 'C' | 'A';
+  realTeam: string;
+  price?: number;
+}> {
+  const players: Array<{
+    name: string;
+    role: 'P' | 'D' | 'C' | 'A';
+    realTeam: string;
+    price?: number;
+  }> = [];
+
+  const roleMap: Record<string, 'P' | 'D' | 'C' | 'A'> = {
+    'P': 'P', 'POR': 'P',
+    'D': 'D', 'DIF': 'D',
+    'C': 'C', 'CEN': 'C',
+    'A': 'A', 'ATT': 'A',
+  };
+
+  const playerRowRegex = /<tr[^>]*>[\s\S]*?<td[^>]*>([PDCA]|POR|DIF|CEN|ATT)<\/td>[\s\S]*?<td[^>]*>([^<]+)<\/td>[\s\S]*?<td[^>]*>([^<]+)<\/td>[\s\S]*?(?:<td[^>]*>(\d+(?:[.,]\d+)?)<\/td>)?[\s\S]*?<\/tr>/gi;
+  
+  let match;
+  while ((match = playerRowRegex.exec(html)) !== null) {
+    const roleRaw = match[1].trim().toUpperCase();
+    const name = match[2].trim();
+    const realTeam = match[3].trim();
+    const priceStr = match[4];
+    
+    const role = roleMap[roleRaw];
+    if (role && name && realTeam) {
+      players.push({
+        name,
+        role,
+        realTeam,
+        price: priceStr ? parseFloat(priceStr.replace(',', '.')) : undefined,
+      });
+    }
+  }
+
+  if (players.length === 0) {
+    const simpleRegex = /([PDCA])\s*[-|]\s*([^-|<]+)\s*[-|]\s*([A-Za-z]+)/gi;
+    while ((match = simpleRegex.exec(html)) !== null) {
+      const roleRaw = match[1].toUpperCase();
+      const name = match[2].trim();
+      const realTeam = match[3].trim();
+      
+      const role = roleMap[roleRaw];
+      if (role && name.length > 2) {
+        players.push({ name, role, realTeam });
+      }
+    }
+  }
+
+  return players;
+}
+
+/**
+ * Fetch all team rosters from FMS Revo
+ */
+export async function fetchAllFMSRevoRosters(): Promise<FMSRevoAllRostersResult> {
+  const username = process.env.FMSREVO_USERNAME;
+  const password = process.env.FMSREVO_PASSWORD;
+
+  if (!username || !password) {
+    return { success: false, teams: [], error: 'Credenziali FMS Revo non configurate' };
+  }
+
+  const initialSession = await getInitialSession();
+  if (initialSession.error) {
+    return { success: false, teams: [], error: initialSession.error };
+  }
+
+  const loginResult = await performLogin(username, password, initialSession.cookies);
+  if (!loginResult.success) {
+    return { success: false, teams: [], error: loginResult.error };
+  }
+
+  const teams: FMSRevoTeamRoster[] = [];
+  let rawHtmlSample: string | undefined;
+
+  for (let fmsTeamId = 1; fmsTeamId <= 12; fmsTeamId++) {
+    const result = await fetchTeamRosterPage(loginResult.cookies, fmsTeamId);
+    
+    if (!result.success || !result.html) {
+      console.log(`[FMSRevo] Team ${fmsTeamId}: ${result.error || 'no data'}`);
+      if (fmsTeamId > 10) break;
+      continue;
+    }
+
+    if (!rawHtmlSample && fmsTeamId === 1) {
+      rawHtmlSample = result.html.substring(0, 5000);
+    }
+
+    const players = parseRosterFromHtml(result.html);
+    
+    if (result.teamName) {
+      teams.push({
+        fmsTeamId,
+        teamName: result.teamName,
+        players,
+      });
+      console.log(`[FMSRevo] Team ${fmsTeamId} (${result.teamName}): ${players.length} players`);
+    }
+  }
+
+  return {
+    success: teams.length > 0,
+    teams,
+    rawHtmlSample,
+    error: teams.length === 0 ? 'Nessuna rosa trovata' : undefined,
+  };
+}
+
 export const _testExports = {
   parseCookies,
   mergeCookieMaps,
@@ -419,4 +593,6 @@ export const _testExports = {
   fetchLineupsPageInternal,
   discoverRostersPage,
   fetchRostersPage,
+  fetchTeamRosterPage,
+  parseRosterFromHtml,
 };

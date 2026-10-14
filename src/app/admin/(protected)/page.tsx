@@ -8,6 +8,7 @@ import {
   Users, 
   LogOut,
   ChevronRight,
+  UserPlus,
 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -38,6 +39,13 @@ export default function AdminPage() {
           icon={Users}
           title="Formazioni"
           description="Scarica formazioni da FMS Revo"
+        />
+
+        <AdminMenuItem
+          href="/admin/rose"
+          icon={UserPlus}
+          title="Rose"
+          description="Importa rose squadre da FMS Revo"
         />
 
         <div className="pt-4">
