@@ -2,9 +2,13 @@
 
 import { Lineup } from '@/types';
 import { teams } from '@/data/teams';
-import { generateDefaultLineup } from './lineup-utils';
+import {
+  generateDefaultLineup,
+  inferFormationFromStarters,
+  isAllowedFormation,
+} from './lineup-utils';
 
-export { generateDefaultLineup };
+export { generateDefaultLineup, inferFormationFromStarters, isAllowedFormation };
 
 const STORAGE_KEY = 'fantalive-lineups';
 
@@ -50,5 +54,55 @@ export function initializeAllLineups(roundNumber: number): void {
 }
 
 export function createLineupProvider(): (teamId: string, roundNumber: number) => Lineup {
-  return (teamId: string, roundNumber: number) => getOrCreateLineup(teamId, roundNumber);
+  // Prefer saved (imported) lineups; fall back to default without writing to storage
+  return (teamId: string, roundNumber: number) =>
+    getLineup(teamId, roundNumber) || generateDefaultLineup(teamId, roundNumber);
+}
+
+export function saveImportedLineups(
+  roundNumber: number,
+  teams: Array<{
+    teamId: string;
+    formation: string | null;
+    starterIds: string[];
+    benchIds: string[];
+    usePreviousLineup?: boolean;
+  }>
+): number {
+  let saved = 0;
+  for (const team of teams) {
+    if (team.usePreviousLineup) {
+      const previous =
+        roundNumber > 1
+          ? getLineup(team.teamId, roundNumber - 1)
+          : null;
+      const base = previous || generateDefaultLineup(team.teamId, roundNumber);
+      saveLineup({
+        ...base,
+        teamId: team.teamId,
+        roundNumber,
+      });
+      saved += 1;
+      continue;
+    }
+
+    const starterIds = team.starterIds.filter(Boolean);
+    const benchIds = team.benchIds.filter(Boolean);
+    if (starterIds.length === 0) continue;
+
+    const formation =
+      (team.formation && isAllowedFormation(team.formation)
+        ? team.formation
+        : null) || inferFormationFromStarters(starterIds);
+
+    saveLineup({
+      teamId: team.teamId,
+      roundNumber,
+      formation,
+      starters: starterIds.map((playerId, position) => ({ playerId, position })),
+      bench: benchIds.map((playerId, position) => ({ playerId, position })),
+    });
+    saved += 1;
+  }
+  return saved;
 }

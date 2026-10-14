@@ -14,6 +14,7 @@ import {
   calculateAllMatches,
   convertProviderDataToPlayerMatchData,
 } from '@/lib/live-data';
+import { createLineupProvider } from '@/lib/lineup-store';
 import { createMockProvider } from '@/providers/mock-provider';
 import { ArrowLeft, Home, Plane } from 'lucide-react';
 
@@ -40,7 +41,12 @@ export function SfidaContent() {
     const normalizedData = await provider.fetchLiveData(round.serieAMatchday);
     const playerDataMap = convertProviderDataToPlayerMatchData(normalizedData);
     
-    const matches = calculateAllMatches(roundNumber, playerDataMap);
+    const matches = calculateAllMatches(
+      roundNumber,
+      playerDataMap,
+      undefined,
+      createLineupProvider()
+    );
     const thisMatch = matches.find(
       m => m.homeTeamId === homeTeamId && m.awayTeamId === awayTeamId
     );
@@ -256,9 +262,15 @@ function TeamLineupCard({
   playerScores: PlayerScore[];
   isHome: boolean;
 }) {
-  const starters = playerScores.filter(ps => ps.isStarter);
-  const bench = playerScores.filter(ps => !ps.isStarter);
-  const total = starters.reduce((sum, ps) => sum + ps.fantavoto, 0);
+  // On field: original starters + substitutes who entered (status != to_play)
+  const onField = playerScores.filter(
+    (ps) => ps.isStarter || ps.status !== 'to_play'
+  );
+  // Remaining bench: unused substitutes
+  const bench = playerScores.filter(
+    (ps) => !ps.isStarter && ps.status === 'to_play'
+  );
+  const total = onField.reduce((sum, ps) => sum + ps.fantavoto, 0);
 
   return (
     <Card className={cn(isUserTeam && 'ring-1 ring-emerald-200')}>
@@ -283,17 +295,21 @@ function TeamLineupCard({
       </CardHeader>
       <CardContent className="p-0">
         <div className="divide-y divide-gray-100">
-          {starters.map(ps => (
-            <PlayerRow key={ps.player.id} playerScore={ps} />
+          {onField.map(ps => (
+            <PlayerRow
+              key={ps.player.id}
+              playerScore={ps}
+              isSubstitute={!ps.isStarter}
+            />
           ))}
         </div>
         {bench.length > 0 && (
           <>
             <div className="px-3 py-2 bg-gray-50 text-xs font-medium text-gray-500 uppercase">
-              Panchina
+              Panchina ({bench.length})
             </div>
             <div className="divide-y divide-gray-100">
-              {bench.slice(0, 5).map(ps => (
+              {bench.map(ps => (
                 <PlayerRow key={ps.player.id} playerScore={ps} isSubstitute />
               ))}
             </div>

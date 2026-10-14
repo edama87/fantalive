@@ -13,7 +13,8 @@ import {
 } from '@/lib/fmsrevo-lineup-parser';
 import { getAllPlayers, teams } from '@/data/teams';
 import { getRoundByNumber, calendar } from '@/data/calendar';
-import { Lineup, LineupSlot, Player } from '@/types';
+import { Player } from '@/types';
+import { saveImportedLineups } from '@/lib/lineup-store';
 import { 
   AlertCircle, 
   CheckCircle, 
@@ -190,16 +191,24 @@ export default function FormazioniAdminPage() {
       !l.isSkipped && (l.hasLineup || l.usePreviousLineup) && l.matchedTeamId
     );
 
-    console.log('Applying lineups:', lineupsToApply.map(l => ({
-      teamId: l.matchedTeamId,
-      formation: l.formation,
-      starters: l.starters.map(s => s.matchedPlayerId),
-      bench: l.bench.map(b => b.matchedPlayerId),
-      usePreviousLineup: l.usePreviousLineup,
-    })));
+    const saved = saveImportedLineups(
+      selectedRound,
+      lineupsToApply.map((l) => ({
+        teamId: l.matchedTeamId!,
+        formation: l.formation,
+        starterIds: l.starters
+          .map((s) => s.matchedPlayerId)
+          .filter((id): id is string => Boolean(id)),
+        benchIds: l.bench
+          .map((b) => b.matchedPlayerId)
+          .filter((id): id is string => Boolean(id)),
+        usePreviousLineup: l.usePreviousLineup,
+      }))
+    );
 
+    console.log(`[Formazioni] Salvate ${saved} formazioni per giornata ${selectedRound}`);
     setStep('done');
-  }, [reviewableLineups]);
+  }, [reviewableLineups, selectedRound]);
 
   const handleReset = () => {
     setStep('select');

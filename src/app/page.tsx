@@ -14,6 +14,7 @@ import {
   getInitialStandings,
   convertProviderDataToPlayerMatchData,
 } from '@/lib/live-data';
+import { createLineupProvider } from '@/lib/lineup-store';
 import { createMockProvider } from '@/providers/mock-provider';
 
 const POLLING_INTERVAL = 60000;
@@ -33,7 +34,12 @@ export default function GiornataLivePage() {
     const normalizedData = await provider.fetchLiveData(currentRound.serieAMatchday);
     const playerDataMap = convertProviderDataToPlayerMatchData(normalizedData);
     
-    const calculatedMatches = calculateAllMatches(currentRound.number, playerDataMap);
+    const calculatedMatches = calculateAllMatches(
+      currentRound.number,
+      playerDataMap,
+      undefined,
+      createLineupProvider()
+    );
     setMatches(calculatedMatches);
     
     const liveStandings = calculateLiveStandings(calculatedMatches, getInitialStandings());

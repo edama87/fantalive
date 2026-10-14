@@ -418,6 +418,41 @@ export function calculateTeamScore(
     total += 2;
   }
 
+  // Append unused bench players for display (do not affect total)
+  const scoredIds = new Set(playerScores.map((ps) => ps.player.id));
+  for (const slot of [...lineup.bench].sort((a, b) => a.position - b.position)) {
+    if (scoredIds.has(slot.playerId)) continue;
+    const player = getPlayerById(slot.playerId);
+    if (!player) continue;
+
+    const data = playerDataMap.get(slot.playerId);
+    playerScores.push({
+      player,
+      baseVote: data?.estimatedVote ?? 0,
+      bonuses: data
+        ? calculateBonuses(data, player)
+        : {
+            goals: 0,
+            penaltyGoals: 0,
+            penaltyMissed: 0,
+            penaltySaved: 0,
+            assists: 0,
+            ownGoals: 0,
+            yellowCards: 0,
+            redCards: 0,
+            goalsConceded: 0,
+          },
+      fantavoto: 0,
+      status: data?.isPlaying
+        ? 'playing'
+        : data && data.minutesPlayed > 0
+          ? 'played'
+          : 'to_play',
+      minutesPlayed: data?.minutesPlayed,
+      isStarter: false,
+    });
+  }
+
   return { total, playerScores, attackModifier };
 }
 

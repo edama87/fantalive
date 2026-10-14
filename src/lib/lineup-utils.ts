@@ -2,8 +2,34 @@
  * Lineup utilities - server-safe functions that don't use browser APIs
  */
 
-import { Lineup, LineupSlot } from '@/types';
-import { teams, getTeamById } from '@/data/teams';
+import { Lineup, LineupSlot, PlayerRole } from '@/types';
+import { getTeamById, getPlayerById } from '@/data/teams';
+
+const ALLOWED_FORMATIONS = [
+  '6-3-1',
+  '5-3-2',
+  '5-4-1',
+  '4-5-1',
+  '4-4-2',
+  '4-3-3',
+  '3-6-1',
+  '3-5-2',
+  '3-4-3',
+];
+
+export function isAllowedFormation(formation: string): boolean {
+  return ALLOWED_FORMATIONS.includes(formation);
+}
+
+export function inferFormationFromStarters(starterPlayerIds: string[]): string {
+  const counts: Record<PlayerRole, number> = { P: 0, D: 0, C: 0, A: 0 };
+  for (const id of starterPlayerIds) {
+    const player = getPlayerById(id);
+    if (player) counts[player.role] += 1;
+  }
+  const formation = `${counts.D}-${counts.C}-${counts.A}`;
+  return isAllowedFormation(formation) ? formation : '4-4-2';
+}
 
 export function generateDefaultLineup(teamId: string, roundNumber: number): Lineup {
   const team = getTeamById(teamId);

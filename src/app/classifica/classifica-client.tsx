@@ -11,6 +11,7 @@ import {
   getInitialStandings,
   convertProviderDataToPlayerMatchData,
 } from '@/lib/live-data';
+import { createLineupProvider } from '@/lib/lineup-store';
 import { createMockProvider } from '@/providers/mock-provider';
 import { StandingsTable, CalendarView } from './page';
 
@@ -43,7 +44,12 @@ export function ClassificaClient({
         data.isLive ? 'live' : 'scheduled');
     }
     
-    const matches = calculateAllMatches(currentRound.number, playerDataMap, matchStatuses);
+    const matches = calculateAllMatches(
+      currentRound.number,
+      playerDataMap,
+      matchStatuses,
+      createLineupProvider()
+    );
     const liveStandings = calculateLiveStandings(matches, getInitialStandings());
     
     setStandings(liveStandings);
