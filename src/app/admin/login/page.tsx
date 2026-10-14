@@ -31,8 +31,8 @@ export default function AdminLoginPage() {
         return;
       }
 
-      // Redirect to admin home or mercato
-      router.push('/admin/mercato');
+      // Redirect to admin home
+      router.push('/admin');
       router.refresh();
     } catch (err) {
       setError('Errore di connessione');

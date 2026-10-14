@@ -4,13 +4,14 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { Home, Swords, Calendar, Trophy } from 'lucide-react';
+import { Home, Swords, Calendar, Trophy, Settings } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: 'Live', icon: Home },
   { href: '/sfida', label: 'Sfida', icon: Swords },
   { href: '/partite', label: 'Serie A', icon: Calendar },
   { href: '/classifica', label: 'Classifica', icon: Trophy },
+  { href: '/admin', label: 'Admin', icon: Settings },
 ];
 
 function NavContent() {
