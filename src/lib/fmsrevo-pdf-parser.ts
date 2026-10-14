@@ -237,34 +237,41 @@ function parsePlayerFromRow(rowItems: PDFTextItem[]): { role: PlayerRole | null;
 }
 
 /**
- * Extract team name from column items
+ * Check if a row text is a metadata/header row (not a team name)
  */
-function extractTeamName(rows: PDFTextItem[][], fantasyTeams: Array<{ id: string; name: string }>): string | null {
-  for (const row of rows.slice(0, 10)) {
+function isMetadataRow(text: string): boolean {
+  const lower = text.toLowerCase();
+  return (
+    lower.includes('fantamister') ||
+    lower.includes('posizione') ||
+    lower.includes('punti:') ||
+    lower.includes('formazioni') ||
+    lower.includes('bundlesliga') ||
+    lower.includes('giornata') ||
+    lower.includes('voto 1') ||
+    lower.includes('voto 2') ||
+    lower.includes('media') ||
+    lower.includes('giocatore') ||
+    /^r\s+sq/i.test(text) ||
+    text.length <= 3 ||
+    text.length > 60 ||
+    /^\d/.test(text) ||
+    text.includes(':') ||
+    text === ''
+  );
+}
+
+/**
+ * Extract team name from column items.
+ * The team name is the first non-metadata row in the column.
+ */
+function extractTeamName(rows: PDFTextItem[][]): string | null {
+  for (const row of rows.slice(0, 15)) {
     const rowText = row.map(item => item.text).join(' ').trim();
     
-    if (rowText.toLowerCase().includes('fantamister')) continue;
-    if (rowText.toLowerCase().includes('posizione')) continue;
-    if (rowText.toLowerCase().includes('punti')) continue;
-    if (rowText.toLowerCase().includes('formazioni')) continue;
-    if (rowText.toLowerCase().includes('bundlesliga')) continue;
-    if (rowText.toLowerCase().includes('giornata')) continue;
-    if (rowText.match(/^r\s+sq/i)) continue;
+    if (isMetadataRow(rowText)) continue;
     
-    for (const team of fantasyTeams) {
-      const teamLower = team.name.toLowerCase();
-      const rowLower = rowText.toLowerCase();
-      if (rowLower === teamLower || rowLower.includes(teamLower)) {
-        return team.name;
-      }
-    }
-    
-    if (rowText.length > 3 && rowText.length < 50 && !rowText.match(/^\d/) && !rowText.includes(':')) {
-      const match = fuzzyMatchTeam(rowText, fantasyTeams);
-      if (match.confidence >= 0.8) {
-        return rowText;
-      }
-    }
+    return rowText;
   }
   
   return null;
@@ -279,9 +286,9 @@ function parseTeamColumn(
 ): ParsedPDFTeamLineup | null {
   const rows = groupByRows(items);
   
-  if (rows.length < 5) return null;
+  if (rows.length < 3) return null;
   
-  const rawTeamName = extractTeamName(rows, fantasyTeams);
+  const rawTeamName = extractTeamName(rows);
   if (!rawTeamName) return null;
   
   const teamMatch = fuzzyMatchTeam(rawTeamName, fantasyTeams);

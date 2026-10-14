@@ -6,16 +6,16 @@ import path from 'path';
 const FIXTURE_PDF_BASE64 = 'JVBERi0xLjcKCjQgMCBvYmoKPDwKL0ZpbHRlciAvRmxhdGVEZWNvZGUKL0xlbmd0aCAyNQo+PgpzdHJlYW0KeJzLy0zOz0nNBQALpgLPCmVuZHN0cmVhbQplbmRvYmoKNSAwIG9iago8PAovVHlwZSAvUGFnZQovTWVkaWFCb3ggWzAgMCA1OTUuMjggODQxLjg5XQovUmVzb3VyY2VzIDw8Ci9Gb250IDw8Ci9GMSAzIDAgUgo+Pgo+PgovQ29udGVudHMgNCAwIFIKL1BhcmVudCAyIDAgUgo+PgplbmRvYmoKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCjIgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFs1IDAgUl0KL0NvdW50IDEKL01lZGlhQm94IFswIDAgNTk1LjI4IDg0MS44OV0KPj4KZW5kb2JqCjMgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAyODYgMDAwMDAgbiAKMDAwMDAwMDMzNSAwMDAwMCBuIAowMDAwMDAwNDI4IDAwMDAwIG4gCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDEwMyAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDYKL1Jvb3QgMSAwIFIKPj4Kc3RhcnR4cmVmCjUwOQolJUVPRgo=';
 
 const MOCK_TEAMS = [
-  { id: 'parisso', name: 'Parisso San Gennaro' },
   { id: 'little-eagles', name: 'Little Eagles' },
+  { id: 'salen-team', name: 'Salen Team' },
+  { id: 'dinamo-cecchignola', name: 'Dinamo Cecchignola 1927' },
+  { id: 'amatori-prosecco', name: 'Amatori ProSecco' },
+  { id: 'atletico-magari', name: 'Atletico Magari' },
   { id: 'yellow-mustard', name: 'Yellow Mustard' },
-  { id: 'black-avengers', name: 'Black Avengers' },
-  { id: 'fc-broccoletti', name: 'FC Broccoletti' },
-  { id: 'eroi-per-caso', name: 'Eroi per Caso' },
-  { id: 'calma-chiara', name: 'Calma Chiara' },
-  { id: 'olympias', name: 'Olympias' },
-  { id: 'riserva-di-caccia', name: 'Riserva di Caccia' },
-  { id: 'mille-motte', name: 'Mille Motte' },
+  { id: 'real-pedrotte', name: 'Real Pedrotte' },
+  { id: 'sfortonia', name: 'Sfortonia' },
+  { id: 'football-and-city', name: 'Football And City' },
+  { id: 'parisso', name: 'Parisso San Gennaro' },
 ];
 
 export async function GET() {
