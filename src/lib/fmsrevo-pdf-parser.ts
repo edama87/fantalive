@@ -16,6 +16,7 @@
  * - Footer rows (Parziale squadra, Mod. Portiere, etc.)
  */
 
+import { extractTextItems } from 'unpdf';
 import { Player, PlayerRole } from '@/types';
 import { fuzzyMatchTeam } from './fmsrevo-lineup-parser';
 
@@ -106,34 +107,25 @@ export function isPDFContent(data: ArrayBuffer | Uint8Array | string): boolean {
 }
 
 /**
- * Extract text with positions from PDF using pdfjs-dist
+ * Extract text with positions from PDF using unpdf (serverless-compatible)
  */
 export async function extractPDFTextWithPositions(pdfData: Uint8Array): Promise<PDFPageContent[]> {
-  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const result = await extractTextItems(pdfData);
   
-  const loadingTask = pdfjsLib.getDocument({
-    data: pdfData,
-    useSystemFonts: true,
-    disableFontFace: true,
-  });
-  
-  const pdf = await loadingTask.promise;
   const pages: PDFPageContent[] = [];
+  const pageWidth = 595;
+  const pageHeight = 842;
   
-  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-    const page = await pdf.getPage(pageNum);
-    const viewport = page.getViewport({ scale: 1.0 });
-    const textContent = await page.getTextContent();
-    
+  for (let pageIdx = 0; pageIdx < result.items.length; pageIdx++) {
+    const pageItems = result.items[pageIdx];
     const items: PDFTextItem[] = [];
     
-    for (const item of textContent.items) {
-      if ('str' in item && item.str.trim()) {
-        const tx = item.transform;
+    for (const item of pageItems) {
+      if (item.str && item.str.trim()) {
         items.push({
           text: item.str,
-          x: tx[4],
-          y: viewport.height - tx[5],
+          x: item.x,
+          y: pageHeight - item.y,
           width: item.width || 0,
           height: item.height || 0,
         });
@@ -141,9 +133,9 @@ export async function extractPDFTextWithPositions(pdfData: Uint8Array): Promise<
     }
     
     pages.push({
-      pageNumber: pageNum,
-      width: viewport.width,
-      height: viewport.height,
+      pageNumber: pageIdx + 1,
+      width: pageWidth,
+      height: pageHeight,
       items,
     });
   }

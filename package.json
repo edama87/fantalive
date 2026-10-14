@@ -20,7 +20,6 @@
     "jsdom": "^29.1.1",
     "lucide-react": "^1.57.0",
     "next": "16.4.0",
-    "pdfjs-dist": "^4.4.168",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "tailwind-merge": "^3.7.0",
