@@ -13,14 +13,33 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
-
 let publicClient: SupabaseClient | null = null;
 let serverClient: SupabaseClient | null = null;
 
+function ensureNodeWebSocket(): void {
+  if (typeof globalThis.WebSocket === 'undefined') {
+    // Node < 22: supabase-js realtime needs a WebSocket implementation
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const WS = require('ws');
+    (globalThis as { WebSocket?: typeof WS }).WebSocket = WS;
+  }
+}
+
+function getSupabaseUrl(): string | undefined {
+  return process.env.NEXT_PUBLIC_SUPABASE_URL;
+}
+
+function getPublishableKey(): string | undefined {
+  return process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+}
+
+function getSecretKey(): string | undefined {
+  return process.env.SUPABASE_SECRET_KEY;
+}
+
 export function getPublicClient(): SupabaseClient {
+  const supabaseUrl = getSupabaseUrl();
+  const supabasePublishableKey = getPublishableKey();
   if (!supabaseUrl || !supabasePublishableKey) {
     throw new Error(
       'Missing Supabase configuration. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'
@@ -28,6 +47,7 @@ export function getPublicClient(): SupabaseClient {
   }
 
   if (!publicClient) {
+    ensureNodeWebSocket();
     publicClient = createClient(supabaseUrl, supabasePublishableKey, {
       auth: {
         persistSession: false,
@@ -40,6 +60,8 @@ export function getPublicClient(): SupabaseClient {
 }
 
 export function getServerClient(): SupabaseClient {
+  const supabaseUrl = getSupabaseUrl();
+  const supabaseSecretKey = getSecretKey();
   if (!supabaseUrl || !supabaseSecretKey) {
     throw new Error(
       'Missing Supabase server configuration. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY'
@@ -47,6 +69,7 @@ export function getServerClient(): SupabaseClient {
   }
 
   if (!serverClient) {
+    ensureNodeWebSocket();
     serverClient = createClient(supabaseUrl, supabaseSecretKey, {
       auth: {
         persistSession: false,
@@ -59,11 +82,11 @@ export function getServerClient(): SupabaseClient {
 }
 
 export function isSupabaseConfigured(): boolean {
-  return Boolean(supabaseUrl && supabasePublishableKey);
+  return Boolean(getSupabaseUrl() && getPublishableKey());
 }
 
 export function isSupabaseServerConfigured(): boolean {
-  return Boolean(supabaseUrl && supabaseSecretKey);
+  return Boolean(getSupabaseUrl() && getSecretKey());
 }
 
 export { type SupabaseClient };
