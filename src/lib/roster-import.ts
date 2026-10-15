@@ -151,6 +151,9 @@ export async function importRostersViaServiceClient(
         .eq('id', versionId);
       assertOk(patch, `patch roster version ${teamId}`);
     }
+    if (!versionId) {
+      throw new Error(`Versione rosa non creata per ${teamName}`);
+    }
 
     const clear = await supabase
       .from('roster_players')
@@ -221,7 +224,7 @@ export async function importRostersViaServiceClient(
         assertOk(updated, `update player ${playerName}`);
       }
 
-      const link = await supabase.from('roster_players').upsert(
+      const link: { error: { message: string } | null } = await supabase.from('roster_players').upsert(
         {
           roster_version_id: versionId,
           player_id: playerId,
