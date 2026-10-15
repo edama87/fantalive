@@ -14,7 +14,7 @@ import {
   calculateAllMatches,
   convertProviderDataToPlayerMatchData,
 } from '@/lib/live-data';
-import { createLineupProvider } from '@/lib/lineup-store';
+import { createLineupProvider, fetchLineups } from '@/lib/lineup-store';
 import { createMockProvider } from '@/providers/mock-provider';
 import { ArrowLeft, Home, Plane } from 'lucide-react';
 
@@ -40,12 +40,13 @@ export function SfidaContent() {
     
     const normalizedData = await provider.fetchLiveData(round.serieAMatchday);
     const playerDataMap = convertProviderDataToPlayerMatchData(normalizedData);
+    const lineups = await fetchLineups(roundNumber).catch(() => ({}));
     
     const matches = calculateAllMatches(
       roundNumber,
       playerDataMap,
       undefined,
-      createLineupProvider()
+      createLineupProvider(lineups)
     );
     const thisMatch = matches.find(
       m => m.homeTeamId === homeTeamId && m.awayTeamId === awayTeamId

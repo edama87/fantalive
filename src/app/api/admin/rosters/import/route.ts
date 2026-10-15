@@ -4,6 +4,11 @@ import {
   validateTeamRoster,
   type ParsedTeamRoster,
 } from '@/lib/fmsrevo-roster-parser';
+import {
+  importRostersViaRpc,
+  readRosterDbCounts,
+} from '@/lib/roster-import';
+import { isSupabaseServerConfigured } from '@/lib/db/supabase';
 
 export async function POST(request: Request) {
   const isAdmin = await isAdminAuthenticated();
@@ -15,6 +20,17 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (!isSupabaseServerConfigured()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'SUPABASE_SECRET_KEY non configurata: impossibile persistere le rose',
+        },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json();
     const teams: ParsedTeamRoster[] = body.teams;
 
@@ -31,33 +47,41 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Conferma bloccata: una o più rose non sono valide (25 giocatori, 3/8/8/6).',
-          issues: invalid.flatMap((v) => v.issues.map((i) => i.message)).slice(0, 20),
+          error:
+            'Conferma bloccata: una o più rose non sono valide (25 giocatori, 3/8/8/6).',
+          issues: invalid
+            .flatMap((v) => v.issues.map((i) => i.message))
+            .slice(0, 20),
         },
         { status: 400 }
       );
     }
 
-    const totalPlayers = teams.reduce((sum, t) => sum + t.players.length, 0);
-
-    console.log('[API] Importing rosters:', {
-      teamCount: teams.length,
-      totalPlayers,
-      teams: teams.map((t) => ({ name: t.teamName, players: t.players.length })),
-    });
+    const counts = await importRostersViaRpc(teams);
+    const verified = await readRosterDbCounts();
 
     return NextResponse.json({
       success: true,
       imported: {
-        teams: teams.length,
-        players: totalPlayers,
+        teams: counts.importedTeams,
+        players: counts.rosterPlayers,
       },
-      message: `Importati ${totalPlayers} giocatori da ${teams.length} squadre`,
+      counts: {
+        ...counts,
+        verified,
+      },
+      message: `Importati ${counts.rosterPlayers} posti rosa su ${counts.importedTeams} squadre (${verified.playersActive} giocatori attivi in DB)`,
     });
   } catch (error) {
     console.error('[API] Error importing rosters:', error);
     return NextResponse.json(
-      { success: false, error: 'Errore durante import delle rose' },
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Errore durante import delle rose',
+      },
       { status: 500 }
     );
   }

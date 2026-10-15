@@ -191,23 +191,30 @@ export default function FormazioniAdminPage() {
       !l.isSkipped && (l.hasLineup || l.usePreviousLineup) && l.matchedTeamId
     );
 
-    const saved = saveImportedLineups(
-      selectedRound,
-      lineupsToApply.map((l) => ({
-        teamId: l.matchedTeamId!,
-        formation: l.formation,
-        starterIds: l.starters
-          .map((s) => s.matchedPlayerId)
-          .filter((id): id is string => Boolean(id)),
-        benchIds: l.bench
-          .map((b) => b.matchedPlayerId)
-          .filter((id): id is string => Boolean(id)),
-        usePreviousLineup: l.usePreviousLineup,
-      }))
-    );
+    try {
+      const saved = await saveImportedLineups(
+        selectedRound,
+        lineupsToApply.map((l) => ({
+          teamId: l.matchedTeamId!,
+          formation: l.formation,
+          starterIds: l.starters
+            .map((s) => s.matchedPlayerId)
+            .filter((id): id is string => Boolean(id)),
+          benchIds: l.bench
+            .map((b) => b.matchedPlayerId)
+            .filter((id): id is string => Boolean(id)),
+          usePreviousLineup: l.usePreviousLineup,
+        }))
+      );
 
-    console.log(`[Formazioni] Salvate ${saved} formazioni per giornata ${selectedRound}`);
-    setStep('done');
+      console.log(`[Formazioni] Salvate ${saved} formazioni per giornata ${selectedRound}`);
+      setStep('done');
+    } catch (err) {
+      console.error('[Formazioni] Errore salvataggio:', err);
+      setFetchError(
+        err instanceof Error ? err.message : 'Errore nel salvataggio formazioni'
+      );
+    }
   }, [reviewableLineups, selectedRound]);
 
   const handleReset = () => {
