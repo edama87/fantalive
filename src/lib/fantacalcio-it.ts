@@ -15,6 +15,7 @@
 import * as cheerio from 'cheerio';
 import type { AnyNode } from 'domhandler';
 import type { EventType, PlayerRole } from '@/types';
+import { getLeagueRules } from '@/lib/league-rules';
 
 export const FANTACALCIO_ORIGIN = 'https://www.fantacalcio.it';
 export const FANTACALCIO_ALIAS_SOURCE = 'fantacalcio';
@@ -171,15 +172,17 @@ export function fantavotoFromVote(
   if (vote == null) return null;
   const count = (type: FantacalcioBonusType) =>
     bonuses.find((bonus) => bonus.type === type)?.count ?? 0;
-  const goals = Math.max(count('goal'), count('penalty_scored'));
-  let total = vote + goals * 3;
-  total += count('assist');
-  total += count('penalty_saved') * 3;
-  total -= count('penalty_missed') * 3;
-  total -= count('own_goal') * 2;
-  total -= count('yellow_card') * 0.5;
-  total -= count('red_card');
-  total -= count('goal_conceded');
+  const r = getLeagueRules().scoring;
+  let total = vote;
+  total += count('goal') * r.goalBonus;
+  total += count('penalty_scored') * r.penaltyGoalBonus;
+  total += count('assist') * r.assistBonus;
+  total += count('penalty_saved') * r.penaltySavedBonus;
+  total += count('penalty_missed') * r.penaltyMissedMalus;
+  total += count('own_goal') * r.ownGoalMalus;
+  total += count('yellow_card') * r.yellowCardMalus;
+  total += count('red_card') * r.redCardMalus;
+  total += count('goal_conceded') * r.goalConcededMalus;
   return Math.round(total * 10) / 10;
 }
 

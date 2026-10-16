@@ -82,11 +82,13 @@ describe('fantacalcio.it HTML', () => {
     ]);
     expect(sucic?.fantaVote).toBe(10);
     expect(calhanoglu?.vote).toBe(7);
-    expect(calhanoglu?.fantaVote).toBe(10);
+    expect(calhanoglu?.fantaVote).toBe(9); // rigore segnato: +2 da regolamento
     expect(corvi?.bonuses.find((bonus) => bonus.type === 'goal_conceded')?.count).toBe(3);
     expect(corvi?.fantaVote).toBe(2.5);
     expect(mkhitaryan?.fantaVote).toBe(7.5);
     expect(fantavotoFromVote(6, [{ type: 'goal', label: 'Gol segnato', count: 2, minute: 12 }])).toBe(12);
+    expect(fantavotoFromVote(6, [{ type: 'goal', label: 'Gol segnato', count: 1, minute: 10 }, { type: 'penalty_scored', label: 'Rigore segnato', count: 1, minute: 50 }])).toBe(11);
+    expect(fantavotoFromVote(6, [{ type: 'own_goal', label: 'Autorete', count: 1, minute: 5 }])).toBe(5);
   });
 
   it('matches aliases, accents, initials and surname/name order', () => {
