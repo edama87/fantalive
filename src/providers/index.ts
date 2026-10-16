@@ -12,6 +12,7 @@
  *   Set LIVE_PROVIDER or NEXT_PUBLIC_LIVE_PROVIDER env var:
  *   - mock: Simulated data for development (default)
  *   - espn: ESPN Soccer API (stub, needs implementation)
+ *   - fantacalcio-it: voti da fantacalcio.it
  *   - apifootball: API-Football (not implemented)
  *   - fotmob: FotMob (not implemented)
  *   - csv: Manual CSV upload (not implemented)
@@ -31,3 +32,4 @@ export * from './types';
 export * from './factory';
 export { MockProvider, createMockProvider } from './mock-provider';
 export { EspnProvider, createEspnProvider } from './espn-provider';
+export { FantacalcioItProvider, createFantacalcioItProvider } from './fantacalcio-it-provider';

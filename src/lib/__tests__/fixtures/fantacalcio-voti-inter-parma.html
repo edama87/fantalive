@@ -1,0 +1,805 @@
+<section id="grades" class="mt-4">
+    <div class="card row">
+        <script id="playersListsTemplate" type="text/x-handlebars-template">
+            {{#each teams}}    
+            <div class="col {{side}}">
+                <header>
+                    <span class="team-name h6">{{name}}</span>
+                    <span class="team-formation badge badge-sm badge-primary px-2">{{formation}}</span>
+                </header>
+                <ul class="player-list">
+                    {{#each players}}    
+                        <li data-id="{{id}}" data-mark="{{mark}}" class="player-item player-live-item {{customClass}}">
+                            <a class="player-name player-link" onclick="onPlayerClick({{id}}, '{{../side}}')">{{name}}</a>
+                            <span class="player-role role" data-value="{{role}}"></span>
+
+                            <div class="player-events-strip">
+                                {{#each events}}                                    
+                                <figure class="player-event icon bonus-icon" 
+                                    data-count="{{count}}"
+                                    data-event-id="{{id}}" data-key="{{key}}" style="--icon-size:20" 
+                                    title="{{label}}"></figure>                                                               
+                                {{/each}}
+                            </div>
+                            <div class="player-grade">                                
+                                {{grade}}
+                            </div>
+                        </li>
+                    {{/each}}
+                </ul>
+            </div>
+            {{/each}}
+        </script>
+        <div id="playersListsTemplateTarget">
+                    <div class="col home">
+                        <header>
+                            <span class="team-name h6">Inter</span>
+                            <span class="team-formation badge badge-sm badge-primary px-2">3-5-2</span>
+                        </header>
+                        <ul id="meta-dataset" class="player-list">
+                            
+                                <li data-id="5116" data-r="338"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/inter/martinez-jo/5116/2026-27" target="_self">
+    
+    <span>Martinez Jo.</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="p" title="Portiere"></span>
+    
+        <span class="role role-mantra" data-value="por" title="Portiere"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="-6">
+                                            6
+                                        </div>
+                                </li>
+                                <li data-id="4177" data-r="388"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/inter/pavard/4177/2026-27" target="_self">
+    
+    <span>Pavard</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="d" title="Difensore"></span>
+    
+        <span class="role role-mantra" data-value="dd" title="Difensore Destro"></span>
+        <span class="role role-mantra" data-value="dc" title="Difensore Centrale"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="-6">
+                                            6
+                                        </div>
+                                </li>
+                                <li data-id="6217" data-r="551"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/inter/bisseck/6217/2026-27" target="_self">
+    
+    <span>Bisseck</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="d" title="Difensore"></span>
+    
+        <span class="role role-mantra" data-value="dc" title="Difensore Centrale"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="-6">
+                                            6
+                                        </div>
+                                </li>
+                                <li data-id="5877" data-r="39"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/inter/carlos-augusto/5877/2026-27" target="_self">
+    
+    <span>Carlos Augusto</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="d" title="Difensore"></span>
+    
+        <span class="role role-mantra" data-value="b" title="Braccetto"></span>
+        <span class="role role-mantra" data-value="ds" title="Difensore Sinistro"></span>
+        <span class="role role-mantra" data-value="e" title="Esterno"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="-6,5">
+                                            6,5
+                                        </div>
+                                </li>
+                                <li data-id="6274" data-r="213"
+                                    class="player-item player-out">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/inter/diouf/6274/2026-27" target="_self">
+    
+    <span>Diouf</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="c" title="Centrocampista"></span>
+    
+        <span class="role role-mantra" data-value="e" title="Esterno"></span>
+        <span class="role role-mantra" data-value="c" title="Centrocampista centrale"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="6">
+                                            -
+                                        </div>
+                                </li>
+                                    <li data-id="5586" data-r="510" class="player-item">
+                                        <div class="player-grade" data-value="7">6</div>
+                                    </li>
+                                <li data-id="5301" data-r="454"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/inter/luis-henrique/5301/2026-27" target="_self">
+    
+    <span>Luis Henrique</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="c" title="Centrocampista"></span>
+    
+        <span class="role role-mantra" data-value="e" title="Esterno"></span>
+        <span class="role role-mantra" data-value="w" title="Ala"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="-6">
+                                            6
+                                        </div>
+                                </li>
+                                <li data-id="7070" data-r="317"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/inter/sucic-p/7070/2026-27" target="_self">
+    
+    <span>Sucic P.</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="c" title="Centrocampista"></span>
+    
+        <span class="role role-mantra" data-value="c" title="Centrocampista centrale"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                            <figure class="player-event icon bonus-icon" 
+                                                data-count="1"
+                                                data-event-id="3" style="--icon-size:20" 
+                                                title="Gol segnato "></figure>         
+                                            <figure class="player-event icon bonus-icon" 
+                                                data-count="1"
+                                                data-event-id="26" style="--icon-size:20" 
+                                                title="Man of the match "></figure>         
+                                    </div>
+                                        <div class="player-grade" data-value="7">
+                                            -
+                                        </div>
+                                </li>
+                                <li data-id="2194" data-r="165"
+                                    class="player-item player-out">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/inter/calhanoglu/2194/2026-27" target="_self">
+    
+    <span>Calhanoglu</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="c" title="Centrocampista"></span>
+    
+        <span class="role role-mantra" data-value="m" title="Mediano"></span>
+        <span class="role role-mantra" data-value="c" title="Centrocampista centrale"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                            <figure class="player-event icon bonus-icon" 
+                                                data-count="1"
+                                                data-event-id="9" style="--icon-size:20" 
+                                                title="Rigore segnato "></figure>         
+                                    </div>
+                                        <div class="player-grade" data-value="-7">
+                                            7
+                                        </div>
+                                </li>
+                                    <li data-id="4646" data-r="376" class="player-item">
+                                        <div class="player-grade" data-value="7">5</div>
+                                    </li>
+                                <li data-id="6503" data-r="339"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/inter/stankovic-a/6503/2026-27" target="_self">
+    
+    <span>Stankovic A.</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="c" title="Centrocampista"></span>
+    
+        <span class="role role-mantra" data-value="m" title="Mediano"></span>
+        <span class="role role-mantra" data-value="c" title="Centrocampista centrale"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="-6">
+                                            6
+                                        </div>
+                                </li>
+                                <li data-id="2529" data-r="54"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/inter/mkhitaryan/2529/2026-27" target="_self">
+    
+    <span>Mkhitaryan</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="c" title="Centrocampista"></span>
+    
+        <span class="role role-mantra" data-value="c" title="Centrocampista centrale"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                            <figure class="player-event icon bonus-icon" 
+                                                data-count="1"
+                                                data-event-id="22" style="--icon-size:20" 
+                                                title="Assist "></figure>         
+                                    </div>
+                                        <div class="player-grade" data-value="6,5">
+                                            6,5
+                                        </div>
+                                </li>
+                                <li data-id="254" data-r="33"
+                                    class="player-item player-out">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/inter/dimarco/254/2026-27" target="_self">
+    
+    <span>Dimarco</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="d" title="Difensore"></span>
+    
+        <span class="role role-mantra" data-value="e" title="Esterno"></span>
+        <span class="role role-mantra" data-value="w" title="Ala"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="6,5">
+                                            9,5
+                                        </div>
+                                </li>
+                                <li data-id="5982" data-r="245"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/inter/spence/5982/2026-27" target="_self">
+    
+    <span>Spence</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="d" title="Difensore"></span>
+    
+        <span class="role role-mantra" data-value="e" title="Esterno"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="-6">
+                                            6
+                                        </div>
+                                </li>
+                                    <li data-id="1570" data-r="52" class="player-item">
+                                        <div class="player-grade" data-value="7">5</div>
+                                    </li>
+                                <li data-id="7071" data-r="545"
+                                    class="player-item player-out">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/inter/esposito-f-p/7071/2026-27" target="_self">
+    
+    <span>Esposito F.P.</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="a" title="Attaccante"></span>
+    
+        <span class="role role-mantra" data-value="pc" title="Punta centrale"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="7">
+                                            7
+                                        </div>
+                                </li>
+                                <li data-id="2764" data-r="37"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/inter/martinez-l/2764/2026-27" target="_self">
+    
+    <span>Martinez L.</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="a" title="Attaccante"></span>
+    
+        <span class="role role-mantra" data-value="pc" title="Punta centrale"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="-6">
+                                            6
+                                        </div>
+                                </li>
+                                <li data-id="4871" data-r="142"
+                                    class="player-item player-out">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/inter/thuram/4871/2026-27" target="_self">
+    
+    <span>Thuram</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="a" title="Attaccante"></span>
+    
+        <span class="role role-mantra" data-value="pc" title="Punta centrale"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                            <figure class="player-event icon bonus-icon" 
+                                                data-count="1"
+                                                data-event-id="3" style="--icon-size:20" 
+                                                title="Gol segnato "></figure>         
+                                    </div>
+                                        <div class="player-grade" data-value="-7">
+                                            7
+                                        </div>
+                                </li>
+                                    <li data-id="870" data-r="578" class="player-item">
+                                        <div class="player-grade" data-value="4">7</div>
+                                    </li>
+                                <li data-id="6669" data-r="382"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/inter/bonny/6669/2026-27" target="_self">
+    
+    <span>Bonny</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="a" title="Attaccante"></span>
+    
+        <span class="role role-mantra" data-value="pc" title="Punta centrale"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="6">
+                                            6
+                                        </div>
+                                </li>
+                                <li data-id="7043" data-r="435"
+                                    class="player-item ">
+                                        <span class="player-name">
+                                            Chivu                                            
+                                        </span>
+                                    
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="all" title="N/D"></span>
+    
+        <span class="role role-mantra" data-value="all" title="N/D"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="7">
+                                            -
+                                        </div>
+                                </li>
+                        </ul>
+                    </div>
+                    <div class="col away">
+                        <header>
+                            <span class="team-name h6">Parma</span>
+                            <span class="team-formation badge badge-sm badge-primary px-2">3-5-2</span>
+                        </header>
+                        <ul id="meta-dataset" class="player-list">
+                            
+                                <li data-id="6662" data-r="33"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/parma/corvi/6662/2026-27" target="_self">
+    
+    <span>Corvi</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="p" title="Portiere"></span>
+    
+        <span class="role role-mantra" data-value="por" title="Portiere"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                            <figure class="player-event icon bonus-icon" 
+                                                data-count="3"
+                                                data-event-id="4" style="--icon-size:20" 
+                                                title="Gol subito "></figure>         
+                                            <figure class="player-event icon bonus-icon" 
+                                                data-count="2"
+                                                data-event-id="4" style="--icon-size:20" 
+                                                title="Gol subito "></figure>         
+                                            <figure class="player-event icon bonus-icon" 
+                                                data-count="1"
+                                                data-event-id="4" style="--icon-size:20" 
+                                                title="Gol subito "></figure>         
+                                    </div>
+                                        <div class="player-grade" data-value="-5,5">
+                                            5,5
+                                        </div>
+                                </li>
+                                <li data-id="7235" data-r="336"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/parma/troilo/7235/2026-27" target="_self">
+    
+    <span>Troilo</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="d" title="Difensore"></span>
+    
+        <span class="role role-mantra" data-value="dc" title="Difensore Centrale"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="5">
+                                            9
+                                        </div>
+                                </li>
+                                <li data-id="4137" data-r="370"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/parma/diego-carlos/4137/2026-27" target="_self">
+    
+    <span>Diego Carlos</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="d" title="Difensore"></span>
+    
+        <span class="role role-mantra" data-value="dc" title="Difensore Centrale"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="4,5">
+                                            5,5
+                                        </div>
+                                </li>
+                                <li data-id="6149" data-r="310"
+                                    class="player-item player-out">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/parma/carboni-f/6149/2026-27" target="_self">
+    
+    <span>Carboni F.</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="d" title="Difensore"></span>
+    
+        <span class="role role-mantra" data-value="ds" title="Difensore Sinistro"></span>
+        <span class="role role-mantra" data-value="e" title="Esterno"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="5">
+                                            8
+                                        </div>
+                                </li>
+                                <li data-id="7255" data-r="559"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/parma/britschgi/7255/2026-27" target="_self">
+    
+    <span>Britschgi</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="d" title="Difensore"></span>
+    
+        <span class="role role-mantra" data-value="dd" title="Difensore Destro"></span>
+        <span class="role role-mantra" data-value="ds" title="Difensore Sinistro"></span>
+        <span class="role role-mantra" data-value="e" title="Esterno"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="--">
+                                            -
+                                        </div>
+                                </li>
+                                <li data-id="6664" data-r="282"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/parma/delprato/6664/2026-27" target="_self">
+    
+    <span>Delprato</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="d" title="Difensore"></span>
+    
+        <span class="role role-mantra" data-value="b" title="Braccetto"></span>
+        <span class="role role-mantra" data-value="dd" title="Difensore Destro"></span>
+        <span class="role role-mantra" data-value="e" title="Esterno"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="5,5">
+                                            6,5
+                                        </div>
+                                </li>
+                                    <li data-id="6899" data-r="348" class="player-item">
+                                        <div class="player-grade" data-value="7">5</div>
+                                    </li>
+                                <li data-id="6898" data-r="350"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/parma/keita-m/6898/2026-27" target="_self">
+    
+    <span>Keita M.</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="c" title="Centrocampista"></span>
+    
+        <span class="role role-mantra" data-value="m" title="Mediano"></span>
+        <span class="role role-mantra" data-value="c" title="Centrocampista centrale"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="-5">
+                                            5
+                                        </div>
+                                </li>
+                                <li data-id="7628" data-r="357"
+                                    class="player-item player-out">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/parma/sierro/7628/2026-27" target="_self">
+    
+    <span>Sierro</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="c" title="Centrocampista"></span>
+    
+        <span class="role role-mantra" data-value="m" title="Mediano"></span>
+        <span class="role role-mantra" data-value="c" title="Centrocampista centrale"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="5">
+                                            9
+                                        </div>
+                                </li>
+                                <li data-id="6666" data-r="388"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/parma/bernab&#xE8;/6666/2026-27" target="_self">
+    
+    <span>Bernab&#xE8;</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="c" title="Centrocampista"></span>
+    
+        <span class="role role-mantra" data-value="c" title="Centrocampista centrale"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="-5,5">
+                                            5,5
+                                        </div>
+                                </li>
+                                <li data-id="6206" data-r="524"
+                                    class="player-item player-out">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/parma/fabbian/6206/2026-27" target="_self">
+    
+    <span>Fabbian</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="c" title="Centrocampista"></span>
+    
+        <span class="role role-mantra" data-value="c" title="Centrocampista centrale"></span>
+        <span class="role role-mantra" data-value="t" title="Trequartista"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="-5">
+                                            5
+                                        </div>
+                                </li>
+                                <li data-id="7561" data-r="287"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/parma/lontani/7561/2026-27" target="_self">
+    
+    <span>Lontani</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="a" title="Attaccante"></span>
+    
+        <span class="role role-mantra" data-value="a" title="Attaccante di raccordo"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="-5,5">
+                                            5,5
+                                        </div>
+                                </li>
+                                    <li data-id="4289" data-r="533" class="player-item">
+                                        <div class="player-grade" data-value="5">6</div>
+                                    </li>
+                                <li data-id="5862" data-r="223"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/parma/valeri/5862/2026-27" target="_self">
+    
+    <span>Valeri</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="d" title="Difensore"></span>
+    
+        <span class="role role-mantra" data-value="ds" title="Difensore Sinistro"></span>
+        <span class="role role-mantra" data-value="e" title="Esterno"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="5">
+                                            8
+                                        </div>
+                                </li>
+                                    <li data-id="52" data-r="311" class="player-item">
+                                        <div class="player-grade" data-value="3">6</div>
+                                    </li>
+                                <li data-id="6229" data-r="587"
+                                    class="player-item player-out">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/parma/tour&#xE8;-e/6229/2026-27" target="_self">
+    
+    <span>Tour&#xE8; E.</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="a" title="Attaccante"></span>
+    
+        <span class="role role-mantra" data-value="pc" title="Punta centrale"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="-5,5">
+                                            5,5
+                                        </div>
+                                </li>
+                                <li data-id="7213" data-r="177"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/parma/frigan/7213/2026-27" target="_self">
+    
+    <span>Frigan</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="a" title="Attaccante"></span>
+    
+        <span class="role role-mantra" data-value="a" title="Attaccante di raccordo"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="--">
+                                            -
+                                        </div>
+                                </li>
+                                    <li data-id="832" data-r="419" class="player-item">
+                                        <div class="player-grade" data-value="6">6</div>
+                                    </li>
+                                <li data-id="7342" data-r="421"
+                                    class="player-item player-out">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/parma/elphege/7342/2026-27" target="_self">
+    
+    <span>Elphege</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="a" title="Attaccante"></span>
+    
+        <span class="role role-mantra" data-value="pc" title="Punta centrale"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="-5,5">
+                                            5,5
+                                        </div>
+                                </li>
+                                <li data-id="7554" data-r="484"
+                                    class="player-item ">
+<a class="player-name player-link"     
+    href="https://www.fantacalcio.it/serie-a/squadre/parma/romero-d/7554/2026-27" target="_self">
+    
+    <span>Romero D.</span>
+</a>                                      
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="a" title="Attaccante"></span>
+    
+        <span class="role role-mantra" data-value="pc" title="Punta centrale"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="-6">
+                                            6
+                                        </div>
+                                </li>
+                                <li data-id="698" data-r="578"
+                                    class="player-item ">
+                                        <span class="player-name">
+                                            Gilardino                                            
+                                        </span>
+                                    
+
+<div class="pill role-pill theme-light">
+        <span class="role" data-value="all" title="N/D"></span>
+    
+        <span class="role role-mantra" data-value="all" title="N/D"></span>
+    
+</div>
+                                    <div class="player-events-strip">
+                                    </div>
+                                        <div class="player-grade" data-value="4,5">
+                                            4,5
+                                        </div>
+                                </li>
+                        </ul>
+                    </div>
+        </div>
+    </div>
+</section>

@@ -28,7 +28,7 @@ function runProviderContractTests(
       });
 
       it('has a valid type', () => {
-        expect(['mock', 'espn', 'apifootball', 'fotmob', 'csv']).toContain(provider.type);
+        expect(['mock', 'espn', 'apifootball', 'fotmob', 'csv', 'fantacalcio-it']).toContain(provider.type);
       });
     });
 

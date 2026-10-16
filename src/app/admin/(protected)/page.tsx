@@ -9,6 +9,7 @@ import {
   LogOut,
   ChevronRight,
   UserPlus,
+  ClipboardList,
 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -46,6 +47,13 @@ export default function AdminPage() {
           icon={UserPlus}
           title="Rose"
           description="Importa rose squadre da FMS Revo"
+        />
+
+        <AdminMenuItem
+          href="/admin/voti"
+          icon={ClipboardList}
+          title="Voti"
+          description="Importa voti fantacalcio.it"
         />
 
         <div className="pt-4">

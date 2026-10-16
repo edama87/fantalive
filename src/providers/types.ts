@@ -19,7 +19,7 @@
 
 import { MatchStatus, EventType } from '@/types';
 
-export type ProviderType = 'mock' | 'espn' | 'apifootball' | 'fotmob' | 'csv';
+export type ProviderType = 'mock' | 'espn' | 'apifootball' | 'fotmob' | 'csv' | 'fantacalcio-it';
 
 export interface ProviderConfig {
   type: ProviderType;

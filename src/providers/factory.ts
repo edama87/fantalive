@@ -2,16 +2,17 @@
  * Provider Factory
  * 
  * Creates the appropriate LiveDataProvider based on configuration.
- * Set LIVE_PROVIDER env var to select: mock | espn | apifootball | fotmob | csv
+ * Set LIVE_PROVIDER env var to select: mock | espn | fantacalcio-it | apifootball | fotmob | csv
  */
 
 import { LiveDataProvider, ProviderType, ProviderConfig } from './types';
 import { createMockProvider } from './mock-provider';
 import { createEspnProvider } from './espn-provider';
+import { createFantacalcioItProvider } from './fantacalcio-it-provider';
 
 export function getProviderType(): ProviderType {
   const envProvider = process.env.NEXT_PUBLIC_LIVE_PROVIDER || process.env.LIVE_PROVIDER || 'mock';
-  const validTypes: ProviderType[] = ['mock', 'espn', 'apifootball', 'fotmob', 'csv'];
+  const validTypes: ProviderType[] = ['mock', 'espn', 'apifootball', 'fotmob', 'csv', 'fantacalcio-it'];
   
   if (validTypes.includes(envProvider as ProviderType)) {
     return envProvider as ProviderType;
@@ -30,6 +31,9 @@ export function createProvider(config?: Partial<ProviderConfig>): LiveDataProvid
     
     case 'espn':
       return createEspnProvider();
+
+    case 'fantacalcio-it':
+      return createFantacalcioItProvider();
     
     case 'apifootball':
       throw new Error(

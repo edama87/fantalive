@@ -134,3 +134,7 @@ export class YourProvider implements LiveDataProvider {
 4. Export from `index.ts`
 5. Add contract tests
 6. Document in this file
+
+`fantacalcio-it` legge il calendario e le pagine `/voti` di fantacalcio.it.
+Il voto in `rating` è il numero visibile (voto puro). `estimatedVote` è il fantavoto
+(voto puro + bonus/malus). Si seleziona con `LIVE_PROVIDER=fantacalcio-it`.
