@@ -4,6 +4,10 @@ import { join } from 'path';
 import { 
   isPDFContent, 
   parseFMSRevoPDF,
+  isPanchinaRowText,
+  parsePdfPlayerTexts,
+  readPdfColumnPlayers,
+  convertPDFResultToLineupResult,
   PDFParseResult,
 } from '../fmsrevo-pdf-parser';
 
@@ -22,7 +26,99 @@ const FANTASY_TEAMS = [
   { id: 'psg', name: 'Parisso San Gennaro' },
 ];
 
+describe('righe giocatore PDF', () => {
+  it('tiene il capitano marcato con asterisco', () => {
+    expect(parsePdfPlayerTexts(['C*', 'NAP', 'Mctominay S. F.'])).toEqual({
+      role: 'C',
+      club: 'NAP',
+      name: 'Mctominay S. F.',
+    });
+  });
+
+  it('non scarta Gollini perché il cognome contiene gol', () => {
+    expect(parsePdfPlayerTexts(['P', 'ROM', 'Gollini P.'])).toEqual({
+      role: 'P',
+      club: 'ROM',
+      name: 'Gollini P.',
+    });
+  });
+
+  it('ricompone un nome spezzato sull\'apostrofo o su due righe', () => {
+    expect(parsePdfPlayerTexts(['A', 'PAR', 'Toure', "'", 'E.', 'B.'])).toEqual({
+      role: 'A',
+      club: 'PAR',
+      name: "Toure' E. B.",
+    });
+
+    const { starters } = readPdfColumnPlayers([
+      ['C', 'NAP'],
+      ['Mctominay S. F.'],
+      ['A', 'ROM', 'Soule'],
+      ["' M."],
+    ]);
+    expect(starters.map((player) => player.rawName)).toEqual([
+      'Mctominay S. F.',
+      "Soule' M.",
+    ]);
+  });
+
+  it('segnala 10 titolari come avviso, senza errore che blocca', () => {
+    const result = convertPDFResultToLineupResult(
+      {
+        success: true,
+        isPDF: true,
+        serieAMatchday: 7,
+        fantasyMatchday: 1,
+        message: null,
+        teams: [
+          {
+            rawTeamName: 'Amatori ProSecco',
+            matchedTeamId: 'ap',
+            matchedTeamName: 'Amatori ProSecco',
+            matchedTeamConfidence: 1,
+            starters: Array.from({ length: 10 }, (_, index) => ({
+              rawName: `Player ${index}`,
+              role: 'C' as const,
+              serieAClub: 'NAP',
+              position: index,
+              isStarter: true,
+            })),
+            bench: [
+              {
+                rawName: 'Bench',
+                role: 'P' as const,
+                serieAClub: 'NAP',
+                position: 0,
+                isStarter: false,
+              },
+            ],
+            hasLineup: true,
+            notSubmitted: false,
+          },
+        ],
+      },
+      [],
+      FANTASY_TEAMS
+    );
+    const team = result.teams[0];
+    expect(team.warnings.some((warning) => warning.includes('invece di 11'))).toBe(true);
+    expect(team.errors.some((error) => error.includes('invece di 11'))).toBe(false);
+  });
+});
+
 describe('FMS Revo PDF Parser', () => {
+  describe('isPanchinaRowText', () => {
+    it('detects plain and noisy panchina labels (Yellow Mustard / FMS)', () => {
+      expect(isPanchinaRowText('panchina')).toBe(true);
+      expect(isPanchinaRowText('Panchina')).toBe(true);
+      expect(isPanchinaRowText('  PANCHINA  ')).toBe(true);
+      expect(isPanchinaRowText('panchina:')).toBe(true);
+      expect(isPanchinaRowText('pan china')).toBe(true);
+      expect(isPanchinaRowText('P Skorupski L.')).toBe(false);
+      expect(isPanchinaRowText('Yellow Mustard')).toBe(false);
+    });
+  });
+
   describe('isPDFContent', () => {
     it('detects PDF from magic bytes', () => {
       const pdfHeader = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2D]);

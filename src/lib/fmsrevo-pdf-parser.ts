@@ -18,7 +18,8 @@
 
 import { extractTextItems } from 'unpdf';
 import { Player, PlayerRole } from '@/types';
-import { fuzzyMatchTeam } from './fmsrevo-lineup-parser';
+import type { FmsPlayerAlias } from '@/lib/lineup-matching';
+import { fuzzyMatchPlayer, fuzzyMatchTeam } from './fmsrevo-lineup-parser';
 
 export interface PDFTextItem {
   text: string;
@@ -69,20 +70,6 @@ const ROLE_MAP: Record<string, PlayerRole> = {
   'C': 'C',
   'A': 'A',
 };
-
-const FOOTER_KEYWORDS = [
-  'parziale squadra',
-  'mod. portiere',
-  'mod. difesa',
-  'mod. centrocampo',
-  'mod. attacco',
-  'fattore campo',
-  'riserva d\'ufficio',
-  'totale squadra',
-  'gol',
-  'fmsrevo',
-  'pagina',
-];
 
 const HEADER_KEYWORDS = [
   'fantamister',
@@ -191,49 +178,184 @@ function splitLeftRight(page: PDFPageContent): { left: PDFTextItem[]; right: PDF
   return { left, right };
 }
 
+function cleanPdfTokens(texts: string[]): string[] {
+  return texts
+    .map((text) => text.trim())
+    .filter((text) => text.length > 0 && text !== '*');
+}
+
+/** P/D/C/A, including the captain mark used by FMS ("C*"). */
+export function pdfRoleFromToken(token: string): PlayerRole | null {
+  const cleaned = token.toUpperCase().replace(/\*/g, '').trim();
+  return ROLE_MAP[cleaned] || null;
+}
+
+function pdfClubFromToken(token: string): string | null {
+  const club = token.toUpperCase().replace(/\./g, '');
+  if (club.length < 2 || club.length > 4) return null;
+  if (!/^[A-Z]+$/.test(club)) return null;
+  return club;
+}
+
 /**
- * Check if a row of items is a player row (has role like P/D/C/A, club abbreviation, and player name)
+ * Glue an apostrophe that PDF extraction split into its own glyph
+ * ("Toure" + "'" + "E. B." → "Toure' E. B.").
  */
-function parsePlayerFromRow(rowItems: PDFTextItem[]): { role: PlayerRole | null; club: string; name: string } | null {
-  if (rowItems.length < 2) return null;
-  
-  const sortedItems = [...rowItems].sort((a, b) => a.x - b.x);
-  const texts = sortedItems.map(item => item.text.trim()).filter(t => t.length > 0);
-  
-  if (texts.length < 2) return null;
-  
-  const combined = texts.join(' ').toLowerCase();
-  
-  for (const keyword of FOOTER_KEYWORDS) {
-    if (combined.includes(keyword)) return null;
+export function joinPdfNameParts(parts: string[]): string {
+  let name = '';
+  for (const part of parts) {
+    const piece = part.trim();
+    if (!piece || piece === '*') continue;
+    if (!name) {
+      name = piece;
+      continue;
+    }
+    if (piece === "'" || piece === '’' || piece === '`') {
+      name += piece;
+      continue;
+    }
+    if (/^['’`]/.test(piece)) {
+      name += piece;
+      continue;
+    }
+    name += ` ${piece}`;
   }
-  for (const keyword of HEADER_KEYWORDS) {
-    if (combined.includes(keyword)) return null;
+  return name.replace(/\s+/g, ' ').trim();
+}
+
+export function appendPlayerName(base: string, extra: string): string {
+  return joinPdfNameParts([base, extra]);
+}
+
+const FOOTER_LINE =
+  /^(parziale squadra|mod\.?\s*portiere|mod\.?\s*difesa|mod\.?\s*centrocampo|mod\.?\s*attacco|fattore campo|riserva d'ufficio|totale squadra|gol|pagina\b|fmsrevo\b)/i;
+
+/**
+ * A player row is role + club + name. Footer words are matched as whole lines,
+ * so a surname like "Gollini" is not discarded because it contains "gol".
+ * Numeric vote cells after the name are ignored.
+ */
+export function parsePdfPlayerTexts(
+  texts: string[]
+): { role: PlayerRole; club: string; name: string } | null {
+  const cleaned = cleanPdfTokens(texts);
+  if (cleaned.length < 3) return null;
+
+  const role = pdfRoleFromToken(cleaned[0]);
+  if (!role) return null;
+  const club = pdfClubFromToken(cleaned[1]);
+  if (!club) return null;
+
+  const nameParts: string[] = [];
+  for (const part of cleaned.slice(2)) {
+    if (/^\d+([.,]\d+)?$/.test(part)) break;
+    nameParts.push(part);
   }
-  
-  if (combined === 'panchina' || combined === 'r' || combined === 'sq.' || combined === 'r sq.') {
-    return null;
-  }
-  
-  const firstText = texts[0].toUpperCase();
-  if (!ROLE_MAP[firstText]) return null;
-  
-  if (texts.length < 3) return null;
-  
-  const clubCandidate = texts[1].toUpperCase();
-  if (clubCandidate.length < 2 || clubCandidate.length > 4) return null;
-  if (!/^[A-Z]+$/.test(clubCandidate)) return null;
-  
-  const nameParts = texts.slice(2);
-  const name = nameParts.join(' ');
-  
-  if (!name || name.match(/^\d/) || name.toLowerCase().includes('voto')) return null;
-  
-  return {
-    role: ROLE_MAP[firstText],
-    club: clubCandidate,
-    name: name,
+  const name = joinPdfNameParts(nameParts);
+  if (!name || /^\d/.test(name) || name.toLowerCase().includes('voto')) return null;
+
+  return { role, club, name };
+}
+
+/** Role and club on their own row, when the name wraps onto the next line. */
+export function parsePdfRoleClubOnly(
+  texts: string[]
+): { role: PlayerRole; club: string } | null {
+  const cleaned = cleanPdfTokens(texts);
+  if (cleaned.length !== 2) return null;
+  const role = pdfRoleFromToken(cleaned[0]);
+  const club = pdfClubFromToken(cleaned[1]);
+  if (!role || !club) return null;
+  return { role, club };
+}
+
+/** Second line of a wrapped name (initials, or a surname split on the apostrophe). */
+export function parsePdfNameContinuation(texts: string[]): string | null {
+  const cleaned = cleanPdfTokens(texts);
+  if (cleaned.length === 0 || cleaned.length > 6) return null;
+  const joined = cleaned.join(' ').replace(/\s+/g, ' ').trim();
+  const lower = joined.toLowerCase();
+  if (!joined || joined.includes(':')) return null;
+  if (isPanchinaRowText(lower) || FOOTER_LINE.test(lower)) return null;
+  if (HEADER_KEYWORDS.some((keyword) => lower.includes(keyword))) return null;
+  if (cleaned.length === 1 && pdfRoleFromToken(cleaned[0])) return null;
+  if (parsePdfPlayerTexts(cleaned) || parsePdfRoleClubOnly(cleaned)) return null;
+  if (!/^[\p{L}0-9.'’`\- ]+$/u.test(joined)) return null;
+  if (!/\p{L}/u.test(joined)) return null;
+  return joinPdfNameParts(cleaned);
+}
+
+export function rowTextsFromItems(rowItems: PDFTextItem[]): string[] {
+  return cleanPdfTokens(
+    [...rowItems].sort((a, b) => a.x - b.x).map((item) => item.text)
+  );
+}
+
+/**
+ * Read starters and bench from already-grouped column rows.
+ * Joins names split by an apostrophe glyph or wrapped onto the next line.
+ */
+export function readPdfColumnPlayers(rows: string[][]): {
+  starters: ParsedPDFPlayer[];
+  bench: ParsedPDFPlayer[];
+} {
+  const starters: ParsedPDFPlayer[] = [];
+  const bench: ParsedPDFPlayer[] = [];
+  let inBench = false;
+  let pending: { role: PlayerRole; club: string } | null = null;
+
+  const pushPlayer = (info: { role: PlayerRole; club: string; name: string }) => {
+    const list = inBench ? bench : starters;
+    list.push({
+      rawName: info.name,
+      role: info.role,
+      serieAClub: info.club,
+      position: list.length,
+      isStarter: !inBench,
+    });
   };
+
+  for (const texts of rows) {
+    const rowText = texts.join(' ').trim().toLowerCase();
+    if (isPanchinaRowText(rowText)) {
+      inBench = true;
+      pending = null;
+      continue;
+    }
+
+    const playerInfo = parsePdfPlayerTexts(texts);
+    if (playerInfo) {
+      pending = null;
+      pushPlayer(playerInfo);
+      continue;
+    }
+
+    const partial = parsePdfRoleClubOnly(texts);
+    if (partial) {
+      pending = partial;
+      continue;
+    }
+
+    const continuation = parsePdfNameContinuation(texts);
+    if (!continuation) {
+      pending = null;
+      continue;
+    }
+
+    if (pending) {
+      pushPlayer({ role: pending.role, club: pending.club, name: continuation });
+      pending = null;
+      continue;
+    }
+
+    const list = inBench ? bench : starters;
+    const last = list[list.length - 1];
+    if (last) {
+      last.rawName = appendPlayerName(last.rawName, continuation);
+    }
+  }
+
+  return { starters, bench };
 }
 
 /**
@@ -278,6 +400,20 @@ function extractTeamName(rows: PDFTextItem[][]): string | null {
 }
 
 /**
+ * Detect the "panchina" separator row in a PDF column.
+ * FMS sometimes emits extra spaces / punctuation around the label.
+ */
+export function isPanchinaRowText(text: string): boolean {
+  const normalized = text.toLowerCase().replace(/\s+/g, ' ').trim();
+  if (!normalized) return false;
+  if (normalized === 'panchina') return true;
+  if (/^panchina[:.\s]*$/.test(normalized)) return true;
+  // Split glyphs like "pan china" or trailing junk without player data
+  if (/^pan\s*china[:.\s]*$/.test(normalized)) return true;
+  return false;
+}
+
+/**
  * Parse a single column (left or right team) from a page
  */
 function parseTeamColumn(
@@ -293,37 +429,7 @@ function parseTeamColumn(
   
   const teamMatch = fuzzyMatchTeam(rawTeamName, fantasyTeams);
   
-  const starters: ParsedPDFPlayer[] = [];
-  const bench: ParsedPDFPlayer[] = [];
-  let inBench = false;
-  let starterPosition = 0;
-  let benchPosition = 0;
-  
-  for (const row of rows) {
-    const rowText = row.map(item => item.text).join(' ').trim().toLowerCase();
-    
-    if (rowText === 'panchina') {
-      inBench = true;
-      continue;
-    }
-    
-    const playerInfo = parsePlayerFromRow(row);
-    if (playerInfo) {
-      const player: ParsedPDFPlayer = {
-        rawName: playerInfo.name,
-        role: playerInfo.role,
-        serieAClub: playerInfo.club,
-        position: inBench ? benchPosition++ : starterPosition++,
-        isStarter: !inBench,
-      };
-      
-      if (inBench) {
-        bench.push(player);
-      } else {
-        starters.push(player);
-      }
-    }
-  }
+  const { starters, bench } = readPdfColumnPlayers(rows.map(rowTextsFromItems));
   
   const hasLineup = starters.length > 0;
   const notSubmitted = starters.length === 0;
@@ -438,13 +544,25 @@ export async function parseFMSRevoPDF(
 export function convertPDFResultToLineupResult(
   pdfResult: PDFParseResult,
   allPlayers: Player[],
-  fantasyTeams: Array<{ id: string; name: string }>
+  fantasyTeams: Array<{ id: string; name: string }>,
+  playersByTeamId?: Record<string, Player[]>,
+  aliases?: readonly FmsPlayerAlias[] | null
 ): import('./fmsrevo-lineup-parser').LineupParseResult {
-  const { fuzzyMatchPlayer } = require('./fmsrevo-lineup-parser');
-  
   const teams: import('./fmsrevo-lineup-parser').ParsedTeamLineup[] = pdfResult.teams.map(pdfTeam => {
+    const preferred =
+      pdfTeam.matchedTeamId && playersByTeamId
+        ? (playersByTeamId[pdfTeam.matchedTeamId] ?? [])
+        : null;
+
     const starters = pdfTeam.starters.map(p => {
-      const match = fuzzyMatchPlayer(p.rawName, allPlayers, p.role, p.serieAClub);
+      const match = fuzzyMatchPlayer(
+        p.rawName,
+        allPlayers,
+        p.role,
+        p.serieAClub,
+        preferred,
+        aliases
+      );
       return {
         rawName: p.rawName,
         role: p.role,
@@ -459,7 +577,14 @@ export function convertPDFResultToLineupResult(
     });
     
     const bench = pdfTeam.bench.map(p => {
-      const match = fuzzyMatchPlayer(p.rawName, allPlayers, p.role, p.serieAClub);
+      const match = fuzzyMatchPlayer(
+        p.rawName,
+        allPlayers,
+        p.role,
+        p.serieAClub,
+        preferred,
+        aliases
+      );
       return {
         rawName: p.rawName,
         role: p.role,
@@ -479,6 +604,8 @@ export function convertPDFResultToLineupResult(
     if (pdfTeam.notSubmitted) {
       warnings.push('Formazione non ancora inserita');
     } else {
+      // A short XI is a warning. It must not block import when the PDF
+      // really lists fewer than 11 starters (lost rows are fixed upstream).
       if (starters.length !== 11 && starters.length > 0) {
         warnings.push(`Titolari: ${starters.length} invece di 11`);
       }
@@ -498,7 +625,11 @@ export function convertPDFResultToLineupResult(
         const msg = unmatchedBench.length > 3
           ? `${names} e altri ${unmatchedBench.length - 3}`
           : names;
-        warnings.push(`Panchina non riconosciuta: ${msg.substring(0, 80)}`);
+        errors.push(`Panchina non riconosciuta: ${msg.substring(0, 80)}`);
+      }
+
+      if (pdfTeam.hasLineup && bench.length === 0) {
+        errors.push('Panchina vuota: nessun giocatore letto dopo il separatore panchina');
       }
     }
     

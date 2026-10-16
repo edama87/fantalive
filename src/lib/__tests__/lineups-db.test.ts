@@ -53,6 +53,19 @@ describe('lineups-db helpers', () => {
     });
   });
 
+  it('buildUpsertLineupsPayload rejects unmatched null player ids', () => {
+    expect(() =>
+      buildUpsertLineupsPayload(1, [
+        {
+          teamId: 'ym',
+          formation: '4-4-2',
+          starterIds: ['a', null, 'c'],
+          benchIds: ['d', undefined],
+        },
+      ])
+    ).toThrow(/salvataggio bloccato/i);
+  });
+
   it('createLineupProviderFromMap falls back to default when missing', () => {
     const provider = createLineupProviderFromMap({
       [lineupKey('ym', 1)]: {

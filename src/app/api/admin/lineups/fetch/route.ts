@@ -17,7 +17,9 @@ import { getRoundByNumber } from '@/data/calendar';
 import { fetchFMSRevoLineups } from '@/lib/fmsrevo-client';
 import { isPDFContent, parseFMSRevoPDF, convertPDFResultToLineupResult } from '@/lib/fmsrevo-pdf-parser';
 import { parseLineupsContent } from '@/lib/fmsrevo-lineup-parser';
-import { getAllPlayers, teams } from '@/data/teams';
+import { teams } from '@/data/teams';
+import { fetchOpenRosterPlayersForMatching } from '@/lib/roster-import';
+import { isSupabaseServerConfigured } from '@/lib/db/supabase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -69,7 +71,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const allPlayers = getAllPlayers();
+    if (!isSupabaseServerConfigured()) {
+      return NextResponse.json(
+        {
+          error:
+            'SUPABASE_SECRET_KEY non configurata: impossibile abbinare i giocatori alle rose FMS',
+        },
+        { status: 503 }
+      );
+    }
+
+    const { allPlayers, byTeamId, aliases, catalog } =
+      await fetchOpenRosterPlayersForMatching();
     const fantasyTeams = teams.map(t => ({ id: t.id, name: t.name }));
 
     if (isPDFContent(result.data)) {
@@ -87,7 +100,13 @@ export async function POST(request: NextRequest) {
         );
       }
       
-      const lineupResult = convertPDFResultToLineupResult(pdfResult, allPlayers, fantasyTeams);
+      const lineupResult = convertPDFResultToLineupResult(
+        pdfResult,
+        allPlayers,
+        fantasyTeams,
+        byTeamId,
+        aliases
+      );
       
       return NextResponse.json({
         success: true,
@@ -97,12 +116,19 @@ export async function POST(request: NextRequest) {
         roundNumber,
         isPDF: true,
         message: pdfResult.message,
+        catalog,
       });
     } else {
       console.log('[Admin Lineups] Parsing HTML response');
       
       const htmlContent = new TextDecoder().decode(result.data);
-      const lineupResult = parseLineupsContent(htmlContent, allPlayers, fantasyTeams);
+      const lineupResult = parseLineupsContent(
+        htmlContent,
+        allPlayers,
+        fantasyTeams,
+        byTeamId,
+        aliases
+      );
       
       return NextResponse.json({
         success: lineupResult.success,
@@ -111,6 +137,7 @@ export async function POST(request: NextRequest) {
         roundNumber,
         isPDF: false,
         parseErrors: lineupResult.parseErrors,
+        catalog,
       });
     }
 

@@ -95,9 +95,49 @@ export async function fetchLineup(
 export interface ImportedLineupInput {
   teamId: string;
   formation: string | null;
-  starterIds: string[];
-  benchIds: string[];
+  starterIds: Array<string | null | undefined>;
+  benchIds: Array<string | null | undefined>;
   usePreviousLineup?: boolean;
+}
+
+export class UnmatchedLineupPlayersError extends Error {
+  readonly teamId: string;
+  readonly unmatchedStarters: number;
+  readonly unmatchedBench: number;
+
+  constructor(
+    teamId: string,
+    unmatchedStarters: number,
+    unmatchedBench: number
+  ) {
+    super(
+      `Formazione ${teamId}: ${unmatchedStarters} titolari e ${unmatchedBench} panchinari senza match — salvataggio bloccato`
+    );
+    this.name = 'UnmatchedLineupPlayersError';
+    this.teamId = teamId;
+    this.unmatchedStarters = unmatchedStarters;
+    this.unmatchedBench = unmatchedBench;
+  }
+}
+
+function assertNoMissingPlayerIds(
+  teamId: string,
+  starterIds: Array<string | null | undefined>,
+  benchIds: Array<string | null | undefined>
+): { starters: string[]; bench: string[] } {
+  const missingStarters = starterIds.filter((id) => !id).length;
+  const missingBench = benchIds.filter((id) => !id).length;
+  if (missingStarters > 0 || missingBench > 0) {
+    throw new UnmatchedLineupPlayersError(
+      teamId,
+      missingStarters,
+      missingBench
+    );
+  }
+  return {
+    starters: starterIds as string[],
+    bench: benchIds as string[],
+  };
 }
 
 export function buildUpsertLineupsPayload(
@@ -114,18 +154,29 @@ export function buildUpsertLineupsPayload(
           ? previousByTeam[lineupKey(team.teamId, roundNumber - 1)]
           : null;
       const base = previous || generateDefaultLineup(team.teamId, roundNumber);
+      const previousStarters = base.starters.map((s) => s.playerId);
+      const previousBench = base.bench.map((s) => s.playerId);
+      const { starters, bench } = assertNoMissingPlayerIds(
+        team.teamId,
+        previousStarters,
+        previousBench
+      );
       lineups.push({
         teamId: team.teamId,
         formation: base.formation,
-        starters: base.starters.map((s) => s.playerId).filter(Boolean),
-        bench: base.bench.map((s) => s.playerId).filter(Boolean),
+        starters,
+        bench,
       });
       continue;
     }
 
-    const starterIds = team.starterIds.filter(Boolean);
-    const benchIds = team.benchIds.filter(Boolean);
-    if (starterIds.length === 0) continue;
+    if (team.starterIds.length === 0) continue;
+
+    const { starters: starterIds, bench: benchIds } = assertNoMissingPlayerIds(
+      team.teamId,
+      team.starterIds,
+      team.benchIds
+    );
 
     const formation =
       (team.formation && isAllowedFormation(team.formation)

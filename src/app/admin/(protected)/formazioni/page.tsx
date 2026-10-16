@@ -5,16 +5,20 @@ import { Header } from '@/components/layout/header';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { 
-  parseLineupsContent,
+import {
   ParsedTeamLineup,
-  ParsedLineupPlayer,
   LineupParseResult,
 } from '@/lib/fmsrevo-lineup-parser';
-import { getAllPlayers, teams } from '@/data/teams';
+import { teams } from '@/data/teams';
 import { getRoundByNumber, calendar } from '@/data/calendar';
-import { Player } from '@/types';
 import { saveImportedLineups } from '@/lib/lineup-store';
+import {
+  lineupBlocksProceed,
+  otherRosterTeamIds,
+  rankLineupCandidates,
+  syncUnrecognizedPlayerErrors,
+  type LineupPlayerCatalogEntry,
+} from '@/lib/lineup-matching';
 import { 
   AlertCircle, 
   CheckCircle, 
@@ -22,8 +26,6 @@ import {
   FileText, 
   ArrowRight,
   X,
-  Edit2,
-  Save,
   AlertTriangle,
   Users,
   Loader2,
@@ -45,10 +47,8 @@ export default function FormazioniAdminPage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [parseResult, setParseResult] = useState<LineupParseResult | null>(null);
   const [reviewableLineups, setReviewableLineups] = useState<ReviewableLineup[]>([]);
-  const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
-  const [useFallbackForMissing, setUseFallbackForMissing] = useState(false);
+  const [catalog, setCatalog] = useState<LineupPlayerCatalogEntry[]>([]);
 
-  const allPlayers = useMemo(() => getAllPlayers(), []);
   const fantasyTeams = useMemo(() => teams.map(t => ({ id: t.id, name: t.name })), []);
   const round = useMemo(() => getRoundByNumber(selectedRound), [selectedRound]);
 
@@ -70,12 +70,21 @@ export default function FormazioniAdminPage() {
       }
 
       let teamsData: ParsedTeamLineup[] = [];
-      
+
       if (data.teams && Array.isArray(data.teams)) {
         teamsData = data.teams;
       } else if (data.html) {
-        const result = parseLineupsContent(data.html, allPlayers, fantasyTeams);
-        teamsData = result.teams;
+        // Server-side parse so matching uses open FMS rosters, not seed static data
+        const parseRes = await fetch('/api/admin/lineups/parse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: data.html }),
+        });
+        const parsed = await parseRes.json();
+        if (!parseRes.ok || parsed.success === false) {
+          throw new Error(parsed.error || 'Parsing HTML fallito');
+        }
+        teamsData = parsed.teams || [];
       }
       
       const reviewable: ReviewableLineup[] = teamsData.map(t => ({
@@ -115,6 +124,7 @@ export default function FormazioniAdminPage() {
         setFetchError(data.message);
       }
       
+      setCatalog(Array.isArray(data.catalog) ? data.catalog : []);
       setReviewableLineups(reviewable);
       setStep('review');
 
@@ -123,50 +133,77 @@ export default function FormazioniAdminPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedRound, allPlayers, fantasyTeams]);
+  }, [selectedRound, fantasyTeams]);
 
-  const handleParseManual = useCallback(() => {
+  const handleParseManual = useCallback(async () => {
     if (!manualContent.trim()) return;
 
-    const result = parseLineupsContent(manualContent, allPlayers, fantasyTeams);
-    setParseResult(result);
-    
-    const reviewable = result.teams.map(t => ({
-      ...t,
-      isConfirmed: false,
-      isSkipped: false,
-      usePreviousLineup: false,
-    }));
-    
-    const missingTeamIds = new Set(fantasyTeams.map(t => t.id));
-    reviewable.forEach(r => {
-      if (r.matchedTeamId) missingTeamIds.delete(r.matchedTeamId);
-    });
-    
-    for (const teamId of missingTeamIds) {
-      const team = fantasyTeams.find(t => t.id === teamId);
-      if (team) {
-        reviewable.push({
-          rawTeamName: team.name,
-          matchedTeamId: team.id,
-          matchedTeamName: team.name,
-          matchedTeamConfidence: 1,
-          formation: null,
-          starters: [],
-          bench: [],
-          errors: ['No lineup found in pasted content'],
-          warnings: [],
-          hasLineup: false,
-          isConfirmed: false,
-          isSkipped: false,
-          usePreviousLineup: false,
-        });
+    setIsLoading(true);
+    setFetchError(null);
+    try {
+      const response = await fetch('/api/admin/lineups/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: manualContent }),
+      });
+      const data = await response.json();
+      if (!response.ok || data.success === false) {
+        throw new Error(data.error || 'Parsing fallito');
       }
+
+      const result: LineupParseResult = {
+        success: Boolean(data.success),
+        teams: data.teams || [],
+        serieAMatchday: data.serieAMatchday ?? null,
+        parseErrors: data.parseErrors || [],
+        source: data.source || 'text',
+      };
+      setParseResult(result);
+
+      const reviewable: ReviewableLineup[] = result.teams.map((t) => ({
+        ...t,
+        isConfirmed: false,
+        isSkipped: false,
+        usePreviousLineup: false,
+      }));
+
+      const missingTeamIds = new Set(fantasyTeams.map((t) => t.id));
+      reviewable.forEach((r) => {
+        if (r.matchedTeamId) missingTeamIds.delete(r.matchedTeamId);
+      });
+
+      for (const teamId of missingTeamIds) {
+        const team = fantasyTeams.find((t) => t.id === teamId);
+        if (team) {
+          reviewable.push({
+            rawTeamName: team.name,
+            matchedTeamId: team.id,
+            matchedTeamName: team.name,
+            matchedTeamConfidence: 1,
+            formation: null,
+            starters: [],
+            bench: [],
+            errors: ['No lineup found in pasted content'],
+            warnings: [],
+            hasLineup: false,
+            isConfirmed: false,
+            isSkipped: false,
+            usePreviousLineup: false,
+          });
+        }
+      }
+
+      setCatalog(Array.isArray(data.catalog) ? data.catalog : []);
+      setReviewableLineups(reviewable);
+      setStep('review');
+    } catch (err) {
+      setFetchError(
+        err instanceof Error ? err.message : 'Errore parsing contenuto'
+      );
+    } finally {
+      setIsLoading(false);
     }
-    
-    setReviewableLineups(reviewable);
-    setStep('review');
-  }, [manualContent, allPlayers, fantasyTeams]);
+  }, [manualContent, fantasyTeams]);
 
   const handleToggleSkip = useCallback((teamId: string | null) => {
     if (!teamId) return;
@@ -191,18 +228,31 @@ export default function FormazioniAdminPage() {
       !l.isSkipped && (l.hasLineup || l.usePreviousLineup) && l.matchedTeamId
     );
 
+    const unmatched = lineupsToApply.filter(
+      (l) =>
+        !l.usePreviousLineup &&
+        (l.starters.some((s) => !s.matchedPlayerId) ||
+          l.bench.some((b) => !b.matchedPlayerId))
+    );
+    if (unmatched.length > 0) {
+      const names = unmatched
+        .map((l) => l.matchedTeamName || l.rawTeamName)
+        .join(', ');
+      setFetchError(
+        `Salvataggio bloccato: giocatori non abbinati in ${names}. Correggi in verifica.`
+      );
+      return;
+    }
+
     try {
       const saved = await saveImportedLineups(
         selectedRound,
         lineupsToApply.map((l) => ({
           teamId: l.matchedTeamId!,
           formation: l.formation,
-          starterIds: l.starters
-            .map((s) => s.matchedPlayerId)
-            .filter((id): id is string => Boolean(id)),
-          benchIds: l.bench
-            .map((b) => b.matchedPlayerId)
-            .filter((id): id is string => Boolean(id)),
+          // Keep nulls so the server can reject silent drops
+          starterIds: l.starters.map((s) => s.matchedPlayerId),
+          benchIds: l.bench.map((b) => b.matchedPlayerId),
           usePreviousLineup: l.usePreviousLineup,
         }))
       );
@@ -217,21 +267,105 @@ export default function FormazioniAdminPage() {
     }
   }, [reviewableLineups, selectedRound]);
 
+  const applyResolvedPlayer = useCallback(
+    (
+      teamId: string,
+      side: 'starters' | 'bench',
+      index: number,
+      player: { id: string; name: string }
+    ) => {
+      setReviewableLineups((prev) =>
+        prev.map((lineup) => {
+          if (lineup.matchedTeamId !== teamId) return lineup;
+          const nextList = lineup[side].map((entry, entryIndex) =>
+            entryIndex === index
+              ? {
+                  ...entry,
+                  matchedPlayerId: player.id,
+                  matchedPlayerName: player.name,
+                  matchedPlayerConfidence: 1,
+                  manuallyMatched: true,
+                }
+              : entry
+          );
+          return syncUnrecognizedPlayerErrors({ ...lineup, [side]: nextList });
+        })
+      );
+    },
+    []
+  );
+
+  const handleManualMatch = useCallback(
+    async (
+      teamId: string,
+      side: 'starters' | 'bench',
+      index: number,
+      player: LineupPlayerCatalogEntry
+    ) => {
+      const lineup = reviewableLineups.find((entry) => entry.matchedTeamId === teamId);
+      const raw = lineup?.[side][index];
+      if (!raw) throw new Error('Giocatore non trovato nella formazione');
+
+      const response = await fetch('/api/admin/lineups/alias', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alias: raw.rawName, playerId: player.id }),
+      });
+      const data = await response.json();
+      if (!response.ok || data.success === false) {
+        throw new Error(data.error || 'Alias non salvato');
+      }
+
+      applyResolvedPlayer(teamId, side, index, player);
+    },
+    [applyResolvedPlayer, reviewableLineups]
+  );
+
+  const handleAddPlayer = useCallback(
+    async (teamId: string, side: 'starters' | 'bench', index: number) => {
+      const lineup = reviewableLineups.find((entry) => entry.matchedTeamId === teamId);
+      const raw = lineup?.[side][index];
+      if (!raw) throw new Error('Giocatore non trovato nella formazione');
+      if (!raw.role) throw new Error('Ruolo mancante nel PDF: impossibile creare il giocatore');
+
+      const response = await fetch('/api/admin/lineups/add-player', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rawName: raw.rawName,
+          role: raw.role,
+          serieAClub: raw.serieAClub,
+          teamId,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || data.success === false || !data.player) {
+        throw new Error(data.error || 'Giocatore non creato');
+      }
+
+      const created = data.player as LineupPlayerCatalogEntry;
+      applyResolvedPlayer(teamId, side, index, created);
+      setCatalog((prev) => [...prev.filter((entry) => entry.id !== created.id), created]);
+    },
+    [applyResolvedPlayer, reviewableLineups]
+  );
+
   const handleReset = () => {
     setStep('select');
     setManualContent('');
     setParseResult(null);
     setReviewableLineups([]);
     setFetchError(null);
-    setEditingTeamId(null);
+    setCatalog([]);
   };
 
-  const validLineups = reviewableLineups.filter(l => 
-    !l.isSkipped && (l.hasLineup || l.usePreviousLineup) && l.errors.length === 0
+  const validLineups = reviewableLineups.filter(
+    (lineup) =>
+      !lineup.isSkipped &&
+      (lineup.hasLineup || lineup.usePreviousLineup) &&
+      !lineupBlocksProceed(lineup)
   );
-  const invalidLineups = reviewableLineups.filter(l => 
-    !l.isSkipped && !l.usePreviousLineup && l.errors.length > 0
-  );
+  const invalidLineups = reviewableLineups.filter(lineupBlocksProceed);
   const skippedLineups = reviewableLineups.filter(l => l.isSkipped);
 
   const canProceed = validLineups.length > 0 && invalidLineups.length === 0;
@@ -277,13 +411,13 @@ export default function FormazioniAdminPage() {
             validCount={validLineups.length}
             invalidCount={invalidLineups.length}
             skippedCount={skippedLineups.length}
-            allPlayers={allPlayers}
-            editingTeamId={editingTeamId}
-            useFallbackForMissing={useFallbackForMissing}
-            setUseFallbackForMissing={setUseFallbackForMissing}
+            catalog={catalog}
+            teamNames={Object.fromEntries(fantasyTeams.map((team) => [team.id, team.name]))}
+            fetchError={fetchError}
             onToggleSkip={handleToggleSkip}
             onToggleFallback={handleToggleFallback}
-            onEdit={setEditingTeamId}
+            onMatch={handleManualMatch}
+            onAdd={handleAddPlayer}
             onBack={handleReset}
             onProceed={() => setStep('confirm')}
             canProceed={canProceed}
@@ -471,13 +605,13 @@ function ReviewStep({
   validCount,
   invalidCount,
   skippedCount,
-  allPlayers,
-  editingTeamId,
-  useFallbackForMissing,
-  setUseFallbackForMissing,
+  catalog,
+  teamNames,
+  fetchError,
   onToggleSkip,
   onToggleFallback,
-  onEdit,
+  onMatch,
+  onAdd,
   onBack,
   onProceed,
   canProceed,
@@ -486,13 +620,18 @@ function ReviewStep({
   validCount: number;
   invalidCount: number;
   skippedCount: number;
-  allPlayers: Player[];
-  editingTeamId: string | null;
-  useFallbackForMissing: boolean;
-  setUseFallbackForMissing: (v: boolean) => void;
+  catalog: LineupPlayerCatalogEntry[];
+  teamNames: Record<string, string>;
+  fetchError: string | null;
   onToggleSkip: (teamId: string | null) => void;
   onToggleFallback: (teamId: string | null) => void;
-  onEdit: (teamId: string | null) => void;
+  onMatch: (
+    teamId: string,
+    side: 'starters' | 'bench',
+    index: number,
+    player: LineupPlayerCatalogEntry
+  ) => Promise<void>;
+  onAdd: (teamId: string, side: 'starters' | 'bench', index: number) => Promise<void>;
   onBack: () => void;
   onProceed: () => void;
   canProceed: boolean;
@@ -527,16 +666,22 @@ function ReviewStep({
           </div>
         </CardHeader>
         <CardContent>
+          {fetchError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              {fetchError}
+            </div>
+          )}
           <div className="space-y-4">
             {reviewableLineups.map(lineup => (
               <LineupReviewCard
                 key={lineup.matchedTeamId || lineup.rawTeamName}
                 lineup={lineup}
-                allPlayers={allPlayers}
-                isEditing={editingTeamId === lineup.matchedTeamId}
+                catalog={catalog}
+                teamNames={teamNames}
                 onToggleSkip={() => onToggleSkip(lineup.matchedTeamId)}
                 onToggleFallback={() => onToggleFallback(lineup.matchedTeamId)}
-                onEdit={() => onEdit(lineup.matchedTeamId)}
+                onMatch={onMatch}
+                onAdd={onAdd}
               />
             ))}
           </div>
@@ -570,21 +715,80 @@ function ReviewStep({
 
 function LineupReviewCard({
   lineup,
-  allPlayers,
-  isEditing,
+  catalog,
+  teamNames,
   onToggleSkip,
   onToggleFallback,
-  onEdit,
+  onMatch,
+  onAdd,
 }: {
   lineup: ReviewableLineup;
-  allPlayers: Player[];
-  isEditing: boolean;
+  catalog: LineupPlayerCatalogEntry[];
+  teamNames: Record<string, string>;
   onToggleSkip: () => void;
   onToggleFallback: () => void;
-  onEdit: () => void;
+  onMatch: (
+    teamId: string,
+    side: 'starters' | 'bench',
+    index: number,
+    player: LineupPlayerCatalogEntry
+  ) => Promise<void>;
+  onAdd: (teamId: string, side: 'starters' | 'bench', index: number) => Promise<void>;
 }) {
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [pending, setPending] = useState<LineupPlayerCatalogEntry | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const hasErrors = lineup.errors.length > 0;
   const hasWarnings = lineup.warnings.length > 0;
+  const rosterIds = useMemo(() => {
+    if (!lineup.matchedTeamId) return new Set<string>();
+    return new Set(
+      catalog
+        .filter((player) => player.rosterTeamIds.includes(lineup.matchedTeamId!))
+        .map((player) => player.id)
+    );
+  }, [catalog, lineup.matchedTeamId]);
+
+  const candidates = useMemo(() => {
+    if (!openKey) return [];
+    const [side, indexRaw] = openKey.split(':');
+    const list = side === 'bench' ? lineup.bench : lineup.starters;
+    const role = list[Number(indexRaw)]?.role ?? null;
+    return rankLineupCandidates(catalog, rosterIds, role, query);
+  }, [catalog, lineup.bench, lineup.starters, openKey, query, rosterIds]);
+
+  const commitMatch = async (player: LineupPlayerCatalogEntry) => {
+    if (!lineup.matchedTeamId || !openKey) return;
+    const [side, indexRaw] = openKey.split(':');
+    const parsedSide = side === 'bench' ? 'bench' : 'starters';
+    setBusy(true);
+    setActionError(null);
+    try {
+      await onMatch(lineup.matchedTeamId, parsedSide, Number(indexRaw), player);
+      setOpenKey(null);
+      setPending(null);
+      setQuery('');
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Abbinamento non salvato');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const commitAdd = async (side: 'starters' | 'bench', index: number) => {
+    if (!lineup.matchedTeamId) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      await onAdd(lineup.matchedTeamId, side, index);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Giocatore non creato');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className={cn(
@@ -659,59 +863,82 @@ function LineupReviewCard({
             </div>
           )}
 
+          {actionError && (
+            <div className="mt-2 text-sm text-red-700">{actionError}</div>
+          )}
+
           {lineup.hasLineup && lineup.starters.length > 0 && (
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-              <div>
-                <div className="font-medium text-gray-500 mb-1">Titolari</div>
-                {lineup.starters.slice(0, 6).map((p, i) => (
-                  <div key={i} className={cn(
-                    'py-0.5 flex items-center gap-1',
-                    p.matchedPlayerId ? 'text-gray-700' : 'text-red-600'
-                  )}>
-                    <span>{p.matchedPlayerName || p.rawName}</span>
-                    {p.role && <span className="text-gray-400">({p.role})</span>}
-                    {!p.matchedPlayerId && (
-                      <button 
-                        className="text-xs text-blue-600 hover:text-blue-800 underline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          alert(`Aggiungi giocatore: ${p.rawName} (${p.role}) - ${p.serieAClub}\n\nQuesta funzione salverà il giocatore nel database.`);
-                        }}
-                      >
-                        +aggiungi
-                      </button>
-                    )}
-                  </div>
-                ))}
-                {lineup.starters.length > 6 && (
-                  <div className="text-gray-400">+{lineup.starters.length - 6} altri</div>
-                )}
-              </div>
-              <div>
-                <div className="font-medium text-gray-500 mb-1">Panchina</div>
-                {lineup.bench.slice(0, 4).map((p, i) => (
-                  <div key={i} className={cn(
-                    'py-0.5 flex items-center gap-1',
-                    p.matchedPlayerId ? 'text-gray-700' : 'text-amber-600'
-                  )}>
-                    <span>{p.matchedPlayerName || p.rawName}</span>
-                    {!p.matchedPlayerId && (
-                      <button 
-                        className="text-xs text-blue-600 hover:text-blue-800 underline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          alert(`Aggiungi giocatore: ${p.rawName} (${p.role}) - ${p.serieAClub}\n\nQuesta funzione salverà il giocatore nel database.`);
-                        }}
-                      >
-                        +aggiungi
-                      </button>
-                    )}
-                  </div>
-                ))}
-                {lineup.bench.length > 4 && (
-                  <div className="text-gray-400">+{lineup.bench.length - 4} altri</div>
-                )}
-              </div>
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <PlayerColumn
+                title="Titolari"
+                side="starters"
+                players={lineup.starters}
+                openKey={openKey}
+                query={query}
+                candidates={candidates}
+                pending={pending}
+                busy={busy}
+                teamId={lineup.matchedTeamId}
+                teamNames={teamNames}
+                rosterIds={rosterIds}
+                onQuery={setQuery}
+                onOpen={(key) => {
+                  setOpenKey(key);
+                  setQuery('');
+                  setPending(null);
+                  setActionError(null);
+                }}
+                onClose={() => {
+                  setOpenKey(null);
+                  setPending(null);
+                }}
+                onPick={(player) => {
+                  if (!lineup.matchedTeamId) return;
+                  const others = otherRosterTeamIds(player, lineup.matchedTeamId);
+                  if (others.length > 0) setPending(player);
+                  else void commitMatch(player);
+                }}
+                onConfirm={() => {
+                  if (pending) void commitMatch(pending);
+                }}
+                onCancelConfirm={() => setPending(null)}
+                onAdd={(index) => void commitAdd('starters', index)}
+              />
+              <PlayerColumn
+                title="Panchina"
+                side="bench"
+                players={lineup.bench}
+                openKey={openKey}
+                query={query}
+                candidates={candidates}
+                pending={pending}
+                busy={busy}
+                teamId={lineup.matchedTeamId}
+                teamNames={teamNames}
+                rosterIds={rosterIds}
+                onQuery={setQuery}
+                onOpen={(key) => {
+                  setOpenKey(key);
+                  setQuery('');
+                  setPending(null);
+                  setActionError(null);
+                }}
+                onClose={() => {
+                  setOpenKey(null);
+                  setPending(null);
+                }}
+                onPick={(player) => {
+                  if (!lineup.matchedTeamId) return;
+                  const others = otherRosterTeamIds(player, lineup.matchedTeamId);
+                  if (others.length > 0) setPending(player);
+                  else void commitMatch(player);
+                }}
+                onConfirm={() => {
+                  if (pending) void commitMatch(pending);
+                }}
+                onCancelConfirm={() => setPending(null)}
+                onAdd={(index) => void commitAdd('bench', index)}
+              />
             </div>
           )}
         </div>
@@ -745,6 +972,177 @@ function LineupReviewCard({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function PlayerColumn({
+  title,
+  side,
+  players,
+  openKey,
+  query,
+  candidates,
+  pending,
+  busy,
+  teamId,
+  teamNames,
+  rosterIds,
+  onQuery,
+  onOpen,
+  onClose,
+  onPick,
+  onConfirm,
+  onCancelConfirm,
+  onAdd,
+}: {
+  title: string;
+  side: 'starters' | 'bench';
+  players: ReviewableLineup['starters'];
+  openKey: string | null;
+  query: string;
+  candidates: LineupPlayerCatalogEntry[];
+  pending: LineupPlayerCatalogEntry | null;
+  busy: boolean;
+  teamId: string | null;
+  teamNames: Record<string, string>;
+  rosterIds: Set<string>;
+  onQuery: (value: string) => void;
+  onOpen: (key: string) => void;
+  onClose: () => void;
+  onPick: (player: LineupPlayerCatalogEntry) => void;
+  onConfirm: () => void;
+  onCancelConfirm: () => void;
+  onAdd: (index: number) => void;
+}) {
+  const groupOf = (candidate: LineupPlayerCatalogEntry, role: string | null) =>
+    rosterIds.has(candidate.id) ? (role && candidate.role === role ? 0 : 1) : 2;
+
+  return (
+    <div>
+      <div className="font-medium text-gray-500 mb-1">{title}</div>
+      {players.map((player, index) => {
+        const key = `${side}:${index}`;
+        const isOpen = openKey === key;
+        const unresolved = !player.matchedPlayerId;
+        return (
+          <div
+            key={key}
+            className={cn(
+              'py-1 px-1 rounded',
+              player.manuallyMatched && 'bg-emerald-100 text-emerald-900',
+              unresolved && 'text-red-700',
+              !unresolved && !player.manuallyMatched && 'text-gray-700'
+            )}
+          >
+            <div className="flex items-center gap-2 flex-wrap">
+              <span>{player.matchedPlayerName || player.rawName}</span>
+              {player.role && <span className="text-gray-400">({player.role})</span>}
+              {player.manuallyMatched && player.rawName !== player.matchedPlayerName && (
+                <span className="text-emerald-700">← {player.rawName}</span>
+              )}
+              {unresolved && teamId && (
+                <>
+                  <button
+                    type="button"
+                    className="text-xs px-2 py-0.5 rounded bg-white border border-blue-300 text-blue-700 hover:bg-blue-50"
+                    onClick={() => (isOpen ? onClose() : onOpen(key))}
+                    disabled={busy}
+                  >
+                    Abbina
+                  </button>
+                  <button
+                    type="button"
+                    className="text-xs text-blue-600 hover:text-blue-800 underline disabled:opacity-40"
+                    disabled={busy || !player.role}
+                    onClick={() => onAdd(index)}
+                  >
+                    +aggiungi
+                  </button>
+                </>
+              )}
+            </div>
+            {isOpen && (
+              <div className="mt-1 mb-2 p-2 bg-white border border-gray-200 rounded-lg">
+                <input
+                  value={query}
+                  onChange={(event) => onQuery(event.target.value)}
+                  placeholder="Cerca per nome"
+                  className="w-full px-2 py-1 border border-gray-200 rounded text-sm"
+                />
+                <div className="mt-2 max-h-52 overflow-y-auto space-y-1">
+                  {candidates.length === 0 && (
+                    <div className="text-gray-400">Nessun giocatore trovato</div>
+                  )}
+                  {candidates.map((candidate, candidateIndex) => {
+                    const group = groupOf(candidate, player.role);
+                    const previous =
+                      candidateIndex === 0
+                        ? -1
+                        : groupOf(candidates[candidateIndex - 1], player.role);
+                    const showHeader = group !== previous;
+                    const label =
+                      group === 0
+                        ? 'Rosa attiva, stesso ruolo'
+                        : group === 1
+                          ? 'Resto della rosa'
+                          : 'Altri giocatori';
+                    return (
+                      <div key={candidate.id}>
+                        {showHeader && (
+                          <div className="pt-1 text-[11px] uppercase tracking-wide text-gray-400">
+                            {label}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => onPick(candidate)}
+                          className="w-full text-left px-1 py-1 rounded hover:bg-emerald-50"
+                        >
+                          <span className="font-medium">{candidate.name}</span>
+                          <span className="text-gray-500">
+                            {' '}
+                            · {candidate.role}
+                            {candidate.realTeam ? ` · ${candidate.realTeam}` : ''}
+                          </span>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                {pending && (
+                  <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-amber-800">
+                    {pending.name} è nella rosa di{' '}
+                    {otherRosterTeamIds(pending, teamId || '')
+                      .map((id) => teamNames[id] || id)
+                      .join(', ')}
+                    . Confermi l&apos;abbinamento?
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={onConfirm}
+                        className="px-2 py-1 rounded bg-emerald-600 text-white"
+                      >
+                        Conferma
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={onCancelConfirm}
+                        className="px-2 py-1 rounded bg-white border border-gray-300"
+                      >
+                        Annulla
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

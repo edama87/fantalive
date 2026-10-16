@@ -9,6 +9,7 @@
  */
 
 import { Player, PlayerRole } from '@/types';
+import type { FmsPlayerAlias } from '@/lib/lineup-matching';
 
 export interface ParsedLineupPlayer {
   rawName: string;
@@ -21,6 +22,8 @@ export interface ParsedLineupPlayer {
   matchedPlayerId: string | null;
   matchedPlayerConfidence: number;
   matchedPlayerName: string | null;
+  /** Set in the review UI after a manual alias or "+aggiungi". */
+  manuallyMatched?: boolean;
 }
 
 export interface ParsedTeamLineup {
@@ -187,25 +190,89 @@ function similarityScore(a: string, b: string): number {
  * Match a player name from PDF to our player database.
  * PDF names are like "Frendrup M. W." - surname + initials.
  * DB names may be just "Frendrup" or "Luka Modric".
- * 
+ *
  * Matching strategy:
- * 1. Try exact match on FMS name first (names imported from FMS)
- * 2. Extract surname from PDF name (strip initials)
- * 3. Match by normalized surname + role + club (real team)
- * 4. Use initials only to disambiguate (e.g., Martinez L. vs Martinez J.)
+ * 1. player_aliases (FMS name → player id), if provided
+ * 2. Exact FMS name on the team's active roster (preferredPlayers), if provided
+ * 3. Approximate search: roster only when a roster is provided, otherwise allPlayers
  */
 export function fuzzyMatchPlayer(
   rawName: string,
   allPlayers: Player[],
   preferredRole?: PlayerRole | null,
-  fmsClubCode?: string | null
+  fmsClubCode?: string | null,
+  preferredPlayers?: Player[] | null,
+  aliases?: readonly FmsPlayerAlias[] | null
 ): { playerId: string | null; confidence: number; playerName: string | null } {
   if (!rawName || rawName === '-' || rawName.trim() === '') {
     return { playerId: null, confidence: 0, playerName: null };
   }
 
   const normalizedInput = normalizeString(rawName);
-  
+  const aliasHit = findAliasMatch(normalizedInput, aliases, allPlayers, preferredPlayers);
+  if (aliasHit) return aliasHit;
+
+  // undefined/null → search allPlayers; empty array → exclusive empty roster
+  const preferred = preferredPlayers == null ? null : preferredPlayers;
+
+  // When the team's open FMS roster is provided, match ONLY against it
+  // (exact name first, then fuzzy) so starters never bind to seed/test rows.
+  if (preferred) {
+    for (const player of preferred) {
+      if (normalizeString(player.name) === normalizedInput) {
+        return {
+          playerId: player.id,
+          confidence: 1.0,
+          playerName: player.name,
+        };
+      }
+    }
+    return fuzzyMatchPlayerAgainstPool(
+      rawName,
+      preferred,
+      preferredRole,
+      fmsClubCode
+    );
+  }
+
+  return fuzzyMatchPlayerAgainstPool(
+    rawName,
+    allPlayers,
+    preferredRole,
+    fmsClubCode
+  );
+}
+
+function findAliasMatch(
+  normalizedInput: string,
+  aliases: readonly FmsPlayerAlias[] | null | undefined,
+  allPlayers: Player[],
+  preferredPlayers?: Player[] | null
+): { playerId: string | null; confidence: number; playerName: string | null } | null {
+  if (!aliases || aliases.length === 0) return null;
+
+  for (const alias of aliases) {
+    if (normalizeString(alias.alias) !== normalizedInput) continue;
+    const known =
+      allPlayers.find((player) => player.id === alias.playerId) ||
+      preferredPlayers?.find((player) => player.id === alias.playerId);
+    return {
+      playerId: alias.playerId,
+      confidence: 1,
+      playerName: known?.name ?? alias.playerName ?? null,
+    };
+  }
+  return null;
+}
+
+function fuzzyMatchPlayerAgainstPool(
+  rawName: string,
+  allPlayers: Player[],
+  preferredRole?: PlayerRole | null,
+  fmsClubCode?: string | null
+): { playerId: string | null; confidence: number; playerName: string | null } {
+  const normalizedInput = normalizeString(rawName);
+
   for (const player of allPlayers) {
     const playerNorm = normalizeString(player.name);
     if (playerNorm === normalizedInput) {
@@ -447,7 +514,9 @@ function parsePlayerLine(
   line: string,
   allPlayers: Player[],
   isStarter: boolean,
-  position: number
+  position: number,
+  preferredPlayers?: Player[] | null,
+  aliases?: readonly FmsPlayerAlias[] | null
 ): ParsedLineupPlayer | null {
   const trimmed = line.trim();
   if (!trimmed || trimmed === '-') return null;
@@ -491,7 +560,14 @@ function parsePlayerLine(
 
   if (!rawName) return null;
 
-  const match = fuzzyMatchPlayer(rawName, allPlayers, role);
+  const match = fuzzyMatchPlayer(
+    rawName,
+    allPlayers,
+    role,
+    serieAClub || null,
+    preferredPlayers,
+    aliases
+  );
 
   return {
     rawName,
@@ -535,7 +611,9 @@ function htmlToText(html: string): string {
 function parseTeamSection(
   section: string,
   allPlayers: Player[],
-  fantasyTeams: Array<{ id: string; name: string }>
+  fantasyTeams: Array<{ id: string; name: string }>,
+  playersByTeamId?: Record<string, Player[]>,
+  aliases?: readonly FmsPlayerAlias[] | null
 ): ParsedTeamLineup | null {
   const lines = section.split('\n').map(l => l.trim()).filter(l => l);
   
@@ -563,6 +641,13 @@ function parseTeamSection(
     formation = formationLine;
   }
 
+  // Resolve team early so player matching prefers that team's FMS roster
+  const teamMatch = fuzzyMatchTeam(rawTeamName, fantasyTeams);
+  const preferredPlayers =
+    teamMatch.teamId && playersByTeamId
+      ? (playersByTeamId[teamMatch.teamId] ?? [])
+      : null;
+
   let inBench = false;
   let starterPosition = 0;
   let benchPosition = 0;
@@ -585,7 +670,9 @@ function parseTeamSection(
       line,
       allPlayers,
       !inBench,
-      inBench ? benchPosition++ : starterPosition++
+      inBench ? benchPosition++ : starterPosition++,
+      preferredPlayers,
+      aliases
     );
 
     if (player) {
@@ -613,11 +700,10 @@ function parseTeamSection(
   if (unmatchedStarters.length > 0) {
     errors.push(`${unmatchedStarters.length} starter(s) not matched: ${unmatchedStarters.map(p => p.rawName).join(', ')}`);
   }
+  // Never silently drop bench players — surface as errors on the review page
   if (unmatchedBench.length > 0) {
-    warnings.push(`${unmatchedBench.length} bench player(s) not matched: ${unmatchedBench.map(p => p.rawName).join(', ')}`);
+    errors.push(`${unmatchedBench.length} bench player(s) not matched: ${unmatchedBench.map(p => p.rawName).join(', ')}`);
   }
-
-  const teamMatch = fuzzyMatchTeam(rawTeamName, fantasyTeams);
 
   return {
     rawTeamName,
@@ -639,7 +725,9 @@ function parseTeamSection(
 export function parseLineupsContent(
   content: string,
   allPlayers: Player[],
-  fantasyTeams: Array<{ id: string; name: string }>
+  fantasyTeams: Array<{ id: string; name: string }>,
+  playersByTeamId?: Record<string, Player[]>,
+  aliases?: readonly FmsPlayerAlias[] | null
 ): LineupParseResult {
   const isHtml = content.includes('<') && content.includes('>');
   const text = isHtml ? htmlToText(content) : content;
@@ -702,7 +790,13 @@ export function parseLineupsContent(
   }
 
   for (const section of sections) {
-    const parsed = parseTeamSection(section, allPlayers, fantasyTeams);
+    const parsed = parseTeamSection(
+      section,
+      allPlayers,
+      fantasyTeams,
+      playersByTeamId,
+      aliases
+    );
     if (parsed) {
       teams.push(parsed);
     }

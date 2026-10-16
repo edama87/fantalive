@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildImportRostersPayload } from '@/lib/roster-import';
+import {
+  buildImportRostersPayload,
+  isSeedPlayerId,
+} from '@/lib/roster-import';
 import type { ParsedTeamRoster } from '@/lib/fmsrevo-roster-parser';
 
 const sampleTeam = (name: string, n = 25): ParsedTeamRoster => {
@@ -20,6 +23,15 @@ const sampleTeam = (name: string, n = 25): ParsedTeamRoster => {
     })),
   };
 };
+
+describe('isSeedPlayerId', () => {
+  it('detects seed/test player ids', () => {
+    expect(isSeedPlayerId('ym-meret')).toBe(true);
+    expect(isSeedPlayerId('psg-modric')).toBe(true);
+    expect(isSeedPlayerId('meret-alex-p')).toBe(false);
+    expect(isSeedPlayerId('fms-abcdef0123456789')).toBe(false);
+  });
+});
 
 describe('buildImportRostersPayload', () => {
   it('maps FMS team/player fields for the SQL RPC', () => {

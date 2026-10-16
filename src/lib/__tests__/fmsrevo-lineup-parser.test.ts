@@ -75,6 +75,54 @@ describe('fuzzyMatchPlayer', () => {
     const result = fuzzyMatchPlayer('KVARATSKHELIA Khvicha', mockPlayers);
     expect(result.playerId).toBe('p8');
   });
+
+  it('prefers exact FMS name on the team roster over seed lookalikes', () => {
+    const seedLookalike: Player = {
+      id: 'ym-meret',
+      name: 'Meret',
+      role: 'P',
+      teamId: 'ym',
+    };
+    const fmsPlayer: Player = {
+      id: 'meret-alex-p',
+      name: 'MERET Alex',
+      role: 'P',
+      teamId: 'ym',
+      realTeam: 'NAP',
+    };
+    const result = fuzzyMatchPlayer(
+      'MERET Alex',
+      [seedLookalike, fmsPlayer],
+      'P',
+      'NAP',
+      [fmsPlayer]
+    );
+    expect(result.playerId).toBe('meret-alex-p');
+    expect(result.confidence).toBe(1);
+  });
+
+  it('does not fall back to seed when preferred roster is provided', () => {
+    const seedLookalike: Player = {
+      id: 'ym-meret',
+      name: 'Meret',
+      role: 'P',
+      teamId: 'ym',
+    };
+    const otherFms: Player = {
+      id: 'svilar-mile-p',
+      name: 'SVILAR Mile',
+      role: 'P',
+      teamId: 'ym',
+    };
+    const result = fuzzyMatchPlayer(
+      'MERET Alex',
+      [seedLookalike, otherFms],
+      'P',
+      'NAP',
+      [otherFms]
+    );
+    expect(result.playerId).toBeNull();
+  });
 });
 
 describe('fuzzyMatchTeam', () => {
@@ -216,6 +264,48 @@ UNKNOWN PLAYER Name - POR - NAP
     
     const ymTeam = result.teams.find(t => t.matchedTeamId === 'ym');
     expect(ymTeam?.errors.some(e => e.includes('not matched'))).toBe(true);
+  });
+
+  it('reports unmatched bench players as errors (never silent)', () => {
+    const content = `
+Yellow Mustard
+4-4-2
+MERET Alex - POR - NAP
+PANCHINA
+UNKNOWN BENCH Guy - DIF - NAP
+    `;
+
+    const result = parseLineupsContent(content, mockPlayers, mockTeams);
+    const ymTeam = result.teams.find((t) => t.matchedTeamId === 'ym');
+    expect(ymTeam?.bench.some((b) => b.rawName.includes('UNKNOWN'))).toBe(true);
+    expect(
+      ymTeam?.errors.some((e) => e.includes('bench') && e.includes('not matched'))
+    ).toBe(true);
+  });
+
+  it('matches starters against preferred FMS roster by exact name', () => {
+    const fmsRoster: Player[] = [
+      {
+        id: 'meret-alex-p',
+        name: 'MERET Alex',
+        role: 'P',
+        teamId: 'ym',
+        realTeam: 'NAP',
+      },
+    ];
+    const seedAndFms: Player[] = [
+      { id: 'ym-meret', name: 'Meret', role: 'P', teamId: 'ym' },
+      ...fmsRoster,
+    ];
+    const content = `
+Yellow Mustard
+MERET Alex - POR - NAP
+    `;
+    const result = parseLineupsContent(content, seedAndFms, mockTeams, {
+      ym: fmsRoster,
+    });
+    const ymTeam = result.teams.find((t) => t.matchedTeamId === 'ym');
+    expect(ymTeam?.starters[0]?.matchedPlayerId).toBe('meret-alex-p');
   });
 
   it('handles empty content gracefully', () => {
