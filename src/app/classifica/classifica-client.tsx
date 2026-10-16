@@ -11,7 +11,7 @@ import {
   getInitialStandings,
   convertProviderDataToPlayerMatchData,
 } from '@/lib/live-data';
-import { createLineupProvider, fetchLineups } from '@/lib/lineup-store';
+import { createLineupProvider, fetchLineupBundle } from '@/lib/lineup-store';
 import { createMockProvider } from '@/providers/mock-provider';
 import { StandingsTable, CalendarView } from './page';
 
@@ -37,7 +37,10 @@ export function ClassificaClient({
     
     const data = await provider.fetchLiveData(currentRound.serieAMatchday);
     const playerDataMap = convertProviderDataToPlayerMatchData(data);
-    const lineups = await fetchLineups(currentRound.number).catch(() => ({}));
+    const { lineups, players } = await fetchLineupBundle(currentRound.number).catch(() => ({
+      lineups: {},
+      players: {},
+    }));
     
     const matchStatuses = new Map<string, 'scheduled' | 'live' | 'halftime' | 'finished'>();
     for (const pairing of currentRound.pairings) {
@@ -49,7 +52,8 @@ export function ClassificaClient({
       currentRound.number,
       playerDataMap,
       matchStatuses,
-      createLineupProvider(lineups)
+      createLineupProvider(lineups),
+      players
     );
     const liveStandings = calculateLiveStandings(matches, getInitialStandings());
     

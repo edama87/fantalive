@@ -1,6 +1,6 @@
 'use client';
 
-import { Lineup } from '@/types';
+import { Lineup, Player } from '@/types';
 import {
   generateDefaultLineup,
   inferFormationFromStarters,
@@ -30,7 +30,9 @@ export function createLineupProvider(
   return createLineupProviderFromMap(lineups);
 }
 
-export async function fetchLineups(roundNumber: number): Promise<LineupMap> {
+export async function fetchLineupBundle(
+  roundNumber: number
+): Promise<{ lineups: LineupMap; players: Record<string, Player> }> {
   const res = await fetch(`/api/lineups?round=${roundNumber}`, {
     cache: 'no-store',
   });
@@ -39,7 +41,15 @@ export async function fetchLineups(roundNumber: number): Promise<LineupMap> {
     throw new Error(body.error || `fetchLineups failed (${res.status})`);
   }
   const body = await res.json();
-  return (body.lineups || {}) as LineupMap;
+  return {
+    lineups: (body.lineups || {}) as LineupMap,
+    players: (body.players || {}) as Record<string, Player>,
+  };
+}
+
+export async function fetchLineups(roundNumber: number): Promise<LineupMap> {
+  const bundle = await fetchLineupBundle(roundNumber);
+  return bundle.lineups;
 }
 
 export async function saveImportedLineups(

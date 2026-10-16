@@ -11,6 +11,24 @@ import {
 } from '@/types';
 import { getTeamById, getPlayerById } from '@/data/teams';
 
+export type PlayerDirectory = Record<string, Player>;
+
+function findPlayer(playerId: string, directory?: PlayerDirectory): Player | undefined {
+  return directory?.[playerId] ?? getPlayerById(playerId);
+}
+
+function withResolvedFormation(lineup: Lineup, directory?: PlayerDirectory): Lineup {
+  const counts = { D: 0, C: 0, A: 0 };
+  for (const slot of lineup.starters) {
+    const player = findPlayer(slot.playerId, directory);
+    if (!player || player.role === 'P') continue;
+    counts[player.role] += 1;
+  }
+  const formation = `${counts.D}-${counts.C}-${counts.A}`;
+  if (!ALLOWED_FORMATIONS.includes(formation)) return lineup;
+  return { ...lineup, formation };
+}
+
 const ALLOWED_FORMATIONS = ['6-3-1', '5-3-2', '5-4-1', '4-5-1', '4-4-2', '4-3-3', '3-6-1', '3-5-2', '3-4-3'];
 
 const GOAL_THRESHOLDS = [
@@ -268,7 +286,8 @@ export function applyGoalConversionRules(
 export function processSubstitutions(
   lineup: Lineup,
   playerDataMap: Map<string, PlayerMatchData>,
-  maxSubs: number = 5
+  maxSubs: number = 5,
+  playersById?: PlayerDirectory
 ): { finalStarters: string[]; subsUsed: number; riservaUfficio: string | null } {
   const team = getTeamById(lineup.teamId);
   if (!team) return { finalStarters: [], subsUsed: 0, riservaUfficio: null };
@@ -288,14 +307,14 @@ export function processSubstitutions(
 
   const benchByRole: Record<PlayerRole, string[]> = { P: [], D: [], C: [], A: [] };
   for (const slot of lineup.bench.sort((a, b) => a.position - b.position)) {
-    const player = getPlayerById(slot.playerId);
+    const player = findPlayer(slot.playerId, playersById);
     if (player) {
       benchByRole[player.role].push(slot.playerId);
     }
   }
 
   for (const slot of lineup.starters.sort((a, b) => a.position - b.position)) {
-    const player = getPlayerById(slot.playerId);
+    const player = findPlayer(slot.playerId, playersById);
     if (!player) continue;
 
     const data = playerDataMap.get(slot.playerId);
@@ -344,21 +363,22 @@ export function calculateTeamScore(
   isHome: boolean,
   opponentDefenseModifier: number,
   midfieldModifier: number,
-  riservaUfficio: string | null
+  riservaUfficio: string | null,
+  playersById?: PlayerDirectory
 ): { total: number; playerScores: PlayerScore[]; attackModifier: number } {
   const team = getTeamById(lineup.teamId);
   if (!team) {
     return { total: 0, playerScores: [], attackModifier: 0 };
   }
 
-  const { finalStarters } = processSubstitutions(lineup, playerDataMap);
+  const { finalStarters } = processSubstitutions(lineup, playerDataMap, 5, playersById);
   const playerScores: PlayerScore[] = [];
   let total = 0;
 
   const forwardData: Array<{ vote: number; scored: boolean }> = [];
 
   for (const playerId of finalStarters) {
-    const player = getPlayerById(playerId);
+    const player = findPlayer(playerId, playersById);
     if (!player) continue;
 
     const data = playerDataMap.get(playerId);
@@ -422,7 +442,7 @@ export function calculateTeamScore(
   const scoredIds = new Set(playerScores.map((ps) => ps.player.id));
   for (const slot of [...lineup.bench].sort((a, b) => a.position - b.position)) {
     if (scoredIds.has(slot.playerId)) continue;
-    const player = getPlayerById(slot.playerId);
+    const player = findPlayer(slot.playerId, playersById);
     if (!player) continue;
 
     const data = playerDataMap.get(slot.playerId);
@@ -460,19 +480,22 @@ export function calculateMatch(
   homeLineup: Lineup,
   awayLineup: Lineup,
   playerDataMap: Map<string, PlayerMatchData>,
-  status: MatchStatus = 'live'
+  status: MatchStatus = 'live',
+  playersById?: PlayerDirectory
 ): FantasyMatchResult {
-  const homeFormation = parseFormation(homeLineup.formation);
-  const awayFormation = parseFormation(awayLineup.formation);
+  const home = withResolvedFormation(homeLineup, playersById);
+  const away = withResolvedFormation(awayLineup, playersById);
+  const homeFormation = parseFormation(home.formation);
+  const awayFormation = parseFormation(away.formation);
 
   const { finalStarters: homeStarters, riservaUfficio: homeRiserva } = 
-    processSubstitutions(homeLineup, playerDataMap);
+    processSubstitutions(home, playerDataMap, 5, playersById);
   const { finalStarters: awayStarters, riservaUfficio: awayRiserva } = 
-    processSubstitutions(awayLineup, playerDataMap);
+    processSubstitutions(away, playerDataMap, 5, playersById);
 
   const getVotesForRole = (starters: string[], role: PlayerRole, riserva: string | null): number[] => {
     return starters
-      .map(id => getPlayerById(id))
+      .map(id => findPlayer(id, playersById))
       .filter((p): p is Player => p !== undefined && p !== null && p.role === role)
       .map((p: Player) => {
         if (riserva === p.id) return 5;
@@ -497,21 +520,23 @@ export function calculateMatch(
   );
 
   const homeResult = calculateTeamScore(
-    homeLineup,
+    home,
     playerDataMap,
     true,
     awayDefMod,
     homeMidMod,
-    homeRiserva
+    homeRiserva,
+    playersById
   );
 
   const awayResult = calculateTeamScore(
-    awayLineup,
+    away,
     playerDataMap,
     false,
     homeDefMod,
     awayMidMod,
-    awayRiserva
+    awayRiserva,
+    playersById
   );
 
   let homeGoals = calculateGoals(homeResult.total);
@@ -527,8 +552,8 @@ export function calculateMatch(
   awayGoals = adjusted.awayGoals;
 
   return {
-    homeTeamId: homeLineup.teamId,
-    awayTeamId: awayLineup.teamId,
+    homeTeamId: home.teamId,
+    awayTeamId: away.teamId,
     homeTotal: homeResult.total,
     awayTotal: awayResult.total,
     homeGoals,

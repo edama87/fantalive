@@ -390,4 +390,39 @@ describe('Full Match Calculation', () => {
     expect(result.homeModifiers.homeBonus).toBe(2);
     expect(result.awayModifiers.homeBonus).toBe(0);
   });
+
+  it('keeps imported FMS players that are not in the static seed list', () => {
+    const imported: Player = {
+      id: 'mctominay-scott-francis-c',
+      name: 'MCTOMINAY Scott Francis',
+      role: 'C',
+      teamId: '',
+    };
+    const homeLineup: Lineup = {
+      teamId: 'ap',
+      roundNumber: 1,
+      formation: '4-4-2',
+      starters: [{ playerId: imported.id, position: 0 }],
+      bench: [],
+    };
+    const awayLineup: Lineup = {
+      teamId: 'am',
+      roundNumber: 1,
+      formation: '4-4-2',
+      starters: [],
+      bench: [],
+    };
+
+    const result = calculateMatch(
+      homeLineup,
+      awayLineup,
+      new Map<string, PlayerMatchData>(),
+      'scheduled',
+      { [imported.id]: imported }
+    );
+
+    expect(result.homePlayerScores.map((score) => score.player.name)).toEqual([
+      'MCTOMINAY Scott Francis',
+    ]);
+  });
 });

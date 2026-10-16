@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
-import { fetchLineupsForRound } from '@/lib/lineups-db';
+import {
+  fetchLineupsForRound,
+  fetchPlayersByIds,
+  playerIdsFromLineups,
+} from '@/lib/lineups-db';
 
 export async function GET(request: Request) {
   try {
@@ -15,10 +19,12 @@ export async function GET(request: Request) {
     }
 
     const lineups = await fetchLineupsForRound(roundNumber);
+    const players = await fetchPlayersByIds(playerIdsFromLineups(lineups));
     return NextResponse.json({
       success: true,
       roundNumber,
       lineups,
+      players,
       count: Object.keys(lineups).length,
     });
   } catch (error) {

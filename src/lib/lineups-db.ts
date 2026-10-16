@@ -3,7 +3,7 @@
  * Reads use public client (RLS); writes use service client + RPC.
  */
 
-import type { Lineup } from '@/types';
+import type { Lineup, Player, PlayerRole } from '@/types';
 import {
   getPublicClient,
   getServerClient,
@@ -82,6 +82,44 @@ export async function fetchLineupsForRound(roundNumber: number): Promise<LineupM
 
   if (error) throw new Error(`fetchLineupsForRound: ${error.message}`);
   return mapDbLineupsToMap((data || []) as LineupRow[]);
+}
+
+export function playerIdsFromLineups(lineups: LineupMap): string[] {
+  const ids = new Set<string>();
+  for (const lineup of Object.values(lineups)) {
+    for (const slot of [...lineup.starters, ...lineup.bench]) {
+      if (slot.playerId) ids.add(slot.playerId);
+    }
+  }
+  return [...ids];
+}
+
+export async function fetchPlayersByIds(
+  ids: string[]
+): Promise<Record<string, Player>> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  const players: Record<string, Player> = {};
+  if (unique.length === 0) return players;
+
+  const supabase = getPublicClient();
+  for (let offset = 0; offset < unique.length; offset += 100) {
+    const chunk = unique.slice(offset, offset + 100);
+    const { data, error } = await supabase
+      .from('players')
+      .select('id, name, role, real_team')
+      .in('id', chunk);
+    if (error) throw new Error(`fetchPlayersByIds: ${error.message}`);
+    for (const row of data || []) {
+      players[row.id] = {
+        id: row.id,
+        name: row.name,
+        role: row.role as PlayerRole,
+        teamId: '',
+        realTeam: row.real_team || undefined,
+      };
+    }
+  }
+  return players;
 }
 
 export async function fetchLineup(

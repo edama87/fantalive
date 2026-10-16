@@ -3,6 +3,7 @@ import {
   PlayerMatchData, 
   LiveStandingsEntry,
   Lineup,
+  Player,
   StandingsEntry,
 } from '@/types';
 import { teams, getTeamById } from '@/data/teams';
@@ -38,7 +39,8 @@ export function calculateAllMatches(
   roundNumber: number,
   playerDataMap: Map<string, PlayerMatchData>,
   matchStatuses?: Map<string, 'scheduled' | 'live' | 'halftime' | 'finished'>,
-  lineupProvider?: (teamId: string, roundNumber: number) => Lineup
+  lineupProvider?: (teamId: string, roundNumber: number) => Lineup,
+  playersById?: Record<string, Player>
 ): FantasyMatchResult[] {
   const round = getRoundByNumber(roundNumber);
   if (!round) return [];
@@ -64,7 +66,7 @@ export function calculateAllMatches(
       status = anyLive ? 'live' : 'finished';
     }
 
-    const result = calculateMatch(homeLineup, awayLineup, playerDataMap, status);
+    const result = calculateMatch(homeLineup, awayLineup, playerDataMap, status, playersById);
     results.push(result);
   }
 
