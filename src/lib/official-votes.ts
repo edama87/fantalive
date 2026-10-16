@@ -21,7 +21,6 @@ export async function saveFantacalcioOfficialVotes(
     vote_fantacalcio: player.vote,
     fanta_vote: player.fantaVote,
     bonus_malus: player.bonuses,
-    minutes_played: null,
   }));
 
   if (rows.length === 0) {
