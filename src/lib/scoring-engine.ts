@@ -386,6 +386,74 @@ export function processSubstitutions(
   return { finalStarters, subsUsed, riservaUfficio, pendingStarters };
 }
 
+export const MAX_SUBSTITUTIONS = 5;
+
+/**
+ * Panchinari che di sicuro non possono più entrare, con le stesse regole di
+ * processSubstitutions (cambi solo nello stesso ruolo, in ordine di panchina,
+ * massimo 5 cambi). Un panchinaro non entrato è "certamente fuori" se:
+ *  1. la sua partita è finita e non ha voto (non può contare);
+ *  2. sono già stati fatti 5 cambi con panchinari;
+ *  3. i titolari del suo ruolo che potrebbero ancora servire un cambio (senza
+ *     voto e non già sostituiti) sono tutti coperti da panchinari dello stesso
+ *     ruolo davanti a lui che hanno già un voto (es. tutti gli attaccanti
+ *     titolari hanno votato -> attaccanti in panchina fuori).
+ * I panchinari già entrati non sono mai "fuori". Senza stato delle partite
+ * (teamStatuses) la regola 1 non si applica.
+ */
+export function benchCertainlyOut(
+  lineup: Lineup,
+  playerDataMap: Map<string, PlayerMatchData>,
+  finalStarters: readonly string[],
+  playersById?: PlayerDirectory,
+  teamStatuses?: TeamMatchStatuses,
+  maxSubs: number = MAX_SUBSTITUTIONS
+): Set<string> {
+  const out = new Set<string>();
+  const hasVote = (id: string, role: PlayerRole) => {
+    const data = playerDataMap.get(id);
+    return Boolean(data && (data.estimatedVote !== null || (role === 'P' && data.minutesPlayed >= 30)));
+  };
+  const used = new Set(finalStarters);
+  const benchSlots = [...lineup.bench].sort((a, b) => a.position - b.position);
+  const usedBench = benchSlots.filter((slot) => used.has(slot.playerId));
+  const subsMadeByRole: Record<PlayerRole, number> = { P: 0, D: 0, C: 0, A: 0 };
+  for (const slot of usedBench) {
+    const player = findPlayer(slot.playerId, playersById);
+    if (player) subsMadeByRole[player.role]++;
+  }
+
+  // Titolari per ruolo che possono ancora aver bisogno di un cambio.
+  const openNeeds: Record<PlayerRole, number> = { P: 0, D: 0, C: 0, A: 0 };
+  for (const slot of lineup.starters) {
+    const player = findPlayer(slot.playerId, playersById);
+    if (player && !hasVote(slot.playerId, player.role)) openNeeds[player.role]++;
+  }
+  for (const role of Object.keys(openNeeds) as PlayerRole[]) {
+    openNeeds[role] = Math.max(0, openNeeds[role] - subsMadeByRole[role]);
+  }
+
+  const votedAhead: Record<PlayerRole, number> = { P: 0, D: 0, C: 0, A: 0 };
+  for (const slot of benchSlots) {
+    if (used.has(slot.playerId)) continue;
+    const player = findPlayer(slot.playerId, playersById);
+    if (!player) continue;
+    const voted = hasVote(slot.playerId, player.role);
+    const team = player.realTeam?.toUpperCase();
+    const matchFinished = Boolean(team && teamStatuses?.get(team) === 'finished');
+
+    if (
+      (!voted && matchFinished) ||
+      usedBench.length >= maxSubs ||
+      openNeeds[player.role] <= votedAhead[player.role]
+    ) {
+      out.add(slot.playerId);
+    }
+    if (voted) votedAhead[player.role]++;
+  }
+  return out;
+}
+
 export function calculateTeamScore(
   lineup: Lineup,
   playerDataMap: Map<string, PlayerMatchData>,
@@ -518,6 +586,7 @@ export function calculateTeamScore(
 
   // Append unused bench players for display (do not affect total)
   const scoredIds = new Set(playerScores.map((ps) => ps.player.id));
+  const certainlyOut = benchCertainlyOut(lineup, playerDataMap, finalStarters, playersById, teamStatuses);
   for (const slot of [...lineup.bench].sort((a, b) => a.position - b.position)) {
     if (scoredIds.has(slot.playerId)) continue;
     const player = findPlayer(slot.playerId, playersById);
@@ -552,6 +621,7 @@ export function calculateTeamScore(
           : 'to_play',
       minutesPlayed: data?.minutesPlayed,
       isUnusedBench: true,
+      isCertainlyOut: certainlyOut.has(slot.playerId),
       isStarter: false,
     });
   }

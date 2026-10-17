@@ -14,6 +14,14 @@ interface PlayerRowProps {
   fixture?: RoundFixture | null;
 }
 
+/**
+ * In grigio: s.v. (titolare senza voto a partita finita, riserva d'ufficio) e
+ * panchinari che di sicuro non possono più entrare. "Da giocare" resta normale.
+ */
+export function isPlayerMuted(playerScore: PlayerScore): boolean {
+  return playerScore.status === 'sv' || playerScore.isCertainlyOut === true;
+}
+
 function StatusBadge({ status, minutesPlayed }: { status: PlayerScore['status']; minutesPlayed?: number }) {
   switch (status) {
     case 'playing':
@@ -51,7 +59,7 @@ export function PlayerRow({ playerScore, isSubstitute, fixture }: PlayerRowProps
     <div className={cn(
       'flex items-center justify-between py-2 px-3',
       isSubstitute && 'bg-gray-50/50',
-      status === 'sv' && 'opacity-60'
+      isPlayerMuted(playerScore) && 'opacity-60'
     )}>
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <RoleBadge role={player.role} />
@@ -59,7 +67,7 @@ export function PlayerRow({ playerScore, isSubstitute, fixture }: PlayerRowProps
           <div className="flex items-center gap-1.5 min-w-0">
             <span className={cn(
               'font-medium text-gray-900 truncate',
-              status === 'sv' && 'text-gray-500'
+              isPlayerMuted(playerScore) && 'text-gray-500'
             )}>
               {player.name}
             </span>

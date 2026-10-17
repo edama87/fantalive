@@ -24,7 +24,8 @@ import {
   teamStatusesFromFixtures,
   type RoundFixture,
 } from '@/lib/serie-a-fixtures';
-import { calculateMatch, processSubstitutions } from '@/lib/scoring-engine';
+import { benchCertainlyOut, calculateMatch, processSubstitutions } from '@/lib/scoring-engine';
+import { isPlayerMuted } from '@/components/match/player-row';
 import { matchStatusFromTeams } from '@/lib/live-data';
 import { assembleRoundPlayerData } from '@/lib/round-player-data';
 import type { Lineup, MatchStatus, Player, PlayerMatchData } from '@/types';
@@ -222,5 +223,81 @@ describe('live events decoding', () => {
     const events = map.get('gk')?.events ?? [];
     expect(events[0]).toMatchObject({ type: 'goal', relatedPlayerId: 'opponent' });
     expect(events[1].relatedPlayerId).toBeUndefined();
+  });
+});
+
+describe('greyed-out players (certainly out of the bench, s.v.)', () => {
+  const roster: Record<string, Player> = {
+    p: { id: 'p', name: 'P', role: 'P', teamId: 'dc', realTeam: 'FRO' },
+    d1: { id: 'd1', name: 'D1', role: 'D', teamId: 'dc', realTeam: 'ROM' },
+    a1: { id: 'a1', name: 'A1', role: 'A', teamId: 'dc', realTeam: 'FRO' },
+    a2: { id: 'a2', name: 'A2', role: 'A', teamId: 'dc', realTeam: 'SAS' },
+    bp: { id: 'bp', name: 'Bench P', role: 'P', teamId: 'dc', realTeam: 'ROM' },
+    bd1: { id: 'bd1', name: 'Bench D1', role: 'D', teamId: 'dc', realTeam: 'FRO' },
+    bd2: { id: 'bd2', name: 'Bench D2', role: 'D', teamId: 'dc', realTeam: 'ROM' },
+    bd3: { id: 'bd3', name: 'Bench D3', role: 'D', teamId: 'dc', realTeam: 'SAS' },
+    ba1: { id: 'ba1', name: 'Bench A1', role: 'A', teamId: 'dc', realTeam: 'ROM' },
+  };
+  const lineup: Lineup = {
+    teamId: 'dc',
+    roundNumber: 1,
+    formation: '4-4-2',
+    starters: ['p', 'd1', 'a1', 'a2'].map((playerId, position) => ({ playerId, position })),
+    bench: ['bp', 'bd1', 'bd2', 'bd3', 'ba1'].map((playerId, position) => ({ playerId, position })),
+  };
+  const v = (id: string, value: number | null, minutes = 90): PlayerMatchData => ({
+    playerId: id, estimatedVote: value, minutesPlayed: minutes, isPlaying: false, events: [],
+  });
+  // FRO e SAS finite, ROM da giocare
+  const statuses = teamStatusesFromFixtures(fixtures);
+
+  it('greys bench players of a role whose starters all have a vote', () => {
+    const data = new Map([['p', v('p', 6)], ['a1', v('a1', 7)], ['a2', v('a2', 6)], ['bd1', v('bd1', 6)]]);
+    const away: Lineup = { ...lineup, teamId: 'ap', starters: [], bench: [] };
+    const match = calculateMatch(lineup, away, data, 'live', roster, statuses);
+    const out = (id: string) => match.homePlayerScores.find((s) => s.player.id === id)?.isCertainlyOut;
+    expect(out('bp')).toBe(true); // portiere titolare ha votato
+    expect(out('ba1')).toBe(true); // tutti gli attaccanti titolari hanno votato
+    // d1 (ROM) da giocare: bd1 ha già voto ed è primo in panchina -> bd2/bd3 fuori
+    expect(out('bd1')).toBe(false);
+    expect(out('bd2')).toBe(true);
+    expect(out('bd3')).toBe(true);
+    expect(match.homePlayerScores.find((s) => s.player.id === 'd1')).toMatchObject({ status: 'to_play' });
+    expect(isPlayerMuted(match.homePlayerScores.find((s) => s.player.id === 'd1')!)).toBe(false);
+  });
+
+  it('keeps bench players available while a same-role starter may still need them', () => {
+    // d1 da giocare, nessun panchinaro D ha ancora votato: bd2 (ROM) e bd1 restano in gioco;
+    // bd3 (SAS, finita senza voto) non può contare
+    const data = new Map([['p', v('p', 6)], ['a1', v('a1', 7)], ['a2', v('a2', 6)]]);
+    const out = benchCertainlyOut(lineup, data, ['p', 'a1', 'a2'], roster, statuses);
+    expect(out.has('bd1')).toBe(true); // FRO finita, senza voto
+    expect(out.has('bd2')).toBe(false);
+    expect(out.has('bd3')).toBe(true);
+  });
+
+  it('never greys a bench player who came on, and greys everyone else after 5 subs', () => {
+    const data = new Map([['a1', v('a1', null)], ['ba1', v('ba1', 6.5)]]);
+    const out = benchCertainlyOut(lineup, data, ['p', 'd1', 'ba1', 'a2'], roster, statuses);
+    expect(out.has('ba1')).toBe(false);
+    const five: Lineup = {
+      ...lineup,
+      bench: ['x1', 'x2', 'x3', 'x4', 'x5', 'bd2'].map((playerId, position) => ({ playerId, position })),
+    };
+    const extra = Object.fromEntries(['x1', 'x2', 'x3', 'x4', 'x5'].map((id) => [id, { id, name: id, role: 'D' as const, teamId: 'dc', realTeam: 'FRO' }]));
+    const outFive = benchCertainlyOut(five, new Map(), ['x1', 'x2', 'x3', 'x4', 'x5'], { ...roster, ...extra }, statuses);
+    expect(outFive.has('bd2')).toBe(true);
+  });
+
+  it('greys s.v. starters but not starters still to play', () => {
+    const data = new Map([['p', v('p', 6)], ['a2', v('a2', 6)]]);
+    const noBench: Lineup = { ...lineup, bench: [] };
+    const away: Lineup = { ...lineup, teamId: 'ap', starters: [], bench: [] };
+    const match = calculateMatch(noBench, away, data, 'live', roster, statuses);
+    const a1 = match.homePlayerScores.find((s) => s.player.id === 'a1')!; // FRO finita, senza voto
+    const d1 = match.homePlayerScores.find((s) => s.player.id === 'd1')!; // ROM da giocare
+    expect(a1.status).toBe('sv');
+    expect(isPlayerMuted(a1)).toBe(true);
+    expect(isPlayerMuted(d1)).toBe(false);
   });
 });

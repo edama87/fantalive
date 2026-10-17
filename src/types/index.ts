@@ -114,6 +114,11 @@ export interface PlayerScore {
   substitutedBy?: Player;
   /** Panchinaro non entrato: mostrato per info, escluso dal totale. */
   isUnusedBench?: boolean;
+  /**
+   * Panchinaro che di sicuro non può più entrare (vedi benchCertainlyOut nello
+   * scoring engine): mostrato in grigio.
+   */
+  isCertainlyOut?: boolean;
 }
 
 export interface BonusBreakdown {
