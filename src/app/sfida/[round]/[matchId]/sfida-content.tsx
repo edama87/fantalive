@@ -7,13 +7,16 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PlayerRow } from '@/components/match/player-row';
 import { cn, formatNumber } from '@/lib/utils';
-import { FantasyMatchResult, PlayerScore, ModifiersBreakdown } from '@/types';
+import { FantasyMatchResult, PlayerMatchData, PlayerScore, ModifiersBreakdown } from '@/types';
 import { getRoundByNumber } from '@/data/calendar';
 import { getTeamById, USER_TEAM_ID } from '@/data/teams';
 import { 
   calculateAllMatches,
   convertProviderDataToPlayerMatchData,
+  inferMatchStatuses,
 } from '@/lib/live-data';
+import { shouldUseMockLiveData } from '@/lib/live-source';
+import { fetchRoundPlayerData } from '@/lib/round-player-data-client';
 import { createLineupProvider, fetchLineupBundle } from '@/lib/lineup-store';
 import { createMockProvider } from '@/providers/mock-provider';
 import { ArrowLeft, Home, Plane } from 'lucide-react';
@@ -34,32 +37,48 @@ export function SfidaContent() {
 
   const fetchData = useCallback(async () => {
     if (!round) return;
-    
-    const provider = createMockProvider(42);
-    await provider.initialize();
-    
-    const normalizedData = await provider.fetchLiveData(round.serieAMatchday);
-    const playerDataMap = convertProviderDataToPlayerMatchData(normalizedData);
-    const { lineups, players } = await fetchLineupBundle(roundNumber).catch(() => ({
-      lineups: {},
-      players: {},
-    }));
-    
-    const matches = calculateAllMatches(
-      roundNumber,
-      playerDataMap,
-      undefined,
-      createLineupProvider(lineups),
-      players
-    );
-    const thisMatch = matches.find(
-      m => m.homeTeamId === homeTeamId && m.awayTeamId === awayTeamId
-    );
-    
-    setMatch(thisMatch || null);
-    setIsLive(normalizedData.isLive);
-    
-    provider.dispose();
+
+    try {
+      const lineupPromise = fetchLineupBundle(roundNumber).catch(() => ({
+        lineups: {},
+        players: {},
+      }));
+
+      let playerDataMap: Map<string, PlayerMatchData>;
+      let live: boolean;
+
+      if (shouldUseMockLiveData()) {
+        const provider = createMockProvider(42);
+        await provider.initialize();
+        const normalizedData = await provider.fetchLiveData(round.serieAMatchday);
+        playerDataMap = convertProviderDataToPlayerMatchData(normalizedData);
+        live = normalizedData.isLive;
+        provider.dispose();
+      } else {
+        const roundData = await fetchRoundPlayerData(roundNumber);
+        playerDataMap = roundData.playerData;
+        live = roundData.isLive;
+      }
+
+      const { lineups, players } = await lineupPromise;
+      const matches = calculateAllMatches(
+        roundNumber,
+        playerDataMap,
+        shouldUseMockLiveData()
+          ? undefined
+          : inferMatchStatuses(round.pairings, live, playerDataMap),
+        createLineupProvider(lineups),
+        players
+      );
+      const thisMatch = matches.find(
+        m => m.homeTeamId === homeTeamId && m.awayTeamId === awayTeamId
+      );
+
+      setMatch(thisMatch || null);
+      setIsLive(live);
+    } catch (error) {
+      console.error('[sfida] voti non disponibili', error);
+    }
   }, [roundNumber, homeTeamId, awayTeamId, round]);
 
   useEffect(() => {

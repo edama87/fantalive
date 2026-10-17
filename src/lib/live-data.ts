@@ -12,6 +12,22 @@ import { calculateMatch } from './scoring-engine';
 import { NormalizedMatchData } from '@/providers/types';
 import { generateDefaultLineup } from './lineup-utils';
 
+export function inferMatchStatuses(
+  pairings: Array<{ homeTeamId: string; awayTeamId: string }>,
+  isLive: boolean,
+  playerDataMap: Map<string, PlayerMatchData>
+): Map<string, 'scheduled' | 'live' | 'halftime' | 'finished'> {
+  const hasResults = [...playerDataMap.values()].some(
+    (player) => player.isPlaying || player.minutesPlayed > 0 || player.estimatedVote != null
+  );
+  const status = isLive ? 'live' : hasResults ? 'finished' : 'scheduled';
+  const statuses = new Map<string, 'scheduled' | 'live' | 'halftime' | 'finished'>();
+  for (const pairing of pairings) {
+    statuses.set(`${pairing.homeTeamId}-${pairing.awayTeamId}`, status);
+  }
+  return statuses;
+}
+
 export function convertProviderDataToPlayerMatchData(
   normalizedData: NormalizedMatchData
 ): Map<string, PlayerMatchData> {

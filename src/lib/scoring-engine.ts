@@ -97,6 +97,11 @@ export function calculateBonuses(playerData: PlayerMatchData, player: Player): B
   for (const event of playerData.events) {
     switch (event.type) {
       case 'goal':
+        // Gol dell'avversario sul portiere: malus gol subito, non bonus gol.
+        if (event.relatedPlayerId === 'opponent') {
+          bonuses.goalsConceded++;
+          break;
+        }
         bonuses.goals++;
         break;
       case 'penalty_scored':

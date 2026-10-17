@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { LiveStandingsEntry } from '@/types';
+import { LiveStandingsEntry, PlayerMatchData } from '@/types';
 import { getCurrentRound, calendar } from '@/data/calendar';
 import { getTeamById, USER_TEAM_ID } from '@/data/teams';
 import { 
@@ -10,7 +10,10 @@ import {
   calculateLiveStandings, 
   getInitialStandings,
   convertProviderDataToPlayerMatchData,
+  inferMatchStatuses,
 } from '@/lib/live-data';
+import { shouldUseMockLiveData } from '@/lib/live-source';
+import { fetchRoundPlayerData } from '@/lib/round-player-data-client';
 import { createLineupProvider, fetchLineupBundle } from '@/lib/lineup-store';
 import { createMockProvider } from '@/providers/mock-provider';
 import { StandingsTable, CalendarView } from './page';
@@ -32,35 +35,52 @@ export function ClassificaClient({
   const currentRound = getCurrentRound();
 
   const fetchData = useCallback(async () => {
-    const provider = createMockProvider(42);
-    await provider.initialize();
-    
-    const data = await provider.fetchLiveData(currentRound.serieAMatchday);
-    const playerDataMap = convertProviderDataToPlayerMatchData(data);
-    const { lineups, players } = await fetchLineupBundle(currentRound.number).catch(() => ({
-      lineups: {},
-      players: {},
-    }));
-    
-    const matchStatuses = new Map<string, 'scheduled' | 'live' | 'halftime' | 'finished'>();
-    for (const pairing of currentRound.pairings) {
-      matchStatuses.set(`${pairing.homeTeamId}-${pairing.awayTeamId}`, 
-        data.isLive ? 'live' : 'scheduled');
+    try {
+      const lineupPromise = fetchLineupBundle(currentRound.number).catch(() => ({
+        lineups: {},
+        players: {},
+      }));
+
+      let playerDataMap: Map<string, PlayerMatchData>;
+      let live: boolean;
+
+      if (shouldUseMockLiveData()) {
+        const provider = createMockProvider(42);
+        await provider.initialize();
+        const data = await provider.fetchLiveData(currentRound.serieAMatchday);
+        playerDataMap = convertProviderDataToPlayerMatchData(data);
+        live = data.isLive;
+        provider.dispose();
+      } else {
+        const roundData = await fetchRoundPlayerData(currentRound.number);
+        playerDataMap = roundData.playerData;
+        live = roundData.isLive;
+      }
+
+      const { lineups, players } = await lineupPromise;
+      const matchStatuses = shouldUseMockLiveData()
+        ? new Map(
+            currentRound.pairings.map((pairing) => [
+              `${pairing.homeTeamId}-${pairing.awayTeamId}`,
+              live ? 'live' as const : 'scheduled' as const,
+            ])
+          )
+        : inferMatchStatuses(currentRound.pairings, live, playerDataMap);
+
+      const matches = calculateAllMatches(
+        currentRound.number,
+        playerDataMap,
+        matchStatuses,
+        createLineupProvider(lineups),
+        players
+      );
+      const liveStandings = calculateLiveStandings(matches, getInitialStandings());
+
+      setStandings(liveStandings);
+      setIsLive(live);
+    } catch (error) {
+      console.error('[classifica] voti non disponibili', error);
     }
-    
-    const matches = calculateAllMatches(
-      currentRound.number,
-      playerDataMap,
-      matchStatuses,
-      createLineupProvider(lineups),
-      players
-    );
-    const liveStandings = calculateLiveStandings(matches, getInitialStandings());
-    
-    setStandings(liveStandings);
-    setIsLive(data.isLive);
-    
-    provider.dispose();
   }, [currentRound]);
 
   useEffect(() => {

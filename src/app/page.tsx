@@ -13,7 +13,10 @@ import {
   calculateLiveStandings, 
   getInitialStandings,
   convertProviderDataToPlayerMatchData,
+  inferMatchStatuses,
 } from '@/lib/live-data';
+import { shouldUseMockLiveData } from '@/lib/live-source';
+import { fetchRoundPlayerData } from '@/lib/round-player-data-client';
 import { createLineupProvider, fetchLineupBundle } from '@/lib/lineup-store';
 import { createMockProvider } from '@/providers/mock-provider';
 
@@ -28,32 +31,51 @@ export default function GiornataLivePage() {
   const currentRound = getCurrentRound();
 
   const fetchData = useCallback(async () => {
-    const provider = createMockProvider(42);
-    await provider.initialize();
-    
-    const normalizedData = await provider.fetchLiveData(currentRound.serieAMatchday);
-    const playerDataMap = convertProviderDataToPlayerMatchData(normalizedData);
-    const { lineups, players } = await fetchLineupBundle(currentRound.number).catch(() => ({
-      lineups: {},
-      players: {},
-    }));
-    
-    const calculatedMatches = calculateAllMatches(
-      currentRound.number,
-      playerDataMap,
-      undefined,
-      createLineupProvider(lineups),
-      players
-    );
-    setMatches(calculatedMatches);
-    
-    const liveStandings = calculateLiveStandings(calculatedMatches, getInitialStandings());
-    setStandings(liveStandings);
-    
-    setLastUpdate(normalizedData.lastUpdated);
-    setIsLive(normalizedData.isLive);
-    
-    provider.dispose();
+    try {
+      const lineupPromise = fetchLineupBundle(currentRound.number).catch(() => ({
+        lineups: {},
+        players: {},
+      }));
+
+      let playerDataMap: Map<string, PlayerMatchData>;
+      let live: boolean;
+      let updatedAt: Date;
+
+      if (shouldUseMockLiveData()) {
+        const provider = createMockProvider(42);
+        await provider.initialize();
+        const normalizedData = await provider.fetchLiveData(currentRound.serieAMatchday);
+        playerDataMap = convertProviderDataToPlayerMatchData(normalizedData);
+        live = normalizedData.isLive;
+        updatedAt = normalizedData.lastUpdated;
+        provider.dispose();
+      } else {
+        const roundData = await fetchRoundPlayerData(currentRound.number);
+        playerDataMap = roundData.playerData;
+        live = roundData.isLive;
+        updatedAt = roundData.lastUpdated;
+      }
+
+      const { lineups, players } = await lineupPromise;
+      const calculatedMatches = calculateAllMatches(
+        currentRound.number,
+        playerDataMap,
+        shouldUseMockLiveData()
+          ? undefined
+          : inferMatchStatuses(currentRound.pairings, live, playerDataMap),
+        createLineupProvider(lineups),
+        players
+      );
+      setMatches(calculatedMatches);
+
+      const liveStandings = calculateLiveStandings(calculatedMatches, getInitialStandings());
+      setStandings(liveStandings);
+
+      setLastUpdate(updatedAt);
+      setIsLive(live);
+    } catch (error) {
+      console.error('[giornata] voti non disponibili', error);
+    }
   }, [currentRound]);
 
   useEffect(() => {

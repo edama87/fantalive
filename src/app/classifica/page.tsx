@@ -4,7 +4,7 @@ import { Header } from '@/components/layout/header';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { LiveStandingsEntry } from '@/types';
+import { LiveStandingsEntry, PlayerMatchData } from '@/types';
 import { getCurrentRound, calendar } from '@/data/calendar';
 import { getTeamById, USER_TEAM_ID, teams } from '@/data/teams';
 import { 
@@ -12,7 +12,10 @@ import {
   calculateLiveStandings, 
   getInitialStandings,
   convertProviderDataToPlayerMatchData,
+  inferMatchStatuses,
 } from '@/lib/live-data';
+import { shouldUseMockLiveData } from '@/lib/live-source';
+import { getRoundPlayerState } from '@/lib/round-player-data';
 import {
   createLineupProviderFromMap,
   fetchLineupsForRound,
@@ -28,20 +31,36 @@ async function getStandingsData(): Promise<{ standings: LiveStandingsEntry[]; is
   await connection();
   const currentRound = getCurrentRound();
   
-  const provider = createMockProvider(42);
-  await provider.initialize();
-  
-  const data = await provider.fetchLiveData(currentRound.serieAMatchday);
-  const playerDataMap = convertProviderDataToPlayerMatchData(data);
-  const lineups = await fetchLineupsForRound(currentRound.number).catch(() => ({}));
-  const players = await fetchPlayersByIds(playerIdsFromLineups(lineups)).catch(() => ({}));
-  
-  const matchStatuses = new Map<string, 'scheduled' | 'live' | 'halftime' | 'finished'>();
-  for (const pairing of currentRound.pairings) {
-    matchStatuses.set(`${pairing.homeTeamId}-${pairing.awayTeamId}`, 
-      data.isLive ? 'live' : 'scheduled');
+  const lineupsPromise = fetchLineupsForRound(currentRound.number).catch(() => ({}));
+
+  let playerDataMap: Map<string, PlayerMatchData>;
+  let isLive: boolean;
+
+  if (shouldUseMockLiveData()) {
+    const provider = createMockProvider(42);
+    await provider.initialize();
+    const data = await provider.fetchLiveData(currentRound.serieAMatchday);
+    playerDataMap = convertProviderDataToPlayerMatchData(data);
+    isLive = data.isLive;
+    provider.dispose();
+  } else {
+    const state = await getRoundPlayerState(currentRound.number);
+    playerDataMap = state.playerData;
+    isLive = state.isLive;
   }
-  
+
+  const lineups = await lineupsPromise;
+  const players = await fetchPlayersByIds(playerIdsFromLineups(lineups)).catch(() => ({}));
+
+  const matchStatuses = shouldUseMockLiveData()
+    ? new Map(
+        currentRound.pairings.map((pairing) => [
+          `${pairing.homeTeamId}-${pairing.awayTeamId}`,
+          isLive ? 'live' as const : 'scheduled' as const,
+        ])
+      )
+    : inferMatchStatuses(currentRound.pairings, isLive, playerDataMap);
+
   const matches = calculateAllMatches(
     currentRound.number,
     playerDataMap,
@@ -50,10 +69,8 @@ async function getStandingsData(): Promise<{ standings: LiveStandingsEntry[]; is
     players
   );
   const standings = calculateLiveStandings(matches, getInitialStandings());
-  
-  provider.dispose();
-  
-  return { standings, isLive: data.isLive };
+
+  return { standings, isLive };
 }
 
 export default async function ClassificaPage() {
