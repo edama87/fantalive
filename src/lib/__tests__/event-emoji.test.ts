@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { EVENT_EMOJI, eventEmojiSequence } from '@/components/match/event-emoji';
+import { displayFantavoto } from '@/components/match/player-row';
+import type { PlayerScore } from '@/types';
 import type { BonusBreakdown } from '@/types';
 
 const empty: BonusBreakdown = {
@@ -25,5 +27,18 @@ describe('event emoji (shared by legend and player rows)', () => {
   it('can hide goals conceded (match card summary)', () => {
     const seq = eventEmojiSequence({ ...empty, goalsConceded: 2, yellowCards: 1 }, { includeConceded: false });
     expect(seq.map((s) => s.emoji)).toEqual(['🟨']);
+  });
+});
+
+describe('muted players show what happened in parentheses', () => {
+  const score = (over: Partial<PlayerScore>): PlayerScore => ({
+    player: { id: 'r', name: 'RAIMONDO Antonio', role: 'A', teamId: 'dc' },
+    baseVote: 8.5, bonuses: { ...empty, goals: 3 }, fantavoto: 17.5, status: 'played', isStarter: false,
+    ...over,
+  });
+  it('wraps the fantavoto of muted players in parentheses', () => {
+    expect(displayFantavoto(score({ isUnusedBench: true, isCertainlyOut: true }))).toBe('(17,5)');
+    expect(displayFantavoto(score({ isStarter: true, status: 'sv', fantavoto: 0 }))).toBe('-');
+    expect(displayFantavoto(score({ isStarter: true }))).toBe('17,5');
   });
 });

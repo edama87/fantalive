@@ -40,21 +40,26 @@ export function eventEmojiSequence(
 export function EventEmojis({
   bonuses,
   includeConceded = true,
+  parenthesized = false,
   className,
 }: {
   bonuses: BonusBreakdown;
   includeConceded?: boolean;
+  /** Tra parentesi: eventi avvenuti ma che non contano (giocatore in grigio). */
+  parenthesized?: boolean;
   className?: string;
 }) {
   const items = eventEmojiSequence(bonuses, { includeConceded });
   if (items.length === 0) return null;
   return (
     <span className={className ?? 'inline-flex items-center gap-0.5 text-sm leading-none whitespace-nowrap'}>
+      {parenthesized && <span aria-hidden className="text-gray-400">(</span>}
       {items.map((item) => (
         <span key={item.key} role="img" aria-label={item.label} title={item.label}>
           {item.emoji}
         </span>
       ))}
+      {parenthesized && <span aria-hidden className="text-gray-400">)</span>}
     </span>
   );
 }

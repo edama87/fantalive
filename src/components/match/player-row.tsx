@@ -52,14 +52,22 @@ function StatusBadge({ status, minutesPlayed }: { status: PlayerScore['status'];
   }
 }
 
+/** Fantavoto da mostrare: tra parentesi per i giocatori in grigio (non conta). */
+export function displayFantavoto(playerScore: PlayerScore): string {
+  if (playerScore.fantavoto <= 0) return '-';
+  const value = formatNumber(playerScore.fantavoto);
+  return isPlayerMuted(playerScore) ? `(${value})` : value;
+}
+
 export function PlayerRow({ playerScore, isSubstitute, fixture }: PlayerRowProps) {
   const { player, baseVote, bonuses, fantavoto, status, minutesPlayed } = playerScore;
+  const muted = isPlayerMuted(playerScore);
 
   return (
     <div className={cn(
       'flex items-center justify-between py-2 px-3',
       isSubstitute && 'bg-gray-50/50',
-      isPlayerMuted(playerScore) && 'opacity-60'
+      muted && 'opacity-60'
     )}>
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <RoleBadge role={player.role} />
@@ -67,11 +75,11 @@ export function PlayerRow({ playerScore, isSubstitute, fixture }: PlayerRowProps
           <div className="flex items-center gap-1.5 min-w-0">
             <span className={cn(
               'font-medium text-gray-900 truncate',
-              isPlayerMuted(playerScore) && 'text-gray-500'
+              muted && 'text-gray-500'
             )}>
               {player.name}
             </span>
-            <EventEmojis bonuses={bonuses} />
+            <EventEmojis bonuses={bonuses} parenthesized={muted} />
           </div>
           {(player.realTeam || fixture) && (
             <div className={cn(
@@ -103,13 +111,18 @@ export function PlayerRow({ playerScore, isSubstitute, fixture }: PlayerRowProps
             </span>
           )}
           <span className={cn(
-            'font-bold text-lg',
-            fantavoto >= 7 ? 'text-green-600' :
-            fantavoto >= 6 ? 'text-gray-900' :
-            fantavoto > 0 ? 'text-red-500' :
-            'text-gray-400'
-          )}>
-            {fantavoto > 0 ? formatNumber(fantavoto) : '-'}
+            muted && fantavoto > 0 ? 'font-semibold text-base text-gray-500' : 'font-bold text-lg',
+            !muted && (
+              fantavoto >= 7 ? 'text-green-600' :
+              fantavoto >= 6 ? 'text-gray-900' :
+              fantavoto > 0 ? 'text-red-500' :
+              'text-gray-400'
+            ),
+            muted && fantavoto <= 0 && 'font-bold text-lg text-gray-400'
+          )}
+            title={muted && fantavoto > 0 ? 'Non conta nel totale' : undefined}
+          >
+            {displayFantavoto(playerScore)}
           </span>
         </div>
       </div>
