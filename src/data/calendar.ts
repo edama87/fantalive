@@ -136,8 +136,34 @@ export function getRoundByNumber(num: number): Round | undefined {
   return calendar.find(r => r.number === num);
 }
 
-export function getCurrentRound(): Round {
-  return calendar[0];
+/** 'dd/mm/yyyy' -> numero yyyymmdd confrontabile. */
+function roundDateKey(date: string): number {
+  const [dd, mm, yyyy] = date.split('/').map((part) => Number.parseInt(part, 10));
+  return yyyy * 10000 + mm * 100 + dd;
+}
+
+/** Data di oggi (fuso Europe/Rome) come yyyymmdd. */
+function romeTodayKey(now: Date): number {
+  const iso = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Rome',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+  return Number.parseInt(iso.replace(/-/g, ''), 10);
+}
+
+/**
+ * Giornata corrente: l'ultima già iniziata (data <= oggi, ora di Roma).
+ * Prima dell'inizio del campionato restituisce la prima giornata.
+ */
+export function getCurrentRound(now: Date = new Date()): Round {
+  const today = romeTodayKey(now);
+  let current = calendar[0];
+  for (const round of calendar) {
+    if (roundDateKey(round.date) <= today) current = round;
+  }
+  return current;
 }
 
 export function getMatchForTeam(roundNumber: number, teamId: string): MatchPairing | undefined {
