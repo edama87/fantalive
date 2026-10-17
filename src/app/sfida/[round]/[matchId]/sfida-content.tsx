@@ -21,7 +21,9 @@ import { fetchRoundPlayerData } from '@/lib/round-player-data-client';
 import { teamStatusesFromFixtures, type RoundFixture } from '@/lib/serie-a-fixtures';
 import { createLineupProvider, fetchLineupBundle } from '@/lib/lineup-store';
 import { createMockProvider } from '@/providers/mock-provider';
-import { ArrowLeft, Home, Plane } from 'lucide-react';
+import { ArrowLeft, Home, Info, Plane } from 'lucide-react';
+import { Sheet } from '@/components/ui/sheet';
+import { ModifierExplanation, MODIFIER_TITLES, type ModifierKind } from '@/components/match/modifier-explanation';
 
 export function SfidaContent() {
   const router = useRouter();
@@ -221,6 +223,43 @@ export function SfidaContent() {
   );
 }
 
+function ModifierRow({
+  label,
+  value,
+  onOpen,
+  positiveOnly,
+}: {
+  label: string;
+  value: number;
+  onOpen?: () => void;
+  positiveOnly?: boolean;
+}) {
+  const color =
+    value > 0 ? 'text-green-600' : value < 0 && !positiveOnly ? 'text-red-600' : 'text-gray-600';
+  const content = (
+    <>
+      <span className="text-gray-500 flex items-center gap-1">
+        {label}
+        {onOpen && <Info size={12} className="text-gray-300" aria-hidden />}
+      </span>
+      <span className={cn('font-medium', color)}>
+        {value > 0 ? '+' : ''}{value}
+      </span>
+    </>
+  );
+  if (!onOpen) return <div className="flex justify-between">{content}</div>;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="-mx-2 flex w-[calc(100%+1rem)] justify-between rounded-lg px-2 py-0.5 text-left hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
+      aria-haspopup="dialog"
+    >
+      {content}
+    </button>
+  );
+}
+
 function ModifiersCard({ 
   title, 
   modifiers, 
@@ -230,46 +269,20 @@ function ModifiersCard({
   modifiers: ModifiersBreakdown;
   isHome: boolean;
 }) {
+  const [openKind, setOpenKind] = useState<ModifierKind | null>(null);
+  const details = modifiers.details;
+  const open = (kind: ModifierKind) => (details ? () => setOpenKind(kind) : undefined);
   return (
     <Card>
       <CardHeader className="pb-2">
         <h4 className="text-sm font-medium text-gray-600">{title}</h4>
       </CardHeader>
       <CardContent className="space-y-1 text-sm">
-        <div className="flex justify-between">
-          <span className="text-gray-500">Mod. Difesa avv.</span>
-          <span className={cn(
-            'font-medium',
-            modifiers.defenseModifier > 0 ? 'text-green-600' : 
-            modifiers.defenseModifier < 0 ? 'text-red-600' : 'text-gray-600'
-          )}>
-            {modifiers.defenseModifier > 0 ? '+' : ''}{modifiers.defenseModifier}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-500">Mod. Centrocampo</span>
-          <span className={cn(
-            'font-medium',
-            modifiers.midfieldModifier > 0 ? 'text-green-600' : 
-            modifiers.midfieldModifier < 0 ? 'text-red-600' : 'text-gray-600'
-          )}>
-            {modifiers.midfieldModifier > 0 ? '+' : ''}{modifiers.midfieldModifier}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-500">Mod. Attacco</span>
-          <span className={cn(
-            'font-medium',
-            modifiers.attackModifier > 0 ? 'text-green-600' : 'text-gray-600'
-          )}>
-            {modifiers.attackModifier > 0 ? '+' : ''}{modifiers.attackModifier}
-          </span>
-        </div>
+        <ModifierRow label="Mod. Difesa avv." value={modifiers.defenseModifier} onOpen={open('defense')} />
+        <ModifierRow label="Mod. Centrocampo" value={modifiers.midfieldModifier} onOpen={open('midfield')} />
+        <ModifierRow label="Mod. Attacco" value={modifiers.attackModifier} onOpen={open('attack')} positiveOnly />
         {isHome && (
-          <div className="flex justify-between">
-            <span className="text-gray-500">Fattore campo</span>
-            <span className="font-medium text-green-600">+2</span>
-          </div>
+          <ModifierRow label="Fattore campo" value={modifiers.homeBonus} onOpen={open('home')} />
         )}
         <div className="flex justify-between pt-2 border-t border-gray-100">
           <span className="font-medium">Totale mod.</span>
@@ -282,6 +295,15 @@ function ModifiersCard({
           </span>
         </div>
       </CardContent>
+      {details && (
+        <Sheet
+          open={openKind !== null}
+          onClose={() => setOpenKind(null)}
+          title={openKind ? `${MODIFIER_TITLES[openKind]} · ${title.replace('Modificatori ', '')}` : ''}
+        >
+          {openKind && <ModifierExplanation kind={openKind} details={details} />}
+        </Sheet>
+      )}
     </Card>
   );
 }

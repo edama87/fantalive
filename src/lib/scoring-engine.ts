@@ -8,6 +8,10 @@ import {
   PlayerScore,
   BonusBreakdown,
   MatchStatus,
+  ModifierVoteInput,
+  DefenseModifierExplanation,
+  MidfieldModifierExplanation,
+  AttackModifierExplanation,
 } from '@/types';
 import { getTeamById, getPlayerById } from '@/data/teams';
 
@@ -54,7 +58,8 @@ const GOAL_THRESHOLDS = [
   { min: 85, max: 88.99, goals: 5 },
 ];
 
-const DEFENSE_MODIFIER_TABLE: Array<{ maxAvg: number; modifier: number }> = [
+/** Tabelle dei modificatori (regolamento Bundlesliga). */
+export const DEFENSE_MODIFIER_TABLE: Array<{ maxAvg: number; modifier: number }> = [
   { maxAvg: 5.19, modifier: 4 },
   { maxAvg: 5.39, modifier: 3 },
   { maxAvg: 5.59, modifier: 2 },
@@ -67,7 +72,7 @@ const DEFENSE_MODIFIER_TABLE: Array<{ maxAvg: number; modifier: number }> = [
   { maxAvg: Infinity, modifier: -5 },
 ];
 
-const MIDFIELD_MODIFIER_TABLE: Array<{ minDiff: number; bonus: number; malus: number }> = [
+export const MIDFIELD_MODIFIER_TABLE: Array<{ minDiff: number; bonus: number; malus: number }> = [
   { minDiff: 0, bonus: 0, malus: 0 },
   { minDiff: 0.75, bonus: 0.5, malus: -0.5 },
   { minDiff: 1.5, bonus: 1, malus: -1 },
@@ -79,7 +84,7 @@ const MIDFIELD_MODIFIER_TABLE: Array<{ minDiff: number; bonus: number; malus: nu
   { minDiff: 6, bonus: 4, malus: -4 },
 ];
 
-const ATTACK_MODIFIER_TABLE: Array<{ vote: number; bonus: number }> = [
+export const ATTACK_MODIFIER_TABLE: Array<{ vote: number; bonus: number }> = [
   { vote: 6.5, bonus: 0.5 },
   { vote: 7, bonus: 1 },
   { vote: 7.5, bonus: 1.5 },
@@ -168,30 +173,98 @@ export function calculateFantavoto(
   return fantavoto;
 }
 
+export const HOME_BONUS = 2;
+
+type VoteLike = number | { playerId?: string; name?: string; vote: number; riserva?: boolean };
+
+function toInput(v: VoteLike): ModifierVoteInput {
+  const base = typeof v === 'number' ? { vote: v } : v;
+  return { ...base, usedVote: base.riserva || base.vote === 0 ? 5 : base.vote };
+}
+
+/** Correzione per numero di difensori: 3 dif -1, 5 dif +1, 6 dif +2. */
+export function defenseFormationAdjustment(numDefenders: number): number {
+  if (numDefenders === 3) return -1;
+  if (numDefenders > 4) return numDefenders - 4;
+  return 0;
+}
+
+/**
+ * Modificatore difesa con il dettaglio del calcolo: media dei voti dei
+ * difensori schierati (s.v. = 5), fascia della tabella, correzione modulo.
+ */
+export function explainDefenseModifier(
+  defenders: readonly VoteLike[],
+  numDefendersInFormation: number,
+  teamId = ''
+): DefenseModifierExplanation {
+  const inputs = defenders.map(toInput);
+  const formationAdjustment = defenseFormationAdjustment(numDefendersInFormation);
+  if (inputs.length === 0) {
+    return { teamId, inputs, average: null, band: null, numDefenders: numDefendersInFormation, formationAdjustment, modifier: 0 };
+  }
+  const average = inputs.reduce((sum, i) => sum + i.usedVote, 0) / inputs.length;
+  let band: DefenseModifierExplanation['band'] = null;
+  let minAvg = 0;
+  for (const entry of DEFENSE_MODIFIER_TABLE) {
+    if (average <= entry.maxAvg) {
+      band = { minAvg, maxAvg: entry.maxAvg, modifier: entry.modifier };
+      break;
+    }
+    minAvg = Math.round((entry.maxAvg + 0.01) * 100) / 100;
+  }
+  const modifier = (band?.modifier ?? 0) + formationAdjustment;
+  return { teamId, inputs, average, band, numDefenders: numDefendersInFormation, formationAdjustment, modifier };
+}
+
 export function calculateDefenseModifier(
   defenderVotes: number[],
   numDefendersInFormation: number
 ): number {
-  if (defenderVotes.length === 0) return 0;
+  return explainDefenseModifier(defenderVotes, numDefendersInFormation).modifier;
+}
 
-  const votesForCalc = defenderVotes.map(v => (v === 0 ? 5 : v));
-  const avgVote = votesForCalc.reduce((a, b) => a + b, 0) / votesForCalc.length;
+/**
+ * Modificatore centrocampo con il dettaglio: somma dei voti dei centrocampisti
+ * (s.v. = 5, chi ne schiera meno aggiunge dei 5 fino al numero dell'altro),
+ * differenza tra le due somme e fascia della tabella.
+ */
+export function explainMidfieldModifier(
+  homeMidfielders: readonly VoteLike[],
+  awayMidfielders: readonly VoteLike[],
+  homeNumMidfielders: number,
+  awayNumMidfielders: number
+): MidfieldModifierExplanation {
+  const maxMidfielders = Math.max(homeNumMidfielders, awayNumMidfielders);
+  const normalize = (votes: readonly VoteLike[]): ModifierVoteInput[] => {
+    const result = votes.map(toInput);
+    while (result.length < maxMidfielders) result.push({ vote: 0, usedVote: 5, padded: true });
+    return result;
+  };
+  const homeInputs = normalize(homeMidfielders);
+  const awayInputs = normalize(awayMidfielders);
+  const homeTotal = homeInputs.reduce((a, b) => a + b.usedVote, 0);
+  const awayTotal = awayInputs.reduce((a, b) => a + b.usedVote, 0);
+  const diff = Math.abs(homeTotal - awayTotal);
 
-  let baseModifier = 0;
-  for (const entry of DEFENSE_MODIFIER_TABLE) {
-    if (avgVote <= entry.maxAvg) {
-      baseModifier = entry.modifier;
+  let band = MIDFIELD_MODIFIER_TABLE[0];
+  for (let i = MIDFIELD_MODIFIER_TABLE.length - 1; i >= 0; i--) {
+    if (diff >= MIDFIELD_MODIFIER_TABLE[i].minDiff) {
+      band = MIDFIELD_MODIFIER_TABLE[i];
       break;
     }
   }
 
-  if (numDefendersInFormation === 3) {
-    baseModifier -= 1;
-  } else if (numDefendersInFormation > 4) {
-    baseModifier += (numDefendersInFormation - 4);
+  let homeModifier = 0;
+  let awayModifier = 0;
+  if (homeTotal > awayTotal) {
+    homeModifier = band.bonus;
+    awayModifier = band.malus;
+  } else if (awayTotal > homeTotal) {
+    homeModifier = band.malus;
+    awayModifier = band.bonus;
   }
-
-  return baseModifier;
+  return { homeInputs, awayInputs, homeTotal, awayTotal, diff, band, homeModifier, awayModifier };
 }
 
 export function calculateMidfieldModifier(
@@ -200,55 +273,45 @@ export function calculateMidfieldModifier(
   homeNumMidfielders: number,
   awayNumMidfielders: number
 ): { homeModifier: number; awayModifier: number } {
-  const normalizeVotes = (votes: number[], targetCount: number): number[] => {
-    const result = votes.map(v => (v === 0 ? 5 : v));
-    while (result.length < targetCount) {
-      result.push(5);
+  const { homeModifier, awayModifier } = explainMidfieldModifier(
+    homeMidfielderVotes,
+    awayMidfielderVotes,
+    homeNumMidfielders,
+    awayNumMidfielders
+  );
+  return { homeModifier, awayModifier };
+}
+
+/**
+ * Modificatore attacco con il dettaglio: per ogni attaccante schierato che
+ * NON ha segnato, bonus dalla fascia del suo voto base (6,5 / 7 / 7,5 / 8).
+ */
+export function explainAttackModifier(
+  forwards: ReadonlyArray<{ playerId?: string; name?: string; vote: number; scored: boolean }>
+): AttackModifierExplanation {
+  let modifier = 0;
+  const entries = forwards.map((forward) => {
+    let minVote: number | null = null;
+    let bonus = 0;
+    if (!forward.scored) {
+      for (let i = ATTACK_MODIFIER_TABLE.length - 1; i >= 0; i--) {
+        if (forward.vote >= ATTACK_MODIFIER_TABLE[i].vote) {
+          minVote = ATTACK_MODIFIER_TABLE[i].vote;
+          bonus = ATTACK_MODIFIER_TABLE[i].bonus;
+          break;
+        }
+      }
     }
-    return result;
-  };
-
-  const maxMidfielders = Math.max(homeNumMidfielders, awayNumMidfielders);
-  const homeNormalized = normalizeVotes(homeMidfielderVotes, maxMidfielders);
-  const awayNormalized = normalizeVotes(awayMidfielderVotes, maxMidfielders);
-
-  const homeTotal = homeNormalized.reduce((a, b) => a + b, 0);
-  const awayTotal = awayNormalized.reduce((a, b) => a + b, 0);
-  const diff = Math.abs(homeTotal - awayTotal);
-
-  let bonusMalus = { bonus: 0, malus: 0 };
-  for (let i = MIDFIELD_MODIFIER_TABLE.length - 1; i >= 0; i--) {
-    if (diff >= MIDFIELD_MODIFIER_TABLE[i].minDiff) {
-      bonusMalus = MIDFIELD_MODIFIER_TABLE[i];
-      break;
-    }
-  }
-
-  if (homeTotal > awayTotal) {
-    return { homeModifier: bonusMalus.bonus, awayModifier: bonusMalus.malus };
-  } else if (awayTotal > homeTotal) {
-    return { homeModifier: bonusMalus.malus, awayModifier: bonusMalus.bonus };
-  }
-  return { homeModifier: 0, awayModifier: 0 };
+    modifier += bonus;
+    return { ...forward, minVote, bonus };
+  });
+  return { entries, modifier };
 }
 
 export function calculateAttackModifier(
   forwardVotes: Array<{ vote: number; scored: boolean }>
 ): number {
-  let modifier = 0;
-
-  for (const forward of forwardVotes) {
-    if (forward.scored) continue;
-
-    for (let i = ATTACK_MODIFIER_TABLE.length - 1; i >= 0; i--) {
-      if (forward.vote >= ATTACK_MODIFIER_TABLE[i].vote) {
-        modifier += ATTACK_MODIFIER_TABLE[i].bonus;
-        break;
-      }
-    }
-  }
-
-  return modifier;
+  return explainAttackModifier(forwardVotes).modifier;
 }
 
 export function calculateGoals(totalPoints: number): number {
@@ -463,10 +526,15 @@ export function calculateTeamScore(
   riservaUfficio: string | null,
   playersById?: PlayerDirectory,
   teamStatuses?: TeamMatchStatuses
-): { total: number; playerScores: PlayerScore[]; attackModifier: number } {
+): {
+  total: number;
+  playerScores: PlayerScore[];
+  attackModifier: number;
+  attackExplanation: AttackModifierExplanation;
+} {
   const team = getTeamById(lineup.teamId);
   if (!team) {
-    return { total: 0, playerScores: [], attackModifier: 0 };
+    return { total: 0, playerScores: [], attackModifier: 0, attackExplanation: { entries: [], modifier: 0 } };
   }
 
   const { finalStarters, pendingStarters } = processSubstitutions(
@@ -479,7 +547,7 @@ export function calculateTeamScore(
   const playerScores: PlayerScore[] = [];
   let total = 0;
 
-  const forwardData: Array<{ vote: number; scored: boolean }> = [];
+  const forwardData: Array<{ playerId: string; name: string; vote: number; scored: boolean }> = [];
 
   for (const playerId of finalStarters) {
     const player = findPlayer(playerId, playersById);
@@ -519,7 +587,7 @@ export function calculateTeamScore(
 
     if (player.role === 'A') {
       const scored = bonuses.goals > 0 || bonuses.penaltyGoals > 0;
-      forwardData.push({ vote: baseVote, scored });
+      forwardData.push({ playerId: player.id, name: player.name, vote: baseVote, scored });
     }
 
     playerScores.push({
@@ -575,13 +643,14 @@ export function calculateTeamScore(
     playerScores.push(...scoredInOrder.slice(next), ...pendingScores.values());
   }
 
-  const attackModifier = calculateAttackModifier(forwardData);
+  const attackExplanation = explainAttackModifier(forwardData);
+  const attackModifier = attackExplanation.modifier;
   total += attackModifier;
   total += opponentDefenseModifier;
   total += midfieldModifier;
 
   if (isHome) {
-    total += 2;
+    total += HOME_BONUS;
   }
 
   // Append unused bench players for display (do not affect total)
@@ -626,7 +695,7 @@ export function calculateTeamScore(
     });
   }
 
-  return { total, playerScores, attackModifier };
+  return { total, playerScores, attackModifier, attackExplanation };
 }
 
 export function calculateMatch(
@@ -647,14 +716,14 @@ export function calculateMatch(
   const { finalStarters: awayStarters, riservaUfficio: awayRiserva } = 
     processSubstitutions(away, playerDataMap, 5, playersById, teamStatuses);
 
-  const getVotesForRole = (starters: string[], role: PlayerRole, riserva: string | null): number[] => {
+  const getVotesForRole = (starters: string[], role: PlayerRole, riserva: string | null) => {
     return starters
       .map(id => findPlayer(id, playersById))
       .filter((p): p is Player => p !== undefined && p !== null && p.role === role)
       .map((p: Player) => {
-        if (riserva === p.id) return 5;
+        if (riserva === p.id) return { playerId: p.id, name: p.name, vote: 0, riserva: true };
         const data = playerDataMap.get(p.id);
-        return data?.estimatedVote ?? 0;
+        return { playerId: p.id, name: p.name, vote: data?.estimatedVote ?? 0 };
       });
   };
 
@@ -663,15 +732,13 @@ export function calculateMatch(
   const homeMidVotes = getVotesForRole(homeStarters, 'C', homeRiserva);
   const awayMidVotes = getVotesForRole(awayStarters, 'C', awayRiserva);
 
-  const homeDefMod = calculateDefenseModifier(homeDefVotes, homeFormation.D);
-  const awayDefMod = calculateDefenseModifier(awayDefVotes, awayFormation.D);
+  const homeDefense = explainDefenseModifier(homeDefVotes, homeFormation.D, home.teamId);
+  const awayDefense = explainDefenseModifier(awayDefVotes, awayFormation.D, away.teamId);
+  const homeDefMod = homeDefense.modifier;
+  const awayDefMod = awayDefense.modifier;
 
-  const { homeModifier: homeMidMod, awayModifier: awayMidMod } = calculateMidfieldModifier(
-    homeMidVotes,
-    awayMidVotes,
-    homeFormation.C,
-    awayFormation.C
-  );
+  const midfield = explainMidfieldModifier(homeMidVotes, awayMidVotes, homeFormation.C, awayFormation.C);
+  const { homeModifier: homeMidMod, awayModifier: awayMidMod } = midfield;
 
   const homeResult = calculateTeamScore(
     home,
@@ -718,8 +785,15 @@ export function calculateMatch(
       defenseModifier: awayDefMod,
       midfieldModifier: homeMidMod,
       attackModifier: homeResult.attackModifier,
-      homeBonus: 2,
-      total: awayDefMod + homeMidMod + homeResult.attackModifier + 2,
+      homeBonus: HOME_BONUS,
+      total: awayDefMod + homeMidMod + homeResult.attackModifier + HOME_BONUS,
+      details: {
+        opponentDefense: awayDefense,
+        midfield,
+        isHome: true,
+        attack: homeResult.attackExplanation,
+        homeBonus: HOME_BONUS,
+      },
     },
     awayModifiers: {
       defenseModifier: homeDefMod,
@@ -727,6 +801,13 @@ export function calculateMatch(
       attackModifier: awayResult.attackModifier,
       homeBonus: 0,
       total: homeDefMod + awayMidMod + awayResult.attackModifier,
+      details: {
+        opponentDefense: homeDefense,
+        midfield,
+        isHome: false,
+        attack: awayResult.attackExplanation,
+        homeBonus: 0,
+      },
     },
     homePlayerScores: homeResult.playerScores,
     awayPlayerScores: awayResult.playerScores,

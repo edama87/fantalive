@@ -101,6 +101,68 @@ export interface ModifiersBreakdown {
   attackModifier: number;
   homeBonus: number;
   total: number;
+  /** Come è stato calcolato ogni modificatore (per la spiegazione in Sfida). */
+  details?: ModifierDetails;
+}
+
+/** Voto di un giocatore usato in un modificatore. */
+export interface ModifierVoteInput {
+  playerId?: string;
+  name?: string;
+  /** Voto base (senza bonus/malus); 0 = senza voto. */
+  vote: number;
+  /** Voto usato nel calcolo (s.v./riserva = 5). */
+  usedVote: number;
+  /** Aggiunto d'ufficio a 5 per pareggiare il numero di centrocampisti. */
+  padded?: boolean;
+  /** Riserva d'ufficio. */
+  riserva?: boolean;
+}
+
+export interface DefenseModifierExplanation {
+  teamId: string;
+  inputs: ModifierVoteInput[];
+  average: number | null;
+  band: { minAvg: number; maxAvg: number; modifier: number } | null;
+  numDefenders: number;
+  formationAdjustment: number;
+  modifier: number;
+}
+
+export interface MidfieldModifierExplanation {
+  homeInputs: ModifierVoteInput[];
+  awayInputs: ModifierVoteInput[];
+  homeTotal: number;
+  awayTotal: number;
+  diff: number;
+  band: { minDiff: number; bonus: number; malus: number };
+  homeModifier: number;
+  awayModifier: number;
+}
+
+export interface AttackModifierEntry {
+  playerId?: string;
+  name?: string;
+  vote: number;
+  scored: boolean;
+  /** Fascia di voto raggiunta (null se sotto 6,5 o ha segnato). */
+  minVote: number | null;
+  bonus: number;
+}
+
+export interface AttackModifierExplanation {
+  entries: AttackModifierEntry[];
+  modifier: number;
+}
+
+export interface ModifierDetails {
+  /** Modificatore difesa dell'avversario, applicato a questa squadra. */
+  opponentDefense: DefenseModifierExplanation;
+  midfield: MidfieldModifierExplanation;
+  /** true se questa squadra è la "home" del confronto centrocampo. */
+  isHome: boolean;
+  attack: AttackModifierExplanation;
+  homeBonus: number;
 }
 
 export interface PlayerScore {
