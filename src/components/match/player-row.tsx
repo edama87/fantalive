@@ -1,6 +1,8 @@
 'use client';
 
-import { cn, formatNumber } from '@/lib/utils';
+import { cn, formatNumber, formatVote } from '@/lib/utils';
+import { ConsolidatedMark, CONSOLIDATED_TITLE, ESTIMATED_TITLE } from '@/components/match/vote-source';
+import { isConsolidatedVote, isEstimatedVote } from '@/lib/vote-source';
 import { PlayerScore } from '@/types';
 import { RoleBadge } from '@/components/ui/icons';
 import { LiveDot } from '@/components/ui/live-dot';
@@ -57,6 +59,8 @@ export function displayFantavoto(playerScore: PlayerScore): string {
 export function PlayerRow({ playerScore, isSubstitute, fixture }: PlayerRowProps) {
   const { player, baseVote, bonuses, fantavoto, status, minutesPlayed } = playerScore;
   const muted = isPlayerMuted(playerScore);
+  const consolidated = baseVote > 0 && isConsolidatedVote(playerScore);
+  const estimated = isEstimatedVote(playerScore);
 
   return (
     <div className={cn(
@@ -99,13 +103,15 @@ export function PlayerRow({ playerScore, isSubstitute, fixture }: PlayerRowProps
           <StatusBadge status={status} minutesPlayed={minutesPlayed} />
         )}
         
-        <div className="flex items-center gap-2 w-20 justify-end">
+        <div className="flex items-center gap-2 w-24 justify-end">
+          {consolidated && <ConsolidatedMark />}
           {baseVote > 0 && (
-            <span className="text-sm text-gray-500">
-              {formatNumber(baseVote)}
+            <span className={cn('text-sm text-gray-500', estimated && 'italic')}>
+              {formatVote(baseVote)}
             </span>
           )}
           <span className={cn(
+            estimated && 'italic',
             muted && fantavoto > 0 ? 'font-semibold text-base text-gray-500' : 'font-bold text-lg',
             !muted && (
               fantavoto >= 7 ? 'text-green-600' :
@@ -115,7 +121,7 @@ export function PlayerRow({ playerScore, isSubstitute, fixture }: PlayerRowProps
             ),
             muted && fantavoto <= 0 && 'font-bold text-lg text-gray-400'
           )}
-            title={muted && fantavoto > 0 ? 'Non conta nel totale' : undefined}
+            title={muted && fantavoto > 0 ? 'Non conta nel totale' : consolidated ? CONSOLIDATED_TITLE : estimated ? ESTIMATED_TITLE : undefined}
           >
             {displayFantavoto(playerScore)}
           </span>

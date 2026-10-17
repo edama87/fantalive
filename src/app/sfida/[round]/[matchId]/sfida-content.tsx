@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TeamLineupCard } from '@/components/match/team-lineup-card';
 import { EventLegend } from '@/components/match/event-emoji';
+import { VoteSourceLegend } from '@/components/match/vote-source';
 import { cn, formatNumber } from '@/lib/utils';
 import { FantasyMatchResult, PlayerMatchData, ModifiersBreakdown } from '@/types';
 import { getRoundByNumber } from '@/data/calendar';
@@ -315,6 +316,7 @@ function IconLegend() {
     <Card className="bg-gray-50">
       <CardContent className="py-3">
         <EventLegend />
+        <VoteSourceLegend className="mt-2" />
       </CardContent>
     </Card>
   );

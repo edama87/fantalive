@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Header } from '@/components/layout/header';
 import { MatchCard } from '@/components/match/match-card';
 import { EventLegend } from '@/components/match/event-emoji';
+import { VoteSourceLegend } from '@/components/match/vote-source';
 import { SerieAFixturesCard } from '@/components/match/serie-a-fixtures-card';
 import { LiveStandings } from '@/components/match/live-standings';
 import { Badge } from '@/components/ui/badge';
@@ -179,6 +180,7 @@ export default function GiornataLivePage() {
 
         <div className="py-4">
           <EventLegend className="text-xs text-gray-400" />
+          <VoteSourceLegend className="mt-2" />
         </div>
       </div>
     </div>

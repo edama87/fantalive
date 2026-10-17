@@ -1,6 +1,7 @@
 'use client';
 
 import { Card } from '@/components/ui/card';
+import { VoteSourceSummary } from '@/components/match/vote-source';
 import { Badge } from '@/components/ui/badge';
 import { LiveDot } from '@/components/ui/live-dot';
 import { EventEmojis, eventEmojiSequence } from '@/components/match/event-emoji';
@@ -86,6 +87,7 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false, classN
                   ({match.homeGoals})
                 </span>
               </div>
+              <VoteSourceSummary scores={match.homePlayerScores} />
               {isLive && homePlayingCount > 0 && (
                 <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
                   <LiveDot size="sm" />
@@ -114,6 +116,7 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false, classN
                 </span>
                 {formatNumber(match.awayTotal)}
               </div>
+              <VoteSourceSummary scores={match.awayPlayerScores} align="right" />
               {isLive && awayPlayingCount > 0 && (
                 <div className="flex items-center justify-end gap-1 mt-1 text-xs text-gray-500">
                   <span>In campo {awayPlayingCount}/11</span>
