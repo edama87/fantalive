@@ -21,8 +21,8 @@ export default async function ProtectedAdminLayout({
   const configured = isAdminConfigured();
   const authenticated = await isAdminAuthenticated();
 
-  // If admin is not configured, allow access (dev mode)
-  if (!configured) {
+  // If admin is not configured, allow access only in local development
+  if (!configured && process.env.NODE_ENV !== 'production') {
     return <>{children}</>;
   }
 

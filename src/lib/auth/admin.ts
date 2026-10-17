@@ -7,6 +7,7 @@
  * Environment: ADMIN_PASSWORD (server only, never expose)
  */
 
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
 
 const ADMIN_COOKIE_NAME = 'fantalive_admin_session';
@@ -20,19 +21,55 @@ export function isAdminConfigured(): boolean {
   return Boolean(getAdminPassword());
 }
 
+function safeEqual(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
+/**
+ * Chiave di firma della sessione: ADMIN_SESSION_SECRET se presente, altrimenti
+ * derivata da ADMIN_PASSWORD (cambiare la password invalida le sessioni).
+ */
+function sessionKey(): string | null {
+  const secret = process.env.ADMIN_SESSION_SECRET || getAdminPassword();
+  return secret ? `fantalive-admin-session:${secret}` : null;
+}
+
+function sign(payload: string, key: string): string {
+  return createHmac('sha256', key).update(payload).digest('base64url');
+}
+
 export async function verifyAdminPassword(password: string): Promise<boolean> {
   const adminPassword = getAdminPassword();
   if (!adminPassword) {
     console.warn('[Auth] ADMIN_PASSWORD not configured');
     return false;
   }
-  return password === adminPassword;
+  return safeEqual(password, adminPassword);
 }
 
-export async function createAdminSession(): Promise<string> {
-  const expiresAt = Date.now() + SESSION_DURATION_MS;
-  const token = Buffer.from(JSON.stringify({ admin: true, expiresAt })).toString('base64');
-  return token;
+/** Token firmato (HMAC-SHA256): payload.firma. Un token non firmato non vale. */
+export async function createAdminSession(now: number = Date.now()): Promise<string> {
+  const key = sessionKey();
+  if (!key) throw new Error('ADMIN_PASSWORD not configured');
+  const payload = Buffer.from(JSON.stringify({ admin: true, expiresAt: now + SESSION_DURATION_MS })).toString('base64url');
+  return `${payload}.${sign(payload, key)}`;
+}
+
+/** Verifica firma e scadenza di un token di sessione admin. */
+export function verifyAdminSessionToken(token: string | undefined | null, now: number = Date.now()): boolean {
+  const key = sessionKey();
+  if (!key || !token) return false;
+  const [payload, signature, extra] = token.split('.');
+  if (!payload || !signature || extra !== undefined) return false;
+  if (!safeEqual(signature, sign(payload, key))) return false;
+  try {
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString());
+    return decoded?.admin === true && typeof decoded.expiresAt === 'number' && now <= decoded.expiresAt;
+  } catch {
+    return false;
+  }
 }
 
 export async function setAdminCookie(token: string): Promise<void> {
@@ -54,23 +91,7 @@ export async function clearAdminCookie(): Promise<void> {
 export async function isAdminAuthenticated(): Promise<boolean> {
   try {
     const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get(ADMIN_COOKIE_NAME);
-    
-    if (!sessionCookie?.value) {
-      return false;
-    }
-
-    const decoded = JSON.parse(Buffer.from(sessionCookie.value, 'base64').toString());
-    
-    if (!decoded.admin || !decoded.expiresAt) {
-      return false;
-    }
-
-    if (Date.now() > decoded.expiresAt) {
-      return false;
-    }
-
-    return true;
+    return verifyAdminSessionToken(cookieStore.get(ADMIN_COOKIE_NAME)?.value);
   } catch {
     return false;
   }
