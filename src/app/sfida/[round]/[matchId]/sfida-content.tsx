@@ -288,11 +288,11 @@ function TeamLineupCard({
 }) {
   // On field: original starters + substitutes who entered (status != to_play)
   const onField = playerScores.filter(
-    (ps) => ps.isStarter || ps.status !== 'to_play'
+    (ps) => !ps.isUnusedBench && (ps.isStarter || ps.status !== 'to_play')
   );
   // Remaining bench: unused substitutes
   const bench = playerScores.filter(
-    (ps) => !ps.isStarter && ps.status === 'to_play'
+    (ps) => ps.isUnusedBench || (!ps.isStarter && ps.status === 'to_play')
   );
   const total = onField.reduce((sum, ps) => sum + ps.fantavoto, 0);
 

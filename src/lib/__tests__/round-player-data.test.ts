@@ -163,3 +163,30 @@ describe('isRoundLive', () => {
     expect(isRoundLive([], [{ status: 'scheduled' }])).toBe(false);
   });
 });
+
+describe('unused bench players', () => {
+  it('show their fantavoto but stay out of the team total', () => {
+    const gk: Player = { id: 'gk', name: 'GK', role: 'P', teamId: 'dc' };
+    const fw: Player = { id: 'fw', name: 'FW', role: 'A', teamId: 'dc' };
+    const lineup: Lineup = {
+      teamId: 'dc',
+      roundNumber: 1,
+      formation: '4-3-3',
+      starters: [{ playerId: 'gk', position: 0 }],
+      bench: [{ playerId: 'fw', position: 0 }],
+    };
+    const data = assembleRoundPlayerData(
+      [
+        { player_id: 'gk', vote_fantacalcio: '6', minutes_played: null, bonus_malus: [] },
+        { player_id: 'fw', vote_fantacalcio: '8.5', minutes_played: null, bonus_malus: [{ type: 'goal', count: 3 }] },
+      ],
+      [],
+      []
+    );
+    const result = calculateTeamScore(lineup, data, false, 0, 0, null, { gk, fw });
+    const bench = result.playerScores.find((ps) => ps.player.id === 'fw');
+    expect(bench?.isUnusedBench).toBe(true);
+    expect(bench?.fantavoto).toBe(17.5);
+    expect(result.playerScores.find((ps) => ps.player.id === 'gk')?.isUnusedBench).toBeUndefined();
+  });
+});

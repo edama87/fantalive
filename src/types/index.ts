@@ -112,6 +112,8 @@ export interface PlayerScore {
   minutesPlayed?: number;
   isStarter: boolean;
   substitutedBy?: Player;
+  /** Panchinaro non entrato: mostrato per info, escluso dal totale. */
+  isUnusedBench?: boolean;
 }
 
 export interface BonusBreakdown {

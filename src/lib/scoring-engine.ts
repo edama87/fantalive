@@ -451,29 +451,34 @@ export function calculateTeamScore(
     if (!player) continue;
 
     const data = playerDataMap.get(slot.playerId);
+    const benchBonuses: BonusBreakdown = data
+      ? calculateBonuses(data, player)
+      : {
+          goals: 0,
+          penaltyGoals: 0,
+          penaltyMissed: 0,
+          penaltySaved: 0,
+          assists: 0,
+          ownGoals: 0,
+          yellowCards: 0,
+          redCards: 0,
+          goalsConceded: 0,
+        };
+    const benchVote = data?.estimatedVote ?? null;
     playerScores.push({
       player,
-      baseVote: data?.estimatedVote ?? 0,
-      bonuses: data
-        ? calculateBonuses(data, player)
-        : {
-            goals: 0,
-            penaltyGoals: 0,
-            penaltyMissed: 0,
-            penaltySaved: 0,
-            assists: 0,
-            ownGoals: 0,
-            yellowCards: 0,
-            redCards: 0,
-            goalsConceded: 0,
-          },
-      fantavoto: 0,
+      baseVote: benchVote ?? 0,
+      bonuses: benchBonuses,
+      // Solo visualizzazione: il fantavoto di un panchinaro non entrato non va nel totale.
+      fantavoto:
+        benchVote != null ? calculateFantavoto(benchVote, benchBonuses, player.role === 'P') : 0,
       status: data?.isPlaying
         ? 'playing'
         : data && data.minutesPlayed > 0
           ? 'played'
           : 'to_play',
       minutesPlayed: data?.minutesPlayed,
+      isUnusedBench: true,
       isStarter: false,
     });
   }
