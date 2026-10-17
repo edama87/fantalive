@@ -141,7 +141,8 @@ export default function GiornataLivePage() {
               <span className="text-xs text-gray-400">{matches.length} partite</span>
             </div>
 
-            <div className="space-y-3">
+            {/* flex: i Link delle card sono inline, space-y non li distanzia */}
+            <div className="flex flex-col gap-3">
               {userMatch && (
                 <MatchCard 
                   match={userMatch} 
