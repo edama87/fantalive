@@ -8,7 +8,7 @@ import {
 } from '@/types';
 import { teams, getTeamById } from '@/data/teams';
 import { getRoundByNumber } from '@/data/calendar';
-import { calculateMatch } from './scoring-engine';
+import { calculateMatch, type TeamMatchStatuses } from './scoring-engine';
 import { NormalizedMatchData } from '@/providers/types';
 import { generateDefaultLineup } from './lineup-utils';
 
@@ -26,6 +26,32 @@ export function inferMatchStatuses(
     statuses.set(`${pairing.homeTeamId}-${pairing.awayTeamId}`, status);
   }
   return statuses;
+}
+
+type FantasyMatchStatus = 'scheduled' | 'live' | 'halftime' | 'finished';
+
+/**
+ * Stato di uno scontro dalle partite di Serie A dei giocatori schierati
+ * (titolari e panchina): 'finished' solo se tutte sono finite, 'scheduled'
+ * se nessuna è iniziata, altrimenti 'live'.
+ */
+export function matchStatusFromTeams(
+  lineups: Lineup[],
+  playersById: Record<string, Player> | undefined,
+  teamStatuses: TeamMatchStatuses
+): FantasyMatchStatus {
+  const codes = new Set<string>();
+  for (const lineup of lineups) {
+    for (const slot of [...lineup.starters, ...lineup.bench]) {
+      const team = playersById?.[slot.playerId]?.realTeam;
+      if (team) codes.add(team.toUpperCase());
+    }
+  }
+  if (codes.size === 0) return 'scheduled';
+  const statuses = [...codes].map((code) => teamStatuses.get(code) ?? 'scheduled');
+  if (statuses.every((status) => status === 'finished')) return 'finished';
+  if (statuses.every((status) => status === 'scheduled')) return 'scheduled';
+  return 'live';
 }
 
 export function convertProviderDataToPlayerMatchData(
@@ -56,7 +82,8 @@ export function calculateAllMatches(
   playerDataMap: Map<string, PlayerMatchData>,
   matchStatuses?: Map<string, 'scheduled' | 'live' | 'halftime' | 'finished'>,
   lineupProvider?: (teamId: string, roundNumber: number) => Lineup,
-  playersById?: Record<string, Player>
+  playersById?: Record<string, Player>,
+  teamStatuses?: TeamMatchStatuses
 ): FantasyMatchResult[] {
   const round = getRoundByNumber(roundNumber);
   if (!round) return [];
@@ -78,11 +105,13 @@ export function calculateAllMatches(
     if (matchStatuses) {
       const matchKey = `${pairing.homeTeamId}-${pairing.awayTeamId}`;
       status = matchStatuses.get(matchKey) || 'scheduled';
+    } else if (teamStatuses && teamStatuses.size > 0) {
+      status = matchStatusFromTeams([homeLineup, awayLineup], playersById, teamStatuses);
     } else if (hasAnyPlayerData) {
       status = anyLive ? 'live' : 'finished';
     }
 
-    const result = calculateMatch(homeLineup, awayLineup, playerDataMap, status, playersById);
+    const result = calculateMatch(homeLineup, awayLineup, playerDataMap, status, playersById, teamStatuses);
     results.push(result);
   }
 

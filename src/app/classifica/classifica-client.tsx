@@ -14,6 +14,7 @@ import {
 } from '@/lib/live-data';
 import { shouldUseMockLiveData } from '@/lib/live-source';
 import { fetchRoundPlayerData } from '@/lib/round-player-data-client';
+import { teamStatusesFromFixtures, type RoundFixture } from '@/lib/serie-a-fixtures';
 import { createLineupProvider, fetchLineupBundle } from '@/lib/lineup-store';
 import { createMockProvider } from '@/providers/mock-provider';
 import { StandingsTable, CalendarView } from './page';
@@ -43,6 +44,7 @@ export function ClassificaClient({
 
       let playerDataMap: Map<string, PlayerMatchData>;
       let live: boolean;
+      let roundFixtures: RoundFixture[] = [];
 
       if (shouldUseMockLiveData()) {
         const provider = createMockProvider(42);
@@ -55,6 +57,7 @@ export function ClassificaClient({
         const roundData = await fetchRoundPlayerData(currentRound.number);
         playerDataMap = roundData.playerData;
         live = roundData.isLive;
+        roundFixtures = roundData.fixtures;
       }
 
       const { lineups, players } = await lineupPromise;
@@ -65,14 +68,17 @@ export function ClassificaClient({
               live ? 'live' as const : 'scheduled' as const,
             ])
           )
-        : inferMatchStatuses(currentRound.pairings, live, playerDataMap);
+        : roundFixtures.length > 0
+          ? undefined
+          : inferMatchStatuses(currentRound.pairings, live, playerDataMap);
 
       const matches = calculateAllMatches(
         currentRound.number,
         playerDataMap,
         matchStatuses,
         createLineupProvider(lineups),
-        players
+        players,
+        roundFixtures.length > 0 ? teamStatusesFromFixtures(roundFixtures) : undefined
       );
       const liveStandings = calculateLiveStandings(matches, getInitialStandings());
 

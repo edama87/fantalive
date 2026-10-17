@@ -13,6 +13,20 @@ import { getTeamById, getPlayerById } from '@/data/teams';
 
 export type PlayerDirectory = Record<string, Player>;
 
+/** Stato della partita di Serie A per codice squadra (FRO, SAS, ...). */
+export type TeamMatchStatuses = ReadonlyMap<string, MatchStatus>;
+
+/**
+ * Un titolare senza voto si sostituisce solo a partita della sua squadra finita.
+ * Senza informazioni sulle partite (teamStatuses assente) o senza squadra nota
+ * si mantiene il comportamento classico (sostituzione immediata).
+ */
+export function isAwaitingMatch(player: Player, teamStatuses?: TeamMatchStatuses): boolean {
+  if (!teamStatuses || teamStatuses.size === 0 || !player.realTeam) return false;
+  const status = teamStatuses.get(player.realTeam.toUpperCase());
+  return status !== 'finished';
+}
+
 function findPlayer(playerId: string, directory?: PlayerDirectory): Player | undefined {
   return directory?.[playerId] ?? getPlayerById(playerId);
 }
@@ -292,10 +306,17 @@ export function processSubstitutions(
   lineup: Lineup,
   playerDataMap: Map<string, PlayerMatchData>,
   maxSubs: number = 5,
-  playersById?: PlayerDirectory
-): { finalStarters: string[]; subsUsed: number; riservaUfficio: string | null } {
+  playersById?: PlayerDirectory,
+  teamStatuses?: TeamMatchStatuses
+): {
+  finalStarters: string[];
+  subsUsed: number;
+  riservaUfficio: string | null;
+  /** Titolari senza voto la cui partita non è ancora finita: né sostituiti né contati. */
+  pendingStarters: string[];
+} {
   const team = getTeamById(lineup.teamId);
-  if (!team) return { finalStarters: [], subsUsed: 0, riservaUfficio: null };
+  if (!team) return { finalStarters: [], subsUsed: 0, riservaUfficio: null, pendingStarters: [] };
 
   const formation = parseFormation(lineup.formation);
   const roleSlots: Record<PlayerRole, number> = {
@@ -306,6 +327,7 @@ export function processSubstitutions(
   };
 
   const finalStarters: string[] = [];
+  const pendingStarters: string[] = [];
   const rolesFilled: Record<PlayerRole, number> = { P: 0, D: 0, C: 0, A: 0 };
   let subsUsed = 0;
   let riservaUfficio: string | null = null;
@@ -328,6 +350,8 @@ export function processSubstitutions(
     if (hasVote || (player.role === 'P' && data && data.minutesPlayed >= 30)) {
       finalStarters.push(slot.playerId);
       rolesFilled[player.role]++;
+    } else if (isAwaitingMatch(player, teamStatuses)) {
+      pendingStarters.push(slot.playerId);
     } else if (subsUsed < maxSubs) {
       const benchForRole = benchByRole[player.role];
       let substituted = false;
@@ -359,7 +383,7 @@ export function processSubstitutions(
     }
   }
 
-  return { finalStarters, subsUsed, riservaUfficio };
+  return { finalStarters, subsUsed, riservaUfficio, pendingStarters };
 }
 
 export function calculateTeamScore(
@@ -369,14 +393,21 @@ export function calculateTeamScore(
   opponentDefenseModifier: number,
   midfieldModifier: number,
   riservaUfficio: string | null,
-  playersById?: PlayerDirectory
+  playersById?: PlayerDirectory,
+  teamStatuses?: TeamMatchStatuses
 ): { total: number; playerScores: PlayerScore[]; attackModifier: number } {
   const team = getTeamById(lineup.teamId);
   if (!team) {
     return { total: 0, playerScores: [], attackModifier: 0 };
   }
 
-  const { finalStarters } = processSubstitutions(lineup, playerDataMap, 5, playersById);
+  const { finalStarters, pendingStarters } = processSubstitutions(
+    lineup,
+    playerDataMap,
+    5,
+    playersById,
+    teamStatuses
+  );
   const playerScores: PlayerScore[] = [];
   let total = 0;
 
@@ -431,6 +462,27 @@ export function calculateTeamScore(
       status,
       minutesPlayed: data?.minutesPlayed,
       isStarter: lineup.starters.some(s => s.playerId === playerId),
+    });
+  }
+
+  // Titolari in attesa della loro partita: mostrati come "da giocare", fuori dal totale.
+  for (const playerId of pendingStarters) {
+    const player = findPlayer(playerId, playersById);
+    if (!player) continue;
+    const data = playerDataMap.get(playerId);
+    playerScores.push({
+      player,
+      baseVote: 0,
+      bonuses: data
+        ? calculateBonuses(data, player)
+        : {
+            goals: 0, penaltyGoals: 0, penaltyMissed: 0, penaltySaved: 0,
+            assists: 0, ownGoals: 0, yellowCards: 0, redCards: 0, goalsConceded: 0,
+          },
+      fantavoto: 0,
+      status: data?.isPlaying ? 'playing' : 'to_play',
+      minutesPlayed: data?.minutesPlayed,
+      isStarter: true,
     });
   }
 
@@ -491,7 +543,8 @@ export function calculateMatch(
   awayLineup: Lineup,
   playerDataMap: Map<string, PlayerMatchData>,
   status: MatchStatus = 'live',
-  playersById?: PlayerDirectory
+  playersById?: PlayerDirectory,
+  teamStatuses?: TeamMatchStatuses
 ): FantasyMatchResult {
   const home = withResolvedFormation(homeLineup, playersById);
   const away = withResolvedFormation(awayLineup, playersById);
@@ -499,9 +552,9 @@ export function calculateMatch(
   const awayFormation = parseFormation(away.formation);
 
   const { finalStarters: homeStarters, riservaUfficio: homeRiserva } = 
-    processSubstitutions(home, playerDataMap, 5, playersById);
+    processSubstitutions(home, playerDataMap, 5, playersById, teamStatuses);
   const { finalStarters: awayStarters, riservaUfficio: awayRiserva } = 
-    processSubstitutions(away, playerDataMap, 5, playersById);
+    processSubstitutions(away, playerDataMap, 5, playersById, teamStatuses);
 
   const getVotesForRole = (starters: string[], role: PlayerRole, riserva: string | null): number[] => {
     return starters
@@ -536,7 +589,8 @@ export function calculateMatch(
     awayDefMod,
     homeMidMod,
     homeRiserva,
-    playersById
+    playersById,
+    teamStatuses
   );
 
   const awayResult = calculateTeamScore(
@@ -546,7 +600,8 @@ export function calculateMatch(
     homeDefMod,
     awayMidMod,
     awayRiserva,
-    playersById
+    playersById,
+    teamStatuses
   );
 
   let homeGoals = calculateGoals(homeResult.total);

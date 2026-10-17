@@ -16,6 +16,7 @@ import {
 } from '@/lib/live-data';
 import { shouldUseMockLiveData } from '@/lib/live-source';
 import { getRoundPlayerState } from '@/lib/round-player-data';
+import { teamStatusesFromFixtures, type RoundFixture } from '@/lib/serie-a-fixtures';
 import {
   createLineupProviderFromMap,
   fetchLineupsForRound,
@@ -35,6 +36,7 @@ async function getStandingsData(): Promise<{ standings: LiveStandingsEntry[]; is
 
   let playerDataMap: Map<string, PlayerMatchData>;
   let isLive: boolean;
+  let fixtures: RoundFixture[] = [];
 
   if (shouldUseMockLiveData()) {
     const provider = createMockProvider(42);
@@ -47,6 +49,7 @@ async function getStandingsData(): Promise<{ standings: LiveStandingsEntry[]; is
     const state = await getRoundPlayerState(currentRound.number);
     playerDataMap = state.playerData;
     isLive = state.isLive;
+    fixtures = state.fixtures;
   }
 
   const lineups = await lineupsPromise;
@@ -59,14 +62,17 @@ async function getStandingsData(): Promise<{ standings: LiveStandingsEntry[]; is
           isLive ? 'live' as const : 'scheduled' as const,
         ])
       )
-    : inferMatchStatuses(currentRound.pairings, isLive, playerDataMap);
+    : fixtures.length > 0
+      ? undefined
+      : inferMatchStatuses(currentRound.pairings, isLive, playerDataMap);
 
   const matches = calculateAllMatches(
     currentRound.number,
     playerDataMap,
     matchStatuses,
     createLineupProviderFromMap(lineups),
-    players
+    players,
+    fixtures.length > 0 ? teamStatusesFromFixtures(fixtures) : undefined
   );
   const standings = calculateLiveStandings(matches, getInitialStandings());
 
