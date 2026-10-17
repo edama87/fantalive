@@ -5,9 +5,10 @@ import { useRouter, useParams } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { PlayerRow } from '@/components/match/player-row';
+import { TeamLineupCard } from '@/components/match/team-lineup-card';
+import { EventLegend } from '@/components/match/event-emoji';
 import { cn, formatNumber } from '@/lib/utils';
-import { FantasyMatchResult, PlayerMatchData, PlayerScore, ModifiersBreakdown } from '@/types';
+import { FantasyMatchResult, PlayerMatchData, ModifiersBreakdown } from '@/types';
 import { getRoundByNumber } from '@/data/calendar';
 import { getTeamById, USER_TEAM_ID } from '@/data/teams';
 import { 
@@ -17,6 +18,7 @@ import {
 } from '@/lib/live-data';
 import { shouldUseMockLiveData } from '@/lib/live-source';
 import { fetchRoundPlayerData } from '@/lib/round-player-data-client';
+import { teamStatusesFromFixtures, type RoundFixture } from '@/lib/serie-a-fixtures';
 import { createLineupProvider, fetchLineupBundle } from '@/lib/lineup-store';
 import { createMockProvider } from '@/providers/mock-provider';
 import { ArrowLeft, Home, Plane } from 'lucide-react';
@@ -30,6 +32,7 @@ export function SfidaContent() {
   
   const [match, setMatch] = useState<FantasyMatchResult | null>(null);
   const [isLive, setIsLive] = useState(false);
+  const [fixtures, setFixtures] = useState<RoundFixture[]>([]);
 
   const round = getRoundByNumber(roundNumber);
   const homeTeam = getTeamById(homeTeamId);
@@ -46,6 +49,7 @@ export function SfidaContent() {
 
       let playerDataMap: Map<string, PlayerMatchData>;
       let live: boolean;
+      let roundFixtures: RoundFixture[] = [];
 
       if (shouldUseMockLiveData()) {
         const provider = createMockProvider(42);
@@ -58,23 +62,26 @@ export function SfidaContent() {
         const roundData = await fetchRoundPlayerData(roundNumber);
         playerDataMap = roundData.playerData;
         live = roundData.isLive;
+        roundFixtures = roundData.fixtures;
       }
 
       const { lineups, players } = await lineupPromise;
       const matches = calculateAllMatches(
         roundNumber,
         playerDataMap,
-        shouldUseMockLiveData()
+        shouldUseMockLiveData() || roundFixtures.length > 0
           ? undefined
           : inferMatchStatuses(round.pairings, live, playerDataMap),
         createLineupProvider(lineups),
-        players
+        players,
+        roundFixtures.length > 0 ? teamStatusesFromFixtures(roundFixtures) : undefined
       );
       const thisMatch = matches.find(
         m => m.homeTeamId === homeTeamId && m.awayTeamId === awayTeamId
       );
 
       setMatch(thisMatch || null);
+      setFixtures(roundFixtures);
       setIsLive(live);
     } catch (error) {
       console.error('[sfida] voti non disponibili', error);
@@ -195,6 +202,7 @@ export function SfidaContent() {
           isUserTeam={homeTeamId === USER_TEAM_ID}
           playerScores={match.homePlayerScores}
           isHome={true}
+          fixtures={fixtures}
         />
 
         <TeamLineupCard
@@ -202,6 +210,7 @@ export function SfidaContent() {
           isUserTeam={awayTeamId === USER_TEAM_ID}
           playerScores={match.awayPlayerScores}
           isHome={false}
+          fixtures={fixtures}
         />
 
         <IconLegend />
@@ -275,87 +284,11 @@ function ModifiersCard({
   );
 }
 
-function TeamLineupCard({
-  title,
-  isUserTeam,
-  playerScores,
-  isHome,
-}: {
-  title: string;
-  isUserTeam: boolean;
-  playerScores: PlayerScore[];
-  isHome: boolean;
-}) {
-  // On field: original starters + substitutes who entered (status != to_play)
-  const onField = playerScores.filter(
-    (ps) => !ps.isUnusedBench && (ps.isStarter || ps.status !== 'to_play')
-  );
-  // Remaining bench: unused substitutes
-  const bench = playerScores.filter(
-    (ps) => ps.isUnusedBench || (!ps.isStarter && ps.status === 'to_play')
-  );
-  const total = onField.reduce((sum, ps) => sum + ps.fantavoto, 0);
-
-  return (
-    <Card className={cn(isUserTeam && 'ring-1 ring-emerald-200')}>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {isHome ? <Home size={16} className="text-gray-400" /> : <Plane size={16} className="text-gray-400" />}
-            <h3 className={cn(
-              'font-semibold',
-              isUserTeam ? 'text-emerald-700' : 'text-gray-900'
-            )}>
-              {title}
-            </h3>
-            {isUserTeam && (
-              <Badge variant="userTeam" className="text-[10px]">Tu</Badge>
-            )}
-          </div>
-          <span className="font-bold text-lg">
-            {formatNumber(total)}
-          </span>
-        </div>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="divide-y divide-gray-100">
-          {onField.map(ps => (
-            <PlayerRow
-              key={ps.player.id}
-              playerScore={ps}
-              isSubstitute={!ps.isStarter}
-            />
-          ))}
-        </div>
-        {bench.length > 0 && (
-          <>
-            <div className="px-3 py-2 bg-gray-50 text-xs font-medium text-gray-500 uppercase">
-              Panchina ({bench.length})
-            </div>
-            <div className="divide-y divide-gray-100">
-              {bench.map(ps => (
-                <PlayerRow key={ps.player.id} playerScore={ps} isSubstitute />
-              ))}
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 function IconLegend() {
   return (
     <Card className="bg-gray-50">
       <CardContent className="py-3">
-        <div className="text-xs text-gray-500 text-center space-y-1">
-          <p>
-            ⚽ Gol +3 · 🅿️ Rig +2 · ❌ Rig sbagliato -3 · 🧤 Rig parato +3
-          </p>
-          <p>
-            👟 Assist +1 · 🟨 Amm. -0,5 · 🟥 Esp. -1 · ⚽↩️ Autogol -1
-          </p>
-        </div>
+        <EventLegend />
       </CardContent>
     </Card>
   );

@@ -3,11 +3,13 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Header } from '@/components/layout/header';
 import { MatchCard } from '@/components/match/match-card';
+import { TeamLineupCard } from '@/components/match/team-lineup-card';
+import { EventLegend } from '@/components/match/event-emoji';
 import { LiveStandings } from '@/components/match/live-standings';
 import { Badge } from '@/components/ui/badge';
 import { FantasyMatchResult, LiveStandingsEntry, PlayerMatchData } from '@/types';
 import { getCurrentRound, getRoundByNumber } from '@/data/calendar';
-import { USER_TEAM_ID } from '@/data/teams';
+import { getTeamById, USER_TEAM_ID } from '@/data/teams';
 import { 
   calculateAllMatches, 
   calculateLiveStandings, 
@@ -17,6 +19,7 @@ import {
 } from '@/lib/live-data';
 import { shouldUseMockLiveData } from '@/lib/live-source';
 import { fetchRoundPlayerData } from '@/lib/round-player-data-client';
+import { teamStatusesFromFixtures, type RoundFixture } from '@/lib/serie-a-fixtures';
 import { createLineupProvider, fetchLineupBundle } from '@/lib/lineup-store';
 import { createMockProvider } from '@/providers/mock-provider';
 
@@ -27,6 +30,7 @@ export default function GiornataLivePage() {
   const [standings, setStandings] = useState<LiveStandingsEntry[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isLive, setIsLive] = useState(false);
+  const [fixtures, setFixtures] = useState<RoundFixture[]>([]);
 
   const currentRound = getCurrentRound();
 
@@ -40,6 +44,7 @@ export default function GiornataLivePage() {
       let playerDataMap: Map<string, PlayerMatchData>;
       let live: boolean;
       let updatedAt: Date;
+      let roundFixtures: RoundFixture[] = [];
 
       if (shouldUseMockLiveData()) {
         const provider = createMockProvider(42);
@@ -54,19 +59,22 @@ export default function GiornataLivePage() {
         playerDataMap = roundData.playerData;
         live = roundData.isLive;
         updatedAt = roundData.lastUpdated;
+        roundFixtures = roundData.fixtures;
       }
 
       const { lineups, players } = await lineupPromise;
       const calculatedMatches = calculateAllMatches(
         currentRound.number,
         playerDataMap,
-        shouldUseMockLiveData()
+        shouldUseMockLiveData() || roundFixtures.length > 0
           ? undefined
           : inferMatchStatuses(currentRound.pairings, live, playerDataMap),
         createLineupProvider(lineups),
-        players
+        players,
+        roundFixtures.length > 0 ? teamStatusesFromFixtures(roundFixtures) : undefined
       );
       setMatches(calculatedMatches);
+      setFixtures(roundFixtures);
 
       const liveStandings = calculateLiveStandings(calculatedMatches, getInitialStandings());
       setStandings(liveStandings);
@@ -135,6 +143,20 @@ export default function GiornataLivePage() {
                 showBonusSummary
               />
             )}
+
+            {userMatch && (
+              <TeamLineupCard
+                title={getTeamById(USER_TEAM_ID)?.name ?? 'La tua squadra'}
+                isUserTeam
+                isHome={userMatch.homeTeamId === USER_TEAM_ID}
+                playerScores={
+                  userMatch.homeTeamId === USER_TEAM_ID
+                    ? userMatch.homePlayerScores
+                    : userMatch.awayPlayerScores
+                }
+                fixtures={fixtures}
+              />
+            )}
             
             {otherMatches.map(match => (
               <MatchCard
@@ -149,9 +171,8 @@ export default function GiornataLivePage() {
 
         <LiveStandings standings={standings} />
 
-        <div className="text-center text-xs text-gray-400 py-4">
-          <p>Gol +3 · Assist +1 · Giallo -0,5 · Rosso -1 · Rig. segnato +2 · Rig. sbagliato -3 · Rig.</p>
-          <p>parato +3 · Autogol -1 · Gol subito (P) -1</p>
+        <div className="py-4">
+          <EventLegend className="text-xs text-gray-400" />
         </div>
       </div>
     </div>

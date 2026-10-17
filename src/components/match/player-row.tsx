@@ -3,53 +3,15 @@
 import { cn, formatNumber } from '@/lib/utils';
 import { PlayerScore } from '@/types';
 import { RoleBadge } from '@/components/ui/icons';
-import {
-  GoalIcon,
-  AssistIcon,
-  YellowCardIcon,
-  RedCardIcon,
-  PenaltyMissedIcon,
-  PenaltySavedIcon,
-  OwnGoalIcon,
-} from '@/components/ui/icons';
 import { LiveDot } from '@/components/ui/live-dot';
+import { EventEmojis } from '@/components/match/event-emoji';
+import { fixtureLabel, type RoundFixture } from '@/lib/serie-a-fixtures';
 
 interface PlayerRowProps {
   playerScore: PlayerScore;
   isSubstitute?: boolean;
-}
-
-function EventIcons({ bonuses }: { bonuses: PlayerScore['bonuses'] }) {
-  const icons = [];
-  
-  for (let i = 0; i < bonuses.goals; i++) {
-    icons.push(<GoalIcon key={`g${i}`} size={14} />);
-  }
-  for (let i = 0; i < bonuses.penaltyGoals; i++) {
-    icons.push(<span key={`pg${i}`} className="text-green-600 text-[10px] font-bold">R⚽</span>);
-  }
-  for (let i = 0; i < bonuses.assists; i++) {
-    icons.push(<AssistIcon key={`a${i}`} size={14} />);
-  }
-  for (let i = 0; i < bonuses.yellowCards; i++) {
-    icons.push(<YellowCardIcon key={`y${i}`} size={14} />);
-  }
-  for (let i = 0; i < bonuses.redCards; i++) {
-    icons.push(<RedCardIcon key={`r${i}`} size={14} />);
-  }
-  for (let i = 0; i < bonuses.penaltyMissed; i++) {
-    icons.push(<PenaltyMissedIcon key={`pm${i}`} size={14} />);
-  }
-  for (let i = 0; i < bonuses.penaltySaved; i++) {
-    icons.push(<PenaltySavedIcon key={`ps${i}`} size={14} />);
-  }
-  for (let i = 0; i < bonuses.ownGoals; i++) {
-    icons.push(<OwnGoalIcon key={`og${i}`} size={14} />);
-  }
-
-  return icons.length > 0 ? (
-    <div className="flex items-center gap-0.5">{icons}</div>
-  ) : null;
+  /** Partita di Serie A della squadra del giocatore (se nota). */
+  fixture?: RoundFixture | null;
 }
 
 function StatusBadge({ status, minutesPlayed }: { status: PlayerScore['status']; minutesPlayed?: number }) {
@@ -82,7 +44,7 @@ function StatusBadge({ status, minutesPlayed }: { status: PlayerScore['status'];
   }
 }
 
-export function PlayerRow({ playerScore, isSubstitute }: PlayerRowProps) {
+export function PlayerRow({ playerScore, isSubstitute, fixture }: PlayerRowProps) {
   const { player, baseVote, bonuses, fantavoto, status, minutesPlayed } = playerScore;
 
   return (
@@ -93,14 +55,26 @@ export function PlayerRow({ playerScore, isSubstitute }: PlayerRowProps) {
     )}>
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <RoleBadge role={player.role} />
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className={cn(
-            'font-medium text-gray-900 truncate',
-            status === 'sv' && 'text-gray-500'
-          )}>
-            {player.name}
-          </span>
-          <EventIcons bonuses={bonuses} />
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className={cn(
+              'font-medium text-gray-900 truncate',
+              status === 'sv' && 'text-gray-500'
+            )}>
+              {player.name}
+            </span>
+            <EventEmojis bonuses={bonuses} />
+          </div>
+          {(player.realTeam || fixture) && (
+            <div className={cn(
+              'text-[11px] truncate',
+              fixture?.status === 'live' || fixture?.status === 'halftime'
+                ? 'text-green-600'
+                : 'text-gray-400'
+            )}>
+              {fixture ? fixtureLabel(fixture) : player.realTeam}
+            </div>
+          )}
         </div>
       </div>
 

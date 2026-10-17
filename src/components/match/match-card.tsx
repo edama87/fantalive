@@ -3,16 +3,7 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { LiveDot } from '@/components/ui/live-dot';
-import {
-  GoalIcon,
-  AssistIcon,
-  YellowCardIcon,
-  RedCardIcon,
-  PenaltyGoalIcon,
-  PenaltyMissedIcon,
-  PenaltySavedIcon,
-  OwnGoalIcon,
-} from '@/components/ui/icons';
+import { EventEmojis } from '@/components/match/event-emoji';
 import { cn, formatNumber } from '@/lib/utils';
 import { FantasyMatchResult, BonusBreakdown } from '@/types';
 import { getTeamById, USER_TEAM_ID } from '@/data/teams';
@@ -25,41 +16,9 @@ interface MatchCardProps {
 }
 
 function BonusSummary({ bonuses, side }: { bonuses: BonusBreakdown; side: 'home' | 'away' }) {
-  const icons = [];
-  
-  for (let i = 0; i < bonuses.goals; i++) {
-    icons.push(<GoalIcon key={`g${i}`} size={14} />);
-  }
-  for (let i = 0; i < bonuses.penaltyGoals; i++) {
-    icons.push(<span key={`pg${i}`} className="text-green-600 text-xs">⚽R</span>);
-  }
-  for (let i = 0; i < bonuses.assists; i++) {
-    icons.push(<AssistIcon key={`a${i}`} size={14} />);
-  }
-  for (let i = 0; i < bonuses.yellowCards; i++) {
-    icons.push(<YellowCardIcon key={`y${i}`} size={14} />);
-  }
-  for (let i = 0; i < bonuses.redCards; i++) {
-    icons.push(<RedCardIcon key={`r${i}`} size={14} />);
-  }
-  for (let i = 0; i < bonuses.penaltyMissed; i++) {
-    icons.push(<PenaltyMissedIcon key={`pm${i}`} size={14} />);
-  }
-  for (let i = 0; i < bonuses.penaltySaved; i++) {
-    icons.push(<PenaltySavedIcon key={`ps${i}`} size={14} />);
-  }
-  for (let i = 0; i < bonuses.ownGoals; i++) {
-    icons.push(<OwnGoalIcon key={`og${i}`} size={14} />);
-  }
-
-  if (icons.length === 0) return null;
-
   return (
-    <div className={cn(
-      'flex items-center gap-1 flex-wrap',
-      side === 'away' && 'justify-end'
-    )}>
-      {icons}
+    <div className={cn('flex items-center flex-wrap', side === 'away' && 'justify-end')}>
+      <EventEmojis bonuses={bonuses} includeConceded={false} className="inline-flex flex-wrap items-center gap-0.5 text-sm leading-none" />
     </div>
   );
 }
