@@ -3,14 +3,13 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Header } from '@/components/layout/header';
 import { MatchCard } from '@/components/match/match-card';
-import { TeamLineupCard } from '@/components/match/team-lineup-card';
 import { EventLegend } from '@/components/match/event-emoji';
 import { SerieAFixturesCard } from '@/components/match/serie-a-fixtures-card';
 import { LiveStandings } from '@/components/match/live-standings';
 import { Badge } from '@/components/ui/badge';
 import { FantasyMatchResult, LiveStandingsEntry, PlayerMatchData } from '@/types';
 import { getCurrentRound, getRoundByNumber } from '@/data/calendar';
-import { getTeamById, USER_TEAM_ID } from '@/data/teams';
+import { USER_TEAM_ID } from '@/data/teams';
 import { 
   calculateAllMatches, 
   calculateLiveStandings, 
@@ -151,30 +150,19 @@ export default function GiornataLivePage() {
                 />
               )}
 
-              {userMatch && (
-                <TeamLineupCard
-                  title={getTeamById(USER_TEAM_ID)?.name ?? 'La tua squadra'}
-                  isUserTeam
-                  isHome={userMatch.homeTeamId === USER_TEAM_ID}
-                  playerScores={userPlayerScores}
-                  fixtures={fixtures}
-                />
-              )}
-
               {otherMatches.map(match => (
                 <MatchCard
                   key={`${match.homeTeamId}-${match.awayTeamId}`}
                   match={match}
                   roundNumber={currentRound.number}
                   showBonusSummary
-                  className="md:hidden"
                 />
               ))}
             </div>
           </div>
 
           <div className="space-y-4 md:sticky md:top-20">
-            {/* Tablet/desktop: partite di Serie A accanto alla formazione */}
+            {/* Tablet/desktop: partite di Serie A accanto agli scontri diretti */}
             <SerieAFixturesCard
               className="hidden md:block"
               fixtures={fixtures}
@@ -182,22 +170,6 @@ export default function GiornataLivePage() {
                 .map((ps) => ps.player.realTeam)
                 .filter((team): team is string => Boolean(team))}
             />
-
-            {otherMatches.length > 0 && (
-              <div className="hidden md:block space-y-3">
-                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                  Altri scontri
-                </h3>
-                {otherMatches.map(match => (
-                  <MatchCard
-                    key={`${match.homeTeamId}-${match.awayTeamId}`}
-                    match={match}
-                    roundNumber={currentRound.number}
-                    showBonusSummary
-                  />
-                ))}
-              </div>
-            )}
 
             <LiveStandings standings={standings} />
           </div>
