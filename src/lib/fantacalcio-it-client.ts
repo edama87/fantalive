@@ -34,9 +34,11 @@ export interface FantacalcioMatchday {
 
 export async function fetchFantacalcioHtml(
   url: string,
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = fetch,
+  options: { timeoutMs?: number } = {}
 ): Promise<string> {
   const response = await fetchImpl(url, {
+    signal: options.timeoutMs ? AbortSignal.timeout(options.timeoutMs) : undefined,
     headers: {
       'User-Agent': USER_AGENT,
       Accept: 'text/html',
@@ -122,32 +124,32 @@ export async function scrapeFantacalcioMatchday(
     })
   );
 
-  for (const page of pages) {
-    for (const row of page.rows) {
-      const hit = matchFantacalcioPlayer(row.name, catalog.players, catalog.aliases, {
-        role: row.role,
-        realTeam: row.team,
-      });
-      const scraped: FantacalcioScrapedPlayer = {
-        ...row,
-        matchId: page.match.matchId,
-        playerId: hit?.playerId ?? null,
-        matchedName: hit?.playerName ?? null,
-      };
-      if (!hit) {
-        console.warn(
-          `[fantacalcio-it] non abbinato: ${row.name} (${row.team}, ${row.role ?? '-'})`
-        );
-      }
-      players.push(scraped);
-    }
-  }
+  for (const page of pages) players.push(...matchScrapedRows(page.match.matchId, page.rows, catalog));
 
   return {
     matches,
     players,
     unmatched: players.filter((player) => player.playerId == null && player.vote != null),
   };
+}
+
+/** Abbina le righe di una pagina voti ai giocatori della lega (alias, poi nome+squadra). */
+export function matchScrapedRows(
+  matchId: string,
+  rows: readonly FantacalcioVotePlayer[],
+  catalog: { players: readonly FantacalcioCatalogPlayer[]; aliases: readonly FantacalcioAlias[] },
+  options: { log?: boolean } = {}
+): FantacalcioScrapedPlayer[] {
+  return rows.map((row) => {
+    const hit = matchFantacalcioPlayer(row.name, catalog.players, catalog.aliases, {
+      role: row.role,
+      realTeam: row.team,
+    });
+    if (!hit && options.log !== false) {
+      console.warn(`[fantacalcio-it] non abbinato: ${row.name} (${row.team}, ${row.role ?? '-'})`);
+    }
+    return { ...row, matchId, playerId: hit?.playerId ?? null, matchedName: hit?.playerName ?? null };
+  });
 }
 
 export async function loadFantacalcioMatchVotes(

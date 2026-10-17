@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { calendar, getCurrentRound } from '@/data/calendar';
 import { PianetafantaUpload } from './pianetafanta-upload';
+import { AutoImportStatus } from './auto-import-status';
 import { Download, Loader2 } from 'lucide-react';
 
 interface PreviewPlayer {
@@ -141,6 +142,8 @@ export default function AdminVotiPage() {
             </button>
           </CardContent>
         </Card>
+
+        <AutoImportStatus key={`auto-${roundNumber}`} roundNumber={roundNumber} />
 
         <PianetafantaUpload
           key={roundNumber}

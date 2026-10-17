@@ -11,6 +11,9 @@
  * rounds.status ('finished' solo a 10 partite finite).
  * Uscita veloce quando le partite sono già tutte nel DB e nessuna è live o
  * entro -15/+150 minuti dal calcio d'inizio.
+ * Voti fantacalcio.it: ogni 2 minuti, solo per partite in corso o con calcio
+ * d'inizio nelle ultime 6 ore (vedi fantacalcio-auto-import.ts), in parallelo
+ * all'ESPN e senza mai toccare i voti consolidati pianetafanta.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -25,6 +28,15 @@ import {
   type DbRoundRow,
   type DbSerieAMatchRow,
 } from '@/lib/round-schedule';
+import {
+  activeVoteMatches,
+  dueForImport,
+  fetchActiveMatchVotes,
+  FANTACALCIO_JOB,
+  type AutoImportMatch,
+} from '@/lib/fantacalcio-auto-import';
+import { loadFantacalcioCatalog } from '@/lib/fantacalcio-it-client';
+import { saveFantacalcioOfficialVotes } from '@/lib/official-votes';
 
 export const maxDuration = 30;
 
@@ -49,7 +61,7 @@ type Supabase = ReturnType<typeof getServerClient>;
 interface CronRoundContext {
   round: DbRoundRow;
   dates: string[];
-  matches: DbSerieAMatchRow[];
+  matches: Array<DbSerieAMatchRow & AutoImportMatch>;
 }
 
 /** Giornata corrente per data + partite già nel DB + giorni ESPN da leggere. */
@@ -66,11 +78,88 @@ async function loadRoundContext(supabase: Supabase, now: Date): Promise<CronRoun
 
   const { data: matches, error: matchesError } = await supabase
     .from('serie_a_matches')
-    .select('id, status, kickoff_time')
+    .select('id, status, kickoff_time, home_team, away_team')
     .eq('round_number', round.number);
   if (matchesError) throw new Error(`serie_a_matches: ${matchesError.message}`);
 
-  return { round, dates: roundEspnDates(round, next), matches: (matches ?? []) as DbSerieAMatchRow[] };
+  return {
+    round,
+    dates: roundEspnDates(round, next),
+    matches: (matches ?? []) as Array<DbSerieAMatchRow & AutoImportMatch>,
+  };
+}
+
+type FantacalcioStepResult =
+  | { skipped: string; errors?: string[] }
+  | { saved: number; skippedConsolidated: number; requests: number; rosterCandidates: number; errors?: string[] };
+
+/**
+ * Voti fantacalcio.it (ogni 2 minuti, solo partite attive). Non lancia mai:
+ * un problema qui non deve fermare l'ingestione ESPN.
+ */
+async function runFantacalcioStep(
+  supabase: Supabase,
+  round: DbRoundRow,
+  matches: readonly AutoImportMatch[],
+  now: Date
+): Promise<FantacalcioStepResult> {
+  let runId: string | null = null;
+  try {
+    const active = activeVoteMatches(matches, now);
+    if (active.length === 0) return { skipped: 'no_active_matches' };
+
+    const { data: last } = await supabase
+      .from('cron_runs')
+      .select('started_at')
+      .eq('job_name', FANTACALCIO_JOB)
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!dueForImport(last?.started_at as string | undefined, now)) return { skipped: 'throttled' };
+
+    const { data: run } = await supabase
+      .from('cron_runs')
+      .insert({ job_name: FANTACALCIO_JOB, status: 'running', round_number: round.number })
+      .select('id')
+      .single();
+    runId = run?.id ?? null;
+
+    const catalog = await loadFantacalcioCatalog();
+    const fetched = await fetchActiveMatchVotes(round.serie_a_matchday, active, catalog, { now });
+    const saved = await saveFantacalcioOfficialVotes(round.number, fetched.players);
+    const unmatched = fetched.players.filter((p) => p.playerId == null && p.vote != null);
+
+    if (fetched.rosterCandidates.length > 0) {
+      console.warn(
+        '[Cron Live] fantacalcio.it, giocatori della lega non abbinati:',
+        fetched.rosterCandidates.map((c) => `${c.name} (${c.team})`).join(', ')
+      );
+    }
+
+    await updateCronRun(supabase, runId, fetched.errors.length > 0 && saved.saved === 0 ? 'error' : 'success', {
+      votes_updated: saved.saved,
+      matches_updated: fetched.matches.length,
+      skipped_consolidated: saved.skippedConsolidated,
+      requests: fetched.requests,
+      matches: fetched.matches,
+      unmatched_count: unmatched.length,
+      roster_candidates: fetched.rosterCandidates,
+      error_message: fetched.errors.length > 0 ? fetched.errors.join('; ') : undefined,
+    });
+
+    return {
+      saved: saved.saved,
+      skippedConsolidated: saved.skippedConsolidated,
+      requests: fetched.requests,
+      rosterCandidates: fetched.rosterCandidates.length,
+      ...(fetched.errors.length > 0 ? { errors: fetched.errors } : {}),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[Cron Live] fantacalcio.it:', message);
+    await updateCronRun(supabase, runId, 'error', { error_message: message });
+    return { skipped: 'error', errors: [message] };
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -107,8 +196,13 @@ export async function POST(request: NextRequest) {
 
   const todayKey = romeTodayIso(now).replace(/-/g, '');
   const windowCheck = cronWindow(context.matches, now, context.dates.includes(todayKey));
+  // In parallelo all'ESPN e anche fuori dalla finestra ESPN: dopo il fischio
+  // finale fantacalcio.it aggiorna i voti per qualche ora.
+  const fantacalcioStep = runFantacalcioStep(supabase, context.round, context.matches, now);
   if (!windowCheck.active) {
+    const fantacalcio = await fantacalcioStep;
     return NextResponse.json({
+      fantacalcio,
       success: true,
       skipped: true,
       reason: windowCheck.reason,
@@ -279,6 +373,7 @@ export async function POST(request: NextRequest) {
       unmatchedCount: unmatched.length,
       isLive: data.isLive,
       durationMs: duration,
+      fantacalcio: await fantacalcioStep,
       ...(errors.length > 0 ? { errors } : {}),
     });
 
@@ -289,6 +384,7 @@ export async function POST(request: NextRequest) {
       error_message: error instanceof Error ? error.message : 'Unknown error',
     });
 
+    await fantacalcioStep;
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
