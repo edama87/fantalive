@@ -29,6 +29,7 @@ export async function loadConsolidatedMatchVotes(
       team: p.team,
       votes: p.votes,
       average: p.average,
+      minutesPlayed: typeof p.minutesPlayed === 'number' ? p.minutesPlayed : null,
     }));
   } catch (error) {
     console.warn('[Serie A] voti consolidati non disponibili:', error);

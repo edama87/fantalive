@@ -9,6 +9,8 @@ export interface ConsolidatedVoteEntry {
   team: string;
   votes: { gazzetta: number | null; corriere: number | null; tuttosport: number | null };
   average: number | null;
+  /** Minuti giocati dal file pianetafanta (se presenti). */
+  minutesPlayed?: number | null;
 }
 
 function nameTokens(name: string): string[] {
