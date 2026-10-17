@@ -68,7 +68,7 @@ export const teams: Team[] = [
     C: ['Busio', 'Calhanoglu', 'Colpani', 'De Roon', 'Frattesi', 'Keita', 'Rowe', 'Vergara'],
     A: ['Akor Adams', 'Douvikas', 'D. Maldini', 'Neres', 'Piccoli', 'Raspadori'],
   }),
-  createTeam('ap', 'Amatori ProSecco', 'Daniele', {
+  createTeam('ap', 'Amatori ProSecco', 'Daniele e Francesca', {
     P: ['Corvi', 'Furlanetto', 'Mandas'],
     D: ['Bremer', 'Dimarco', 'Hainaut', 'Idzes', 'Mancini', 'Ostigard', 'Solet', 'Valeri'],
     C: ['Basic', 'Kone', 'Masini', 'McTominay', 'Perez', 'Winks', 'Fitz-Jim', 'Kessie'],

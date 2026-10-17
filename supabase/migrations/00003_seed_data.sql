@@ -15,7 +15,7 @@ INSERT INTO teams (id, name, manager_name, manager_email) VALUES
     ('psg', 'Parisso San Gennaro', 'Vincenzo A.', NULL),
     ('le', 'Little Eagles', 'Marco A.', NULL),
     ('st', 'Salen Team', 'Valeria P.', NULL),
-    ('ap', 'Amatori ProSecco', 'Daniele', NULL),
+    ('ap', 'Amatori ProSecco', 'Daniele e Francesca', NULL),
     ('dc', 'Dinamo Cecchignola 1927', 'Christian P.', NULL)
 ON CONFLICT (id) DO UPDATE SET
     name = EXCLUDED.name,
