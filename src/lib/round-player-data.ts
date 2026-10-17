@@ -1,6 +1,8 @@
 /**
- * Voti di giornata per lo scoring: official_votes (voto puro + bonus) e,
- * solo per chi non ha voto ufficiale, live_votes + live_events.
+ * Voti di giornata per lo scoring, in ordine di priorità:
+ * 1. official_votes con source 'pianetafanta' (consolidati: media G/CS/TS);
+ * 2. official_votes fantacalcio.it (voto puro + bonus, provvisorio);
+ * 3. solo per chi non ha voto ufficiale, live_votes + live_events (stima).
  */
 
 import { getServerClient } from '@/lib/db/supabase';
@@ -23,6 +25,10 @@ const PLAYER_EVENT_TYPES = new Set<EventType>([
 export interface OfficialVoteRow {
   player_id: string;
   vote_fantacalcio: number | string | null;
+  /** Media dei voti di testata (Gazzetta/Corriere/Tuttosport), vedi migrazione pianetafanta. */
+  vote_average?: number | string | null;
+  /** 'fantacalcio' (default) o 'pianetafanta' (consolidato). */
+  source?: string | null;
   minutes_played: number | string | null;
   bonus_malus: unknown;
 }
@@ -111,16 +117,31 @@ export function bonusMalusToEvents(playerId: string, bonusMalus: unknown): Playe
 }
 
 function officialVoteToPlayerMatchData(row: OfficialVoteRow): PlayerMatchData | null {
+  const minutes = finiteNumber(row.minutes_played);
+  const events = bonusMalusToEvents(row.player_id, row.bonus_malus);
+
+  if (row.source === 'pianetafanta') {
+    // Consolidato: media dei voti di testata presenti. Senza nessun voto è un
+    // s.v. definitivo (nessuna stima live lo sostituisce).
+    return {
+      playerId: row.player_id,
+      estimatedVote: finiteNumber(row.vote_average),
+      minutesPlayed: minutes ?? 0,
+      isPlaying: false,
+      events,
+      voteSource: 'consolidated',
+    };
+  }
+
   const estimatedVote = finiteNumber(row.vote_fantacalcio);
   if (estimatedVote == null) return null;
-
-  const minutes = finiteNumber(row.minutes_played);
   return {
     playerId: row.player_id,
     estimatedVote,
     minutesPlayed: minutes ?? 90,
     isPlaying: false,
-    events: bonusMalusToEvents(row.player_id, row.bonus_malus),
+    events,
+    voteSource: 'official',
   };
 }
 
@@ -185,6 +206,7 @@ export function assembleRoundPlayerData(
       minutesPlayed: finiteNumber(row.minutes_played) ?? 0,
       isPlaying: row.is_playing === true,
       events: eventsByPlayer.get(row.player_id) ?? [],
+      voteSource: 'live',
     });
     eventsByPlayer.delete(row.player_id);
   }
@@ -197,6 +219,7 @@ export function assembleRoundPlayerData(
       minutesPlayed: 0,
       isPlaying: false,
       events,
+      voteSource: 'live',
     });
   }
 
@@ -225,7 +248,7 @@ export async function getRoundPlayerState(roundNumber: number): Promise<RoundPla
   const [officialResult, liveVotesResult, liveEventsResult, matchesResult] = await Promise.all([
     supabase
       .from('official_votes')
-      .select('player_id, vote_fantacalcio, minutes_played, bonus_malus')
+      .select('player_id, vote_fantacalcio, vote_average, source, minutes_played, bonus_malus')
       .eq('round_number', roundNumber),
     supabase
       .from('live_votes')

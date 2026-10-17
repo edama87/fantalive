@@ -695,6 +695,11 @@ export function calculateTeamScore(
     });
   }
 
+  for (const score of playerScores) {
+    const voteSource = playerDataMap.get(score.player.id)?.voteSource;
+    if (voteSource) score.voteSource = voteSource;
+  }
+
   return { total, playerScores, attackModifier, attackExplanation };
 }
 

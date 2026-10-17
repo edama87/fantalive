@@ -61,6 +61,12 @@ export interface PlayerEvent {
   relatedPlayerId?: string;
 }
 
+/**
+ * Provenienza del voto: 'consolidated' = voti di testata pianetafanta
+ * (definitivi), 'official' = fantacalcio.it (provvisorio), 'live' = stima live.
+ */
+export type VoteSource = 'consolidated' | 'official' | 'live';
+
 export interface PlayerMatchData {
   playerId: string;
   estimatedVote: number | null;
@@ -68,6 +74,7 @@ export interface PlayerMatchData {
   isPlaying: boolean;
   events: PlayerEvent[];
   finalVote?: number;
+  voteSource?: VoteSource;
 }
 
 export interface SerieAMatch {
@@ -181,6 +188,8 @@ export interface PlayerScore {
    * scoring engine): mostrato in grigio.
    */
   isCertainlyOut?: boolean;
+  /** Provenienza del voto (consolidato pianetafanta, fantacalcio.it o stima live). */
+  voteSource?: VoteSource;
 }
 
 export interface BonusBreakdown {

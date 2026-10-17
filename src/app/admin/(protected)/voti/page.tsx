@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { Header } from '@/components/layout/header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { calendar } from '@/data/calendar';
+import { calendar, getCurrentRound } from '@/data/calendar';
+import { PianetafantaUpload } from './pianetafanta-upload';
 import { Download, Loader2 } from 'lucide-react';
 
 interface PreviewPlayer {
@@ -39,7 +40,7 @@ interface PreviewResponse {
 }
 
 export default function AdminVotiPage() {
-  const [roundNumber, setRoundNumber] = useState(calendar[0]?.number ?? 1);
+  const [roundNumber, setRoundNumber] = useState(() => getCurrentRound().number);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
@@ -102,9 +103,9 @@ export default function AdminVotiPage() {
       <Header title="VOTI" isLive={false} />
       <div className="px-4 py-4 space-y-4 max-w-lg mx-auto">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Voti fantacalcio.it</h2>
+          <h2 className="text-xl font-bold text-gray-900">Voti</h2>
           <p className="text-sm text-gray-500">
-            Anteprima dei voti della giornata, poi salvataggio in official_votes.
+            Voti consolidati da pianetafanta (Excel) o provvisori da fantacalcio.it, salvati in official_votes.
           </p>
         </div>
 
@@ -140,6 +141,12 @@ export default function AdminVotiPage() {
             </button>
           </CardContent>
         </Card>
+
+        <PianetafantaUpload
+          key={roundNumber}
+          roundNumber={roundNumber}
+          serieAMatchday={calendar.find((round) => round.number === roundNumber)?.serieAMatchday ?? roundNumber + 6}
+        />
 
         {error && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
