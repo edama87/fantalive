@@ -82,7 +82,6 @@ export const teams: Team[] = [
   }),
 ];
 
-export const USER_TEAM_ID = 'ap';
 
 export function getTeamById(id: string): Team | undefined {
   return teams.find(t => t.id === id);

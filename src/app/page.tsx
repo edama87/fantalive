@@ -9,7 +9,7 @@ import { LiveStandings } from '@/components/match/live-standings';
 import { Badge } from '@/components/ui/badge';
 import { FantasyMatchResult, LiveStandingsEntry, PlayerMatchData } from '@/types';
 import { getCurrentRound, getRoundByNumber } from '@/data/calendar';
-import { USER_TEAM_ID } from '@/data/teams';
+import { useMyTeamId } from '@/lib/hooks/use-my-team';
 import { 
   calculateAllMatches, 
   calculateLiveStandings, 
@@ -30,6 +30,7 @@ export default function GiornataLivePage() {
   const [standings, setStandings] = useState<LiveStandingsEntry[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isLive, setIsLive] = useState(false);
+  const myTeamId = useMyTeamId();
   const [fixtures, setFixtures] = useState<RoundFixture[]>([]);
 
   const currentRound = getCurrentRound();
@@ -94,13 +95,13 @@ export default function GiornataLivePage() {
   }, [fetchData]);
 
   const userMatch = matches.find(
-    m => m.homeTeamId === USER_TEAM_ID || m.awayTeamId === USER_TEAM_ID
+    m => myTeamId !== null && (m.homeTeamId === myTeamId || m.awayTeamId === myTeamId)
   );
   const otherMatches = matches.filter(
-    m => m.homeTeamId !== USER_TEAM_ID && m.awayTeamId !== USER_TEAM_ID
+    m => m !== userMatch
   );
   const userPlayerScores = userMatch
-    ? userMatch.homeTeamId === USER_TEAM_ID
+    ? userMatch.homeTeamId === myTeamId
       ? userMatch.homePlayerScores
       : userMatch.awayPlayerScores
     : [];

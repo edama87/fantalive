@@ -10,7 +10,8 @@ import { EventLegend } from '@/components/match/event-emoji';
 import { cn, formatNumber } from '@/lib/utils';
 import { FantasyMatchResult, PlayerMatchData, ModifiersBreakdown } from '@/types';
 import { getRoundByNumber } from '@/data/calendar';
-import { getTeamById, USER_TEAM_ID } from '@/data/teams';
+import { getTeamById } from '@/data/teams';
+import { useMyTeamId } from '@/lib/hooks/use-my-team';
 import { 
   calculateAllMatches,
   convertProviderDataToPlayerMatchData,
@@ -34,6 +35,7 @@ export function SfidaContent() {
   
   const [match, setMatch] = useState<FantasyMatchResult | null>(null);
   const [isLive, setIsLive] = useState(false);
+  const myTeamId = useMyTeamId();
   const [fixtures, setFixtures] = useState<RoundFixture[]>([]);
 
   const round = getRoundByNumber(roundNumber);
@@ -107,7 +109,7 @@ export function SfidaContent() {
     );
   }
 
-  const isUserMatch = homeTeamId === USER_TEAM_ID || awayTeamId === USER_TEAM_ID;
+  const isUserMatch = myTeamId !== null && (homeTeamId === myTeamId || awayTeamId === myTeamId);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -145,7 +147,7 @@ export function SfidaContent() {
                 </div>
                 <div className={cn(
                   'font-bold text-lg',
-                  homeTeamId === USER_TEAM_ID && 'text-emerald-700'
+                  homeTeamId === myTeamId && 'text-emerald-700'
                 )}>
                   {homeTeam.name}
                 </div>
@@ -171,7 +173,7 @@ export function SfidaContent() {
                 </div>
                 <div className={cn(
                   'font-bold text-lg',
-                  awayTeamId === USER_TEAM_ID && 'text-emerald-700'
+                  awayTeamId === myTeamId && 'text-emerald-700'
                 )}>
                   {awayTeam.name}
                 </div>
@@ -202,7 +204,7 @@ export function SfidaContent() {
         <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:items-start md:space-y-0">
           <TeamLineupCard
             title={homeTeam.name}
-            isUserTeam={homeTeamId === USER_TEAM_ID}
+            isUserTeam={homeTeamId === myTeamId}
             playerScores={match.homePlayerScores}
             isHome={true}
             fixtures={fixtures}
@@ -210,7 +212,7 @@ export function SfidaContent() {
 
           <TeamLineupCard
             title={awayTeam.name}
-            isUserTeam={awayTeamId === USER_TEAM_ID}
+            isUserTeam={awayTeamId === myTeamId}
             playerScores={match.awayPlayerScores}
             isHome={false}
             fixtures={fixtures}

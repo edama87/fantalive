@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { LiveStandingsEntry, PlayerMatchData } from '@/types';
 import { getCurrentRound, calendar } from '@/data/calendar';
-import { getTeamById, USER_TEAM_ID, teams } from '@/data/teams';
+import { getTeamById, teams } from '@/data/teams';
 import { 
   calculateAllMatches, 
   calculateLiveStandings, 
@@ -98,10 +98,12 @@ export default async function ClassificaPage() {
 
 export function StandingsTable({ 
   standings, 
-  isLive 
+  isLive,
+  myTeamId = null,
 }: { 
   standings: LiveStandingsEntry[];
   isLive: boolean;
+  myTeamId?: string | null;
 }) {
   return (
     <Card>
@@ -133,7 +135,7 @@ export function StandingsTable({
             </thead>
             <tbody>
               {standings.map((entry, idx) => {
-                const isUserTeam = entry.teamId === USER_TEAM_ID;
+                const isUserTeam = myTeamId !== null && entry.teamId === myTeamId;
                 const team = getTeamById(entry.teamId);
                 
                 return (
@@ -183,10 +185,12 @@ export function StandingsTable({
 
 export function CalendarView({ 
   currentRound,
-  selectedRound: initialSelectedRound 
+  selectedRound: initialSelectedRound,
+  myTeamId = null,
 }: { 
   currentRound: number;
   selectedRound?: number;
+  myTeamId?: string | null;
 }) {
   const round = calendar.find(r => r.number === (initialSelectedRound || currentRound));
 
@@ -209,9 +213,8 @@ export function CalendarView({
               {round.pairings.map((pairing, idx) => {
                 const homeTeam = getTeamById(pairing.homeTeamId);
                 const awayTeam = getTeamById(pairing.awayTeamId);
-                const isUserMatch = 
-                  pairing.homeTeamId === USER_TEAM_ID || 
-                  pairing.awayTeamId === USER_TEAM_ID;
+                const isUserMatch = myTeamId !== null &&
+                  (pairing.homeTeamId === myTeamId || pairing.awayTeamId === myTeamId);
 
                 return (
                   <div 
@@ -223,14 +226,14 @@ export function CalendarView({
                   >
                     <span className={cn(
                       'flex-1',
-                      pairing.homeTeamId === USER_TEAM_ID && 'font-semibold text-emerald-700'
+                      myTeamId !== null && pairing.homeTeamId === myTeamId && 'font-semibold text-emerald-700'
                     )}>
                       {homeTeam?.name}
                     </span>
                     <span className="px-3 text-gray-400">vs</span>
                     <span className={cn(
                       'flex-1 text-right',
-                      pairing.awayTeamId === USER_TEAM_ID && 'font-semibold text-emerald-700'
+                      myTeamId !== null && pairing.awayTeamId === myTeamId && 'font-semibold text-emerald-700'
                     )}>
                       {awayTeam?.name}
                     </span>

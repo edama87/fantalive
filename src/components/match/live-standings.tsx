@@ -5,13 +5,15 @@ import { Badge } from '@/components/ui/badge';
 import { LiveDot } from '@/components/ui/live-dot';
 import { cn, formatNumber } from '@/lib/utils';
 import { LiveStandingsEntry } from '@/types';
-import { USER_TEAM_ID, getTeamById } from '@/data/teams';
+import { getTeamById } from '@/data/teams';
+import { useMyTeamId } from '@/lib/hooks/use-my-team';
 
 interface LiveStandingsProps {
   standings: LiveStandingsEntry[];
 }
 
 export function LiveStandings({ standings }: LiveStandingsProps) {
+  const myTeamId = useMyTeamId();
   return (
     <Card>
       <div className="p-4">
@@ -35,7 +37,7 @@ export function LiveStandings({ standings }: LiveStandingsProps) {
 
           {standings.map((entry, index) => {
             const team = getTeamById(entry.teamId);
-            const isUserTeam = entry.teamId === USER_TEAM_ID;
+            const isUserTeam = myTeamId !== null && entry.teamId === myTeamId;
             const isRising = entry.liveFantaPoints > entry.fantaPoints;
             const isFalling = entry.liveFantaPoints < entry.fantaPoints;
 

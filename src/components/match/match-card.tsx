@@ -7,7 +7,8 @@ import { EventEmojis, eventEmojiSequence } from '@/components/match/event-emoji'
 import { cn, formatNumber } from '@/lib/utils';
 import { FantasyMatchResult, PlayerScore } from '@/types';
 import { splitBonusSummary } from '@/lib/bonus-summary';
-import { getTeamById, USER_TEAM_ID } from '@/data/teams';
+import { getTeamById } from '@/data/teams';
+import { useMyTeamId } from '@/lib/hooks/use-my-team';
 import Link from 'next/link';
 
 interface MatchCardProps {
@@ -36,7 +37,9 @@ function BonusSummary({ scores, side }: { scores: PlayerScore[]; side: 'home' | 
 export function MatchCard({ match, roundNumber, showBonusSummary = false, className }: MatchCardProps) {
   const homeTeam = getTeamById(match.homeTeamId);
   const awayTeam = getTeamById(match.awayTeamId);
-  const isUserMatch = match.homeTeamId === USER_TEAM_ID || match.awayTeamId === USER_TEAM_ID;
+  const myTeamId = useMyTeamId();
+  const isMine = (teamId: string) => myTeamId !== null && teamId === myTeamId;
+  const isUserMatch = isMine(match.homeTeamId) || isMine(match.awayTeamId);
   const isLive = match.status === 'live' || match.status === 'halftime';
 
 
@@ -69,11 +72,11 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false, classN
               <div className="flex items-center gap-2">
                 <span className={cn(
                   'font-semibold text-gray-900',
-                  match.homeTeamId === USER_TEAM_ID && 'text-emerald-700'
+                  isMine(match.homeTeamId) && 'text-emerald-700'
                 )}>
                   {homeTeam?.name || match.homeTeamId}
                 </span>
-                {match.homeTeamId === USER_TEAM_ID && (
+                {isMine(match.homeTeamId) && (
                   <Badge variant="userTeam" className="text-[10px]">Tu</Badge>
                 )}
               </div>
@@ -95,12 +98,12 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false, classN
 
             <div className="flex-1 text-right">
               <div className="flex items-center justify-end gap-2">
-                {match.awayTeamId === USER_TEAM_ID && (
+                {isMine(match.awayTeamId) && (
                   <Badge variant="userTeam" className="text-[10px]">Tu</Badge>
                 )}
                 <span className={cn(
                   'font-semibold text-gray-900',
-                  match.awayTeamId === USER_TEAM_ID && 'text-emerald-700'
+                  isMine(match.awayTeamId) && 'text-emerald-700'
                 )}>
                   {awayTeam?.name || match.awayTeamId}
                 </span>

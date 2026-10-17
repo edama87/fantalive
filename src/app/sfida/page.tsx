@@ -3,16 +3,17 @@
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { getCurrentRound } from '@/data/calendar';
-import { USER_TEAM_ID } from '@/data/teams';
+import { MY_TEAM_COOKIE, parseMyTeam, readCookie } from '@/lib/my-team';
 
 export default function SfidaPage() {
   const router = useRouter();
   const currentRound = getCurrentRound();
   
   useEffect(() => {
-    const userMatch = currentRound.pairings.find(
-      p => p.homeTeamId === USER_TEAM_ID || p.awayTeamId === USER_TEAM_ID
-    );
+    const myTeamId = parseMyTeam(readCookie(document.cookie, MY_TEAM_COOKIE));
+    const userMatch = myTeamId
+      ? currentRound.pairings.find(p => p.homeTeamId === myTeamId || p.awayTeamId === myTeamId)
+      : currentRound.pairings[0];
     
     if (userMatch) {
       router.replace(`/sfida/${currentRound.number}/${userMatch.homeTeamId}-${userMatch.awayTeamId}`);

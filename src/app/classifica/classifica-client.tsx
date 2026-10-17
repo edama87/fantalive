@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { LiveStandingsEntry, PlayerMatchData } from '@/types';
 import { getCurrentRound, calendar } from '@/data/calendar';
-import { getTeamById, USER_TEAM_ID } from '@/data/teams';
+import { getTeamById } from '@/data/teams';
+import { useMyTeamId } from '@/lib/hooks/use-my-team';
 import { 
   calculateAllMatches, 
   calculateLiveStandings, 
@@ -29,6 +30,7 @@ export function ClassificaClient({
   initialIsLive: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<Tab>('classifica');
+  const myTeamId = useMyTeamId();
   const [standings, setStandings] = useState<LiveStandingsEntry[]>(initialStandings);
   const [isLive, setIsLive] = useState(initialIsLive);
   const [selectedRound, setSelectedRound] = useState(getCurrentRound().number);
@@ -122,7 +124,7 @@ export function ClassificaClient({
       </div>
 
       {activeTab === 'classifica' && (
-        <StandingsTable standings={standings} isLive={isLive} />
+        <StandingsTable standings={standings} isLive={isLive} myTeamId={myTeamId} />
       )}
 
       {activeTab === 'calendario' && (
@@ -145,7 +147,7 @@ export function ClassificaClient({
               </button>
             ))}
           </div>
-          <CalendarView currentRound={currentRound.number} selectedRound={selectedRound} />
+          <CalendarView myTeamId={myTeamId} currentRound={currentRound.number} selectedRound={selectedRound} />
         </div>
       )}
     </>
