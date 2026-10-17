@@ -169,6 +169,12 @@ async function getCurrentVersion(
   return loadRosterPlayers(supabase, versions[0]);
 }
 
+/**
+ * Colonne di teams leggibili con la chiave pubblica: manager_email non è
+ * concessa ad anon/authenticated (migrazione hide_teams_manager_email), quindi niente '*'.
+ */
+const PUBLIC_TEAM_COLUMNS = 'id, name, manager_name, created_at, updated_at';
+
 export function createSupabaseDbClient(): SupabaseDbClient {
   const supabase = getPublicClient();
 
@@ -177,7 +183,7 @@ export function createSupabaseDbClient(): SupabaseDbClient {
       async getAll() {
         const { data, error } = await supabase
           .from('teams')
-          .select('*')
+          .select(PUBLIC_TEAM_COLUMNS)
           .order('name');
         
         if (error) throw error;
@@ -187,7 +193,7 @@ export function createSupabaseDbClient(): SupabaseDbClient {
       async getById(id) {
         const { data, error } = await supabase
           .from('teams')
-          .select('*')
+          .select(PUBLIC_TEAM_COLUMNS)
           .eq('id', id)
           .single();
         

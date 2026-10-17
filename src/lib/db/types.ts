@@ -9,7 +9,8 @@ export interface DbTeam {
   id: string;
   name: string;
   manager_name: string;
-  manager_email: string | null;
+  /** Solo lato server (chiave segreta): non leggibile con la chiave pubblica. */
+  manager_email?: string | null;
   created_at: string;
   updated_at: string;
 }
