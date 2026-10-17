@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { LiveDot } from '@/components/ui/live-dot';
+import { LinkPendingSpinner } from '@/components/ui/link-pending';
 import type { FantacalcioCalendarMatch } from '@/lib/fantacalcio-it';
 
 export function PartiteList({
@@ -95,7 +96,10 @@ export function PartiteList({
                   </div>
                   <div className="flex-1 text-right font-medium text-gray-900">{match.awayTeam}</div>
                 </div>
-                <div className="mt-1 text-right text-xs text-emerald-700">Voti</div>
+                <div className="mt-1 flex items-center justify-end gap-1 text-xs text-emerald-700">
+                  <LinkPendingSpinner size={12} />
+                  Voti
+                </div>
               </CardContent>
             </Card>
           </Link>

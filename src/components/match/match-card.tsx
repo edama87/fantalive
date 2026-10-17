@@ -2,6 +2,7 @@
 
 import { Card } from '@/components/ui/card';
 import { VoteSourceSummary } from '@/components/match/vote-source';
+import { LinkPendingIcon } from '@/components/ui/link-pending';
 import { Badge } from '@/components/ui/badge';
 import { LiveDot } from '@/components/ui/live-dot';
 import { EventEmojis, eventEmojiSequence } from '@/components/match/event-emoji';
@@ -96,7 +97,9 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false, classN
               )}
             </div>
 
-            <div className="px-4 text-gray-400 text-sm">vs</div>
+            <div className="px-4 text-gray-400 text-sm">
+              <LinkPendingIcon size={16}>vs</LinkPendingIcon>
+            </div>
 
             <div className="flex-1 text-right">
               <div className="flex items-center justify-end gap-2">

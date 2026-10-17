@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Home, Swords, Calendar, Trophy, Settings } from 'lucide-react';
+import { LinkPendingIcon } from '@/components/ui/link-pending';
 
 const navItems = [
   { href: '/', label: 'Live', icon: Home },
@@ -36,7 +37,9 @@ function NavContent() {
               isActive ? 'text-emerald-600' : 'text-gray-400'
             )}
           >
-            <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+            <LinkPendingIcon size={22}>
+              <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+            </LinkPendingIcon>
             <span className={cn(
               'text-xs mt-1',
               isActive && 'font-medium'
@@ -86,7 +89,9 @@ function SideNavLinks() {
                 : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
             )}
           >
-            <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+            <LinkPendingIcon size={20}>
+              <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+            </LinkPendingIcon>
             {label}
           </Link>
         );

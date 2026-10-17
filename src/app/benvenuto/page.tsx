@@ -3,6 +3,7 @@ import { connection } from 'next/server';
 import { getPublicClient, isSupabaseConfigured } from '@/lib/db/supabase';
 import { teams as staticTeams } from '@/data/teams';
 import { TeamChooser, type ChooserTeam } from './team-chooser';
+import { ChooserSkeleton } from './chooser-skeleton';
 
 export const instant = false;
 
@@ -29,7 +30,7 @@ async function Chooser({ searchParams }: { searchParams: Promise<{ next?: string
 
 export default function BenvenutoPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   return (
-    <Suspense fallback={<div className="min-h-screen" />}>
+    <Suspense fallback={<ChooserSkeleton />}>
       <Chooser searchParams={searchParams} />
     </Suspense>
   );

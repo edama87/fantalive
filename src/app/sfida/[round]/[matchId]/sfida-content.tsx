@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { TeamLineupCard } from '@/components/match/team-lineup-card';
 import { EventLegend } from '@/components/match/event-emoji';
 import { VoteSourceLegend } from '@/components/match/vote-source';
+import { RouteSkeleton } from '@/components/ui/route-skeleton';
 import { cn, formatNumber } from '@/lib/utils';
 import { FantasyMatchResult, PlayerMatchData, ModifiersBreakdown } from '@/types';
 import { getRoundByNumber } from '@/data/calendar';
@@ -100,14 +101,7 @@ export function SfidaContent() {
   }, [fetchData]);
 
   if (!match || !homeTeam || !awayTeam) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Header isLive={false} />
-        <div className="p-4 text-center text-gray-500">
-          Caricamento...
-        </div>
-      </div>
-    );
+    return <RouteSkeleton variant="sfida" label="Carico la sfida…" />;
   }
 
   const isUserMatch = myTeamId !== null && (homeTeamId === myTeamId || awayTeamId === myTeamId);

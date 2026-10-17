@@ -1,7 +1,8 @@
 'use client';
 
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { safeNextPath, saveMyTeamChoice } from '@/lib/my-team';
 import { useMyTeamId } from '@/lib/hooks/use-my-team';
@@ -15,11 +16,19 @@ export interface ChooserTeam {
 export function TeamChooser({ teams, next }: { teams: ChooserTeam[]; next: string }) {
   const router = useRouter();
   const current = useMyTeamId();
+  const [isPending, startTransition] = useTransition();
+  // Scelta in corso ('none' = Salta): resta finché la pagina successiva non è pronta.
+  const [chosen, setChosen] = useState<string | null>(null);
+  const busy = isPending || chosen !== null;
 
   const choose = (teamId: string | null) => {
+    if (busy) return;
+    setChosen(teamId ?? 'none');
     saveMyTeamChoice(teamId);
-    router.replace(safeNextPath(next));
-    router.refresh();
+    startTransition(() => {
+      router.replace(safeNextPath(next));
+      router.refresh();
+    });
   };
 
   return (
@@ -34,16 +43,22 @@ export function TeamChooser({ teams, next }: { teams: ChooserTeam[]; next: strin
 
         <ul className="mt-6 grid gap-2 md:grid-cols-2">
           {teams.map((team) => {
-            const selected = current === team.id;
+            const loading = chosen === team.id;
+            const selected = loading || (chosen === null && current === team.id);
             return (
               <li key={team.id}>
                 <button
                   type="button"
                   onClick={() => choose(team.id)}
+                  disabled={busy && !loading}
+                  aria-busy={loading}
                   className={cn(
-                    'flex w-full items-center justify-between rounded-2xl border bg-white px-4 py-3 text-left shadow-sm transition-colors',
-                    'hover:border-emerald-300 hover:bg-emerald-50/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500',
-                    selected ? 'border-emerald-400 bg-emerald-50/60' : 'border-gray-100'
+                    'flex w-full items-center justify-between rounded-2xl border bg-white px-4 py-3 text-left shadow-sm transition-[colors,opacity]',
+                    'focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500',
+                    !busy && 'hover:border-emerald-300 hover:bg-emerald-50/40',
+                    selected ? 'border-emerald-400 bg-emerald-50/60' : 'border-gray-100',
+                    busy && !loading && 'opacity-50 cursor-not-allowed',
+                    loading && 'cursor-wait'
                   )}
                   aria-pressed={selected}
                 >
@@ -51,7 +66,14 @@ export function TeamChooser({ teams, next }: { teams: ChooserTeam[]; next: strin
                     <span className="block font-semibold text-gray-900">{team.name}</span>
                     {team.managerName && <span className="block text-xs text-gray-400">{team.managerName}</span>}
                   </span>
-                  {selected && <Check size={18} className="text-emerald-600" aria-label="Selezionata" />}
+                  {loading ? (
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                      <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden />
+                      Apro…
+                    </span>
+                  ) : (
+                    selected && <Check size={18} className="text-emerald-600" aria-label="Selezionata" />
+                  )}
                 </button>
               </li>
             );
@@ -61,8 +83,15 @@ export function TeamChooser({ teams, next }: { teams: ChooserTeam[]; next: strin
         <button
           type="button"
           onClick={() => choose(null)}
-          className="mt-4 w-full rounded-2xl px-4 py-3 text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+          disabled={busy && chosen !== 'none'}
+          aria-busy={chosen === 'none'}
+          className={cn(
+            'mt-4 flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium text-gray-500',
+            !busy && 'hover:bg-gray-100 hover:text-gray-800',
+            busy && chosen !== 'none' && 'opacity-50 cursor-not-allowed'
+          )}
         >
+          {chosen === 'none' && <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden />}
           Salta, guardo e basta
         </button>
       </div>

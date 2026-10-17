@@ -1,6 +1,9 @@
 'use client';
 
+import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { LinkPendingIcon } from '@/components/ui/link-pending';
 import { Header } from '@/components/layout/header';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
@@ -10,12 +13,15 @@ import {
   ChevronRight,
   UserPlus,
   ClipboardList,
+  Loader2,
 } from 'lucide-react';
 
 export default function AdminPage() {
   const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
+    setLoggingOut(true);
     await fetch('/api/admin/logout', { method: 'POST' });
     router.push('/');
     router.refresh();
@@ -53,16 +59,21 @@ export default function AdminPage() {
           href="/admin/voti"
           icon={ClipboardList}
           title="Voti"
-          description="Importa voti fantacalcio.it"
+          description="Voti consolidati pianetafanta o fantacalcio.it"
         />
 
         <div className="pt-4">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 p-4 rounded-lg border border-gray-200 bg-white hover:bg-red-50 hover:border-red-200 transition-colors group"
+            disabled={loggingOut}
+            className="w-full disabled:opacity-60 flex items-center gap-3 p-4 rounded-lg border border-gray-200 bg-white hover:bg-red-50 hover:border-red-200 transition-colors group"
           >
             <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-              <LogOut size={20} className="text-red-600" />
+              {loggingOut ? (
+                <Loader2 size={20} className="animate-spin text-red-600" aria-label="Uscita in corso" />
+              ) : (
+                <LogOut size={20} className="text-red-600" />
+              )}
             </div>
             <div className="flex-1 text-left">
               <div className="font-medium text-gray-900 group-hover:text-red-700">Logout</div>
@@ -87,7 +98,7 @@ function AdminMenuItem({
   description: string;
 }) {
   return (
-    <a
+    <Link
       href={href}
       className="flex items-center gap-3 p-4 rounded-lg border border-gray-200 bg-white hover:bg-emerald-50 hover:border-emerald-200 transition-colors group"
     >
@@ -98,7 +109,9 @@ function AdminMenuItem({
         <div className="font-medium text-gray-900">{title}</div>
         <div className="text-sm text-gray-500">{description}</div>
       </div>
-      <ChevronRight size={20} className="text-gray-400 group-hover:text-emerald-600" />
-    </a>
+      <LinkPendingIcon size={20}>
+        <ChevronRight size={20} className="text-gray-400 group-hover:text-emerald-600" />
+      </LinkPendingIcon>
+    </Link>
   );
 }

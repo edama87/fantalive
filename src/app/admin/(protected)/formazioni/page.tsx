@@ -1123,8 +1123,9 @@ function PlayerColumn({
                         type="button"
                         disabled={busy}
                         onClick={onConfirm}
-                        className="px-2 py-1 rounded bg-emerald-600 text-white"
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-600 text-white disabled:opacity-70"
                       >
+                        {busy && <Loader2 size={12} className="animate-spin" aria-hidden />}
                         Conferma
                       </button>
                       <button

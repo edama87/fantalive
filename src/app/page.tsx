@@ -5,6 +5,7 @@ import { Header } from '@/components/layout/header';
 import { MatchCard } from '@/components/match/match-card';
 import { EventLegend } from '@/components/match/event-emoji';
 import { VoteSourceLegend } from '@/components/match/vote-source';
+import { MatchSkeleton, Spinner } from '@/components/ui/spinner';
 import { SerieAFixturesCard } from '@/components/match/serie-a-fixtures-card';
 import { LiveStandings } from '@/components/match/live-standings';
 import { Badge } from '@/components/ui/badge';
@@ -31,12 +32,16 @@ export default function GiornataLivePage() {
   const [standings, setStandings] = useState<LiveStandingsEntry[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isLive, setIsLive] = useState(false);
+  // Primo caricamento (scheletri) e aggiornamenti periodici (spinner piccolo).
+  const [loaded, setLoaded] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const myTeamId = useMyTeamId();
   const [fixtures, setFixtures] = useState<RoundFixture[]>([]);
 
   const currentRound = getCurrentRound();
 
   const fetchData = useCallback(async () => {
+    setRefreshing(true);
     try {
       const lineupPromise = fetchLineupBundle(currentRound.number).catch(() => ({
         lineups: {},
@@ -85,6 +90,9 @@ export default function GiornataLivePage() {
       setIsLive(live);
     } catch (error) {
       console.error('[giornata] voti non disponibili', error);
+    } finally {
+      setRefreshing(false);
+      setLoaded(true);
     }
   }, [currentRound]);
 
@@ -124,6 +132,11 @@ export default function GiornataLivePage() {
 
         <div className="text-sm text-gray-500">
           Fasce gol: <span className="font-medium">66 · 72 · 77 · 82</span>
+          {refreshing && loaded && (
+            <span className="ml-3 inline-flex align-middle" role="status" aria-label="Aggiornamento in corso">
+              <Spinner size="sm" />
+            </span>
+          )}
           {lastUpdate && (
             <span className="ml-4 text-gray-400">
               Aggiornato {lastUpdate.toLocaleTimeString('it-IT', { 
@@ -140,11 +153,19 @@ export default function GiornataLivePage() {
               <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
                 Scontri diretti in corso
               </h3>
-              <span className="text-xs text-gray-400">{matches.length} partite</span>
+              <span className="text-xs text-gray-400">{loaded ? `${matches.length} partite` : ''}</span>
             </div>
 
             {/* flex: i Link delle card sono inline, space-y non li distanzia */}
             <div className="flex flex-col gap-3">
+              {!loaded && (
+                <>
+                  <div className="flex items-center gap-2 text-sm text-gray-400" role="status">
+                    <Spinner size="sm" /> Carico le sfide…
+                  </div>
+                  {Array.from({ length: 5 }, (_, i) => <MatchSkeleton key={i} />)}
+                </>
+              )}
               {userMatch && (
                 <MatchCard 
                   match={userMatch} 
