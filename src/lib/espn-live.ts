@@ -119,7 +119,7 @@ interface EspnRoster {
   roster?: EspnRosterEntry[];
 }
 
-interface EspnKeyEvent {
+export interface EspnKeyEvent {
   id?: string;
   type?: { type?: string; text?: string };
   text?: string;
