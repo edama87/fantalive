@@ -197,7 +197,7 @@ export function isRoundLive(
 ): boolean {
   return (
     liveVotes.some((vote) => vote.is_playing === true) ||
-    matches.some((match) => match.status === 'live')
+    matches.some((match) => match.status === 'live' || match.status === 'halftime')
   );
 }
 

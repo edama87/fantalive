@@ -3,6 +3,8 @@
  * Unset or any other provider reads official/live votes from the database.
  */
 export function shouldUseMockLiveData(): boolean {
-  const provider = process.env.LIVE_PROVIDER ?? process.env.NEXT_PUBLIC_LIVE_PROVIDER;
+  // NEXT_PUBLIC_ first: it is the only one visible in client components,
+  // so server and client pages pick the same source.
+  const provider = process.env.NEXT_PUBLIC_LIVE_PROVIDER ?? process.env.LIVE_PROVIDER;
   return provider === 'mock';
 }

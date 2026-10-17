@@ -22,7 +22,7 @@ export async function GET(
   } catch (error) {
     console.error('[API] player-data:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Voti giornata non disponibili' },
+      { error: 'Voti giornata non disponibili' },
       { status: 500 }
     );
   }

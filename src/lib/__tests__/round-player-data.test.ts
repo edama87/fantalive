@@ -159,6 +159,7 @@ describe('isRoundLive', () => {
     expect(isRoundLive([{ is_playing: true }], [{ status: 'finished' }])).toBe(true);
     expect(isRoundLive([{ is_playing: false }], [{ status: 'live' }])).toBe(true);
     expect(isRoundLive([{ is_playing: false }], [{ status: 'finished' }])).toBe(false);
-    expect(isRoundLive([], [{ status: 'halftime' }])).toBe(false);
+    expect(isRoundLive([], [{ status: 'halftime' }])).toBe(true);
+    expect(isRoundLive([], [{ status: 'scheduled' }])).toBe(false);
   });
 });
