@@ -172,6 +172,34 @@ describe('early substitutions wait for the Serie A match', () => {
     expect(match.homePlayerScores.some((s) => s.player.id === 'b2' && s.isStarter)).toBe(false);
   });
 
+  it('keeps the deployed lineup order (starters then bench as entered), subs inline', () => {
+    const ordered: Record<string, Player> = {
+      p: { id: 'p', name: 'P', role: 'P', teamId: 'dc', realTeam: 'ROM' },
+      d1: { id: 'd1', name: 'D1', role: 'D', teamId: 'dc', realTeam: 'FRO' },
+      d2: { id: 'd2', name: 'D2', role: 'D', teamId: 'dc', realTeam: 'SAS' },
+      c1: { id: 'c1', name: 'C1', role: 'C', teamId: 'dc', realTeam: 'ROM' },
+      a1: { id: 'a1', name: 'A1', role: 'A', teamId: 'dc', realTeam: 'FRO' },
+      bd: { id: 'bd', name: 'Bench D', role: 'D', teamId: 'dc', realTeam: 'FRO' },
+      bp: { id: 'bp', name: 'Bench P', role: 'P', teamId: 'dc', realTeam: 'ROM' },
+      bc: { id: 'bc', name: 'Bench C', role: 'C', teamId: 'dc', realTeam: 'GEN' },
+    };
+    const deployed: Lineup = {
+      teamId: 'dc',
+      roundNumber: 1,
+      formation: '4-4-2',
+      starters: ['p', 'd1', 'd2', 'c1', 'a1'].map((playerId, position) => ({ playerId, position })),
+      bench: ['bp', 'bd', 'bc'].map((playerId, position) => ({ playerId, position })),
+    };
+    // p e c1 (ROM) da giocare; d2 (SAS, finita) senza voto -> entra bd al suo posto
+    const votes = new Map([['d1', vote('d1', 6)], ['a1', vote('a1', 7)], ['bd', vote('bd', 6.5)]]);
+    const away: Lineup = { ...deployed, teamId: 'ap', starters: [], bench: [] };
+    const match = calculateMatch(deployed, away, votes, 'live', ordered, teamStatuses);
+    expect(match.homePlayerScores.map((s) => s.player.id)).toEqual(['p', 'd1', 'bd', 'c1', 'a1', 'bp', 'bc']);
+    expect(match.homePlayerScores.find((s) => s.player.id === 'bd')).toMatchObject({ isStarter: false });
+    expect(match.homePlayerScores.find((s) => s.player.id === 'bd')?.isUnusedBench).toBeFalsy();
+    expect(match.homePlayerScores.filter((s) => s.isUnusedBench).map((s) => s.player.id)).toEqual(['bp', 'bc']);
+  });
+
   it('marks a fantasy matchup finished only when all its Serie A matches are finished', () => {
     const finishedOnly = new Map<string, MatchStatus>([['FRO', 'finished'], ['SAS', 'finished'], ['ROM', 'scheduled']]);
     expect(matchStatusFromTeams([lineup], players, finishedOnly)).toBe('live');

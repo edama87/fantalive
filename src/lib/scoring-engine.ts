@@ -466,11 +466,12 @@ export function calculateTeamScore(
   }
 
   // Titolari in attesa della loro partita: mostrati come "da giocare", fuori dal totale.
+  const pendingScores = new Map<string, PlayerScore>();
   for (const playerId of pendingStarters) {
     const player = findPlayer(playerId, playersById);
     if (!player) continue;
     const data = playerDataMap.get(playerId);
-    playerScores.push({
+    pendingScores.set(playerId, {
       player,
       baseVote: 0,
       bonuses: data
@@ -484,6 +485,26 @@ export function calculateTeamScore(
       minutesPlayed: data?.minutesPlayed,
       isStarter: true,
     });
+  }
+
+  // Ordine di visualizzazione = ordine della formazione schierata (posizione dei
+  // titolari). processSubstitutions produce un finalStarter per ogni titolare non
+  // in attesa, nello stesso ordine (il subentrato prende il posto del titolare):
+  // si reinseriscono i titolari in attesa al loro posto, senza riordinare.
+  if (pendingScores.size > 0) {
+    const scoredInOrder = [...playerScores];
+    playerScores.length = 0;
+    let next = 0;
+    for (const slot of [...lineup.starters].sort((a, b) => a.position - b.position)) {
+      const pending = pendingScores.get(slot.playerId);
+      if (pending) {
+        playerScores.push(pending);
+        pendingScores.delete(slot.playerId);
+      } else if (findPlayer(slot.playerId, playersById) && next < scoredInOrder.length) {
+        playerScores.push(scoredInOrder[next++]);
+      }
+    }
+    playerScores.push(...scoredInOrder.slice(next), ...pendingScores.values());
   }
 
   const attackModifier = calculateAttackModifier(forwardData);
