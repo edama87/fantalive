@@ -197,21 +197,23 @@ export function SfidaContent() {
           />
         </div>
 
-        <TeamLineupCard
-          title={homeTeam.name}
-          isUserTeam={homeTeamId === USER_TEAM_ID}
-          playerScores={match.homePlayerScores}
-          isHome={true}
-          fixtures={fixtures}
-        />
+        <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:items-start md:space-y-0">
+          <TeamLineupCard
+            title={homeTeam.name}
+            isUserTeam={homeTeamId === USER_TEAM_ID}
+            playerScores={match.homePlayerScores}
+            isHome={true}
+            fixtures={fixtures}
+          />
 
-        <TeamLineupCard
-          title={awayTeam.name}
-          isUserTeam={awayTeamId === USER_TEAM_ID}
-          playerScores={match.awayPlayerScores}
-          isHome={false}
-          fixtures={fixtures}
-        />
+          <TeamLineupCard
+            title={awayTeam.name}
+            isUserTeam={awayTeamId === USER_TEAM_ID}
+            playerScores={match.awayPlayerScores}
+            isHome={false}
+            fixtures={fixtures}
+          />
+        </div>
 
         <IconLegend />
       </div>

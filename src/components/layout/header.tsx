@@ -27,7 +27,7 @@ export function Header({ title = 'FANTALIVE BUNDLESLIGA', subtitle, isLive = tru
 
   return (
     <header className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 z-40">
-      <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto">
+      <div className="flex items-center justify-between px-4 py-3 max-w-lg md:max-w-3xl lg:max-w-6xl mx-auto">
         <div className="flex items-center gap-2">
           <span className="text-lg font-bold tracking-tight text-gray-900">
             {title}
@@ -46,7 +46,7 @@ export function Header({ title = 'FANTALIVE BUNDLESLIGA', subtitle, isLive = tru
         </div>
       </div>
       {subtitle && (
-        <div className="px-4 pb-2 max-w-lg mx-auto">
+        <div className="px-4 pb-2 max-w-lg md:max-w-3xl lg:max-w-6xl mx-auto">
           <span className="text-sm text-gray-500">{subtitle}</span>
         </div>
       )}

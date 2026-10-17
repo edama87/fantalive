@@ -5,6 +5,7 @@ import { Header } from '@/components/layout/header';
 import { MatchCard } from '@/components/match/match-card';
 import { TeamLineupCard } from '@/components/match/team-lineup-card';
 import { EventLegend } from '@/components/match/event-emoji';
+import { SerieAFixturesCard } from '@/components/match/serie-a-fixtures-card';
 import { LiveStandings } from '@/components/match/live-standings';
 import { Badge } from '@/components/ui/badge';
 import { FantasyMatchResult, LiveStandingsEntry, PlayerMatchData } from '@/types';
@@ -99,6 +100,11 @@ export default function GiornataLivePage() {
   const otherMatches = matches.filter(
     m => m.homeTeamId !== USER_TEAM_ID && m.awayTeamId !== USER_TEAM_ID
   );
+  const userPlayerScores = userMatch
+    ? userMatch.homeTeamId === USER_TEAM_ID
+      ? userMatch.homePlayerScores
+      : userMatch.awayPlayerScores
+    : [];
 
   return (
     <div className="min-h-screen">
@@ -127,49 +133,75 @@ export default function GiornataLivePage() {
           )}
         </div>
 
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-              Scontri diretti in corso
-            </h3>
-            <span className="text-xs text-gray-400">{matches.length} partite</span>
+        <div className="space-y-4 md:grid md:grid-cols-2 md:gap-6 md:items-start md:space-y-0">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                Scontri diretti in corso
+              </h3>
+              <span className="text-xs text-gray-400">{matches.length} partite</span>
+            </div>
+
+            <div className="space-y-3">
+              {userMatch && (
+                <MatchCard 
+                  match={userMatch} 
+                  roundNumber={currentRound.number}
+                  showBonusSummary
+                />
+              )}
+
+              {userMatch && (
+                <TeamLineupCard
+                  title={getTeamById(USER_TEAM_ID)?.name ?? 'La tua squadra'}
+                  isUserTeam
+                  isHome={userMatch.homeTeamId === USER_TEAM_ID}
+                  playerScores={userPlayerScores}
+                  fixtures={fixtures}
+                />
+              )}
+
+              {otherMatches.map(match => (
+                <MatchCard
+                  key={`${match.homeTeamId}-${match.awayTeamId}`}
+                  match={match}
+                  roundNumber={currentRound.number}
+                  showBonusSummary
+                  className="md:hidden"
+                />
+              ))}
+            </div>
           </div>
 
-          <div className="space-y-3">
-            {userMatch && (
-              <MatchCard 
-                match={userMatch} 
-                roundNumber={currentRound.number}
-                showBonusSummary
-              />
+          <div className="space-y-4 md:sticky md:top-20">
+            {/* Tablet/desktop: partite di Serie A accanto alla formazione */}
+            <SerieAFixturesCard
+              className="hidden md:block"
+              fixtures={fixtures}
+              highlightTeams={userPlayerScores
+                .map((ps) => ps.player.realTeam)
+                .filter((team): team is string => Boolean(team))}
+            />
+
+            {otherMatches.length > 0 && (
+              <div className="hidden md:block space-y-3">
+                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                  Altri scontri
+                </h3>
+                {otherMatches.map(match => (
+                  <MatchCard
+                    key={`${match.homeTeamId}-${match.awayTeamId}`}
+                    match={match}
+                    roundNumber={currentRound.number}
+                    showBonusSummary
+                  />
+                ))}
+              </div>
             )}
 
-            {userMatch && (
-              <TeamLineupCard
-                title={getTeamById(USER_TEAM_ID)?.name ?? 'La tua squadra'}
-                isUserTeam
-                isHome={userMatch.homeTeamId === USER_TEAM_ID}
-                playerScores={
-                  userMatch.homeTeamId === USER_TEAM_ID
-                    ? userMatch.homePlayerScores
-                    : userMatch.awayPlayerScores
-                }
-                fixtures={fixtures}
-              />
-            )}
-            
-            {otherMatches.map(match => (
-              <MatchCard
-                key={`${match.homeTeamId}-${match.awayTeamId}`}
-                match={match}
-                roundNumber={currentRound.number}
-                showBonusSummary
-              />
-            ))}
+            <LiveStandings standings={standings} />
           </div>
         </div>
-
-        <LiveStandings standings={standings} />
 
         <div className="py-4">
           <EventLegend className="text-xs text-gray-400" />

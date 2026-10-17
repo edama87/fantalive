@@ -79,7 +79,14 @@ export function PlayerRow({ playerScore, isSubstitute, fixture }: PlayerRowProps
       </div>
 
       <div className="flex items-center gap-4">
-        <StatusBadge status={status} minutesPlayed={minutesPlayed} />
+        {/* Su tablet/desktop "da giocare" è già nella riga della partita: si risparmia spazio */}
+        {fixture && status === 'to_play' ? (
+          <div className="md:hidden">
+            <StatusBadge status={status} minutesPlayed={minutesPlayed} />
+          </div>
+        ) : (
+          <StatusBadge status={status} minutesPlayed={minutesPlayed} />
+        )}
         
         <div className="flex items-center gap-2 w-20 justify-end">
           {baseVote > 0 && (

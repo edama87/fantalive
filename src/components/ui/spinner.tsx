@@ -27,13 +27,13 @@ export function PageSkeleton({ title }: { title?: string }) {
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       <div className="bg-white border-b border-gray-100 px-4 py-3">
-        <div className="flex items-center justify-between max-w-lg mx-auto">
+        <div className="flex items-center justify-between max-w-lg md:max-w-3xl lg:max-w-6xl mx-auto">
           <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" />
           {title && <div className="h-5 w-16 bg-gray-100 rounded animate-pulse" />}
         </div>
       </div>
       
-      <div className="px-4 py-4 space-y-4 max-w-lg mx-auto">
+      <div className="px-4 py-4 space-y-4 max-w-lg md:max-w-3xl lg:max-w-6xl mx-auto">
         <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
         
         <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">

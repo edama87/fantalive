@@ -13,6 +13,7 @@ interface MatchCardProps {
   match: FantasyMatchResult;
   roundNumber: number;
   showBonusSummary?: boolean;
+  className?: string;
 }
 
 function BonusSummary({ bonuses, side }: { bonuses: BonusBreakdown; side: 'home' | 'away' }) {
@@ -40,7 +41,7 @@ function aggregateBonuses(scores: { bonuses: BonusBreakdown }[]): BonusBreakdown
   });
 }
 
-export function MatchCard({ match, roundNumber, showBonusSummary = false }: MatchCardProps) {
+export function MatchCard({ match, roundNumber, showBonusSummary = false, className }: MatchCardProps) {
   const homeTeam = getTeamById(match.homeTeamId);
   const awayTeam = getTeamById(match.awayTeamId);
   const isUserMatch = match.homeTeamId === USER_TEAM_ID || match.awayTeamId === USER_TEAM_ID;
@@ -56,7 +57,7 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false }: Matc
   const awayPlayingCount = playingCount(match.awayPlayerScores);
 
   return (
-    <Link href={`/sfida/${roundNumber}/${match.homeTeamId}-${match.awayTeamId}`}>
+    <Link href={`/sfida/${roundNumber}/${match.homeTeamId}-${match.awayTeamId}`} className={className}>
       <Card className={cn(
         'hover:shadow-md transition-shadow cursor-pointer',
         isUserMatch && 'ring-1 ring-emerald-200 bg-emerald-50/30'
