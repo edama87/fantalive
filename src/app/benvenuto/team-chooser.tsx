@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { safeNextPath, saveMyTeamChoice } from '@/lib/my-team';
@@ -14,7 +13,6 @@ export interface ChooserTeam {
 }
 
 export function TeamChooser({ teams, next }: { teams: ChooserTeam[]; next: string }) {
-  const router = useRouter();
   const current = useMyTeamId();
   const [isPending, startTransition] = useTransition();
   // Scelta in corso ('none' = Salta): resta finché la pagina successiva non è pronta.
@@ -25,9 +23,11 @@ export function TeamChooser({ teams, next }: { teams: ChooserTeam[]; next: strin
     if (busy) return;
     setChosen(teamId ?? 'none');
     saveMyTeamChoice(teamId);
+    // Navigazione completa: il router client ha in cache il redirect del proxy
+    // verso /benvenuto (prefetch fatto senza cookie) e con replace resteremmo qui.
+    // La card resta in "Apro…" finché la nuova pagina non sostituisce questa.
     startTransition(() => {
-      router.replace(safeNextPath(next));
-      router.refresh();
+      window.location.replace(safeNextPath(next));
     });
   };
 
