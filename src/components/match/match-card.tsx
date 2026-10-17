@@ -3,9 +3,10 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { LiveDot } from '@/components/ui/live-dot';
-import { EventEmojis } from '@/components/match/event-emoji';
+import { EventEmojis, eventEmojiSequence } from '@/components/match/event-emoji';
 import { cn, formatNumber } from '@/lib/utils';
-import { FantasyMatchResult, BonusBreakdown } from '@/types';
+import { FantasyMatchResult, PlayerScore } from '@/types';
+import { splitBonusSummary } from '@/lib/bonus-summary';
 import { getTeamById, USER_TEAM_ID } from '@/data/teams';
 import Link from 'next/link';
 
@@ -16,29 +17,20 @@ interface MatchCardProps {
   className?: string;
 }
 
-function BonusSummary({ bonuses, side }: { bonuses: BonusBreakdown; side: 'home' | 'away' }) {
+function BonusSummary({ scores, side }: { scores: PlayerScore[]; side: 'home' | 'away' }) {
+  const { counted, excluded } = splitBonusSummary(scores);
+  const emojiClass = 'inline-flex flex-wrap items-center gap-0.5 text-sm leading-none';
   return (
-    <div className={cn('flex items-center flex-wrap', side === 'away' && 'justify-end')}>
-      <EventEmojis bonuses={bonuses} includeConceded={false} className="inline-flex flex-wrap items-center gap-0.5 text-sm leading-none" />
+    <div className={cn('flex items-center flex-wrap gap-1', side === 'away' && 'justify-end')}>
+      <EventEmojis bonuses={counted} includeConceded={false} className={emojiClass} />
+      {/* Eventi di giocatori che non contano (in grigio o in panchina) */}
+      {eventEmojiSequence(excluded, { includeConceded: false }).length > 0 && (
+        <span className="opacity-60" title="Non contano nel totale">
+          <EventEmojis bonuses={excluded} includeConceded={false} parenthesized className={emojiClass} />
+        </span>
+      )}
     </div>
   );
-}
-
-function aggregateBonuses(scores: { bonuses: BonusBreakdown }[]): BonusBreakdown {
-  return scores.reduce((acc, s) => ({
-    goals: acc.goals + s.bonuses.goals,
-    penaltyGoals: acc.penaltyGoals + s.bonuses.penaltyGoals,
-    penaltyMissed: acc.penaltyMissed + s.bonuses.penaltyMissed,
-    penaltySaved: acc.penaltySaved + s.bonuses.penaltySaved,
-    assists: acc.assists + s.bonuses.assists,
-    ownGoals: acc.ownGoals + s.bonuses.ownGoals,
-    yellowCards: acc.yellowCards + s.bonuses.yellowCards,
-    redCards: acc.redCards + s.bonuses.redCards,
-    goalsConceded: acc.goalsConceded + s.bonuses.goalsConceded,
-  }), {
-    goals: 0, penaltyGoals: 0, penaltyMissed: 0, penaltySaved: 0,
-    assists: 0, ownGoals: 0, yellowCards: 0, redCards: 0, goalsConceded: 0,
-  });
 }
 
 export function MatchCard({ match, roundNumber, showBonusSummary = false, className }: MatchCardProps) {
@@ -47,8 +39,6 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false, classN
   const isUserMatch = match.homeTeamId === USER_TEAM_ID || match.awayTeamId === USER_TEAM_ID;
   const isLive = match.status === 'live' || match.status === 'halftime';
 
-  const homeBonuses = aggregateBonuses(match.homePlayerScores);
-  const awayBonuses = aggregateBonuses(match.awayPlayerScores);
 
   const playingCount = (scores: typeof match.homePlayerScores) =>
     scores.filter(s => s.status === 'playing').length;
@@ -132,8 +122,8 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false, classN
 
           {showBonusSummary && (
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-              <BonusSummary bonuses={homeBonuses} side="home" />
-              <BonusSummary bonuses={awayBonuses} side="away" />
+              <BonusSummary scores={match.homePlayerScores} side="home" />
+              <BonusSummary scores={match.awayPlayerScores} side="away" />
             </div>
           )}
 

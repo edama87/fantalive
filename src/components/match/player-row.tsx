@@ -5,6 +5,7 @@ import { PlayerScore } from '@/types';
 import { RoleBadge } from '@/components/ui/icons';
 import { LiveDot } from '@/components/ui/live-dot';
 import { EventEmojis } from '@/components/match/event-emoji';
+import { isPlayerMuted } from '@/lib/bonus-summary';
 import { fixtureLabel, type RoundFixture } from '@/lib/serie-a-fixtures';
 
 interface PlayerRowProps {
@@ -14,13 +15,7 @@ interface PlayerRowProps {
   fixture?: RoundFixture | null;
 }
 
-/**
- * In grigio: s.v. (titolare senza voto a partita finita, riserva d'ufficio) e
- * panchinari che di sicuro non possono più entrare. "Da giocare" resta normale.
- */
-export function isPlayerMuted(playerScore: PlayerScore): boolean {
-  return playerScore.status === 'sv' || playerScore.isCertainlyOut === true;
-}
+export { isPlayerMuted };
 
 function StatusBadge({ status, minutesPlayed }: { status: PlayerScore['status']; minutesPlayed?: number }) {
   switch (status) {
