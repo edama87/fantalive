@@ -1,6 +1,6 @@
 'use client';
 
-import { cn, formatNumber } from '@/lib/utils';
+import { cn, formatNumber, formatSignedPoints, formatVote } from '@/lib/utils';
 import {
   ATTACK_MODIFIER_TABLE,
   DEFENSE_MODIFIER_TABLE,
@@ -18,8 +18,8 @@ export const MODIFIER_TITLES: Record<ModifierKind, string> = {
   home: 'Fattore campo',
 };
 
-const signed = (n: number) => `${n > 0 ? '+' : ''}${formatNumber(n, n % 1 === 0 ? 0 : 1)}`;
-const vote = (n: number) => formatNumber(n, n % 1 === 0 ? 0 : 1);
+const signed = formatSignedPoints;
+const vote = (n: number) => formatVote(n, { integerWithoutDecimals: true });
 const teamName = (id: string) => getTeamById(id)?.name ?? id;
 
 function Result({ value }: { value: number }) {
@@ -118,7 +118,7 @@ export function ModifierExplanation({ kind, details }: { kind: ModifierKind; det
       const next = MIDFIELD_MODIFIER_TABLE[index + 1];
       return {
         label: next ? `${formatNumber(entry.minDiff, 2)} – ${formatNumber(next.minDiff - 0.01, 2)}` : `da ${formatNumber(entry.minDiff, 2)}`,
-        value: `±${formatNumber(entry.bonus, entry.bonus % 1 === 0 ? 0 : 1)}`,
+        value: `±${formatVote(entry.bonus, { integerWithoutDecimals: true })}`,
         active: entry.minDiff === m.band.minDiff,
       };
     });

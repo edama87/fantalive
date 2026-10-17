@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PlayerRow } from '@/components/match/player-row';
-import { cn, formatNumber } from '@/lib/utils';
+import { cn, formatVote } from '@/lib/utils';
 import type { PlayerScore } from '@/types';
 import { fixtureForTeam, type RoundFixture } from '@/lib/serie-a-fixtures';
 import { Home, Plane } from 'lucide-react';
@@ -49,7 +49,7 @@ export function TeamLineupCard({
             )}
           </div>
           <span className="font-bold text-lg">
-            {formatNumber(total)}
+            {formatVote(total)}
           </span>
         </div>
       </CardHeader>

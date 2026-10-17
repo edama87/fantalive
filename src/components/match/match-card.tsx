@@ -6,7 +6,7 @@ import { LinkPendingIcon } from '@/components/ui/link-pending';
 import { Badge } from '@/components/ui/badge';
 import { LiveDot } from '@/components/ui/live-dot';
 import { EventEmojis, eventEmojiSequence } from '@/components/match/event-emoji';
-import { cn, formatNumber } from '@/lib/utils';
+import { cn, formatVote } from '@/lib/utils';
 import { FantasyMatchResult, PlayerScore } from '@/types';
 import { splitBonusSummary } from '@/lib/bonus-summary';
 import { getTeamById } from '@/data/teams';
@@ -83,7 +83,7 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false, classN
                 )}
               </div>
               <div className="text-2xl font-bold text-gray-900 mt-1">
-                {formatNumber(match.homeTotal)}
+                {formatVote(match.homeTotal)}
                 <span className="text-sm font-normal text-gray-500 ml-1">
                   ({match.homeGoals})
                 </span>
@@ -117,7 +117,7 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false, classN
                 <span className="text-sm font-normal text-gray-500 mr-1">
                   ({match.awayGoals})
                 </span>
-                {formatNumber(match.awayTotal)}
+                {formatVote(match.awayTotal)}
               </div>
               <VoteSourceSummary scores={match.awayPlayerScores} align="right" />
               {isLive && awayPlayingCount > 0 && (

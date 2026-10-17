@@ -1,6 +1,6 @@
 'use client';
 
-import { cn, formatNumber, formatVote } from '@/lib/utils';
+import { cn, formatVote } from '@/lib/utils';
 import { ConsolidatedMark, CONSOLIDATED_TITLE, ESTIMATED_TITLE } from '@/components/match/vote-source';
 import { isConsolidatedVote, isEstimatedVote } from '@/lib/vote-source';
 import { PlayerScore } from '@/types';
@@ -52,7 +52,7 @@ function StatusBadge({ status, minutesPlayed }: { status: PlayerScore['status'];
 /** Fantavoto da mostrare: tra parentesi per i giocatori in grigio (non conta). */
 export function displayFantavoto(playerScore: PlayerScore): string {
   if (playerScore.fantavoto <= 0) return '-';
-  const value = formatNumber(playerScore.fantavoto);
+  const value = formatVote(playerScore.fantavoto);
   return isPlayerMuted(playerScore) ? `(${value})` : value;
 }
 

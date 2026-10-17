@@ -115,7 +115,7 @@ describe('righe official_votes e priorità', () => {
       vote_tuttosport: 7.5,
       minutes_played: 80,
     });
-    expect(row.fanta_vote).toBe(11.3); // fanta_vote è NUMERIC(3,1)
+    expect(row.fanta_vote).toBe(11.33); // 2 decimali (colonna NUMERIC(4,2) con la migrazione fanta_vote_two_decimals)
     expect(row.bonus_malus.map((b) => b.type)).toEqual(['goal', 'assist', 'substitution_out']);
   });
 

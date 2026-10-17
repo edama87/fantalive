@@ -3,7 +3,7 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { LiveDot } from '@/components/ui/live-dot';
-import { cn, formatNumber } from '@/lib/utils';
+import { cn, formatVote } from '@/lib/utils';
 import { LiveStandingsEntry } from '@/types';
 import { getTeamById } from '@/data/teams';
 import { useMyTeamId } from '@/lib/hooks/use-my-team';
@@ -70,7 +70,7 @@ export function LiveStandings({ standings }: LiveStandingsProps) {
                   'w-12 text-right font-semibold',
                   isUserTeam ? 'text-emerald-700' : 'text-gray-900'
                 )}>
-                  {formatNumber(entry.liveFantaPoints)}
+                  {formatVote(entry.liveFantaPoints)}
                 </span>
               </div>
             );

@@ -5,6 +5,7 @@ import { Header } from '@/components/layout/header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { calendar, getCurrentRound } from '@/data/calendar';
+import { formatVote } from '@/lib/utils';
 import { PianetafantaUpload } from './pianetafanta-upload';
 import { AutoImportStatus } from './auto-import-status';
 import { Download, Loader2 } from 'lucide-react';
@@ -176,7 +177,7 @@ export default function AdminVotiPage() {
                   {unmatched.map((player) => (
                     <div key={`${player.matchId}-${player.team}-${player.name}`} className="flex justify-between text-sm">
                       <span>{player.name} <span className="text-gray-400">{player.team} {player.role}</span></span>
-                      <span>{player.vote}</span>
+                      <span>{player.vote != null ? formatVote(player.vote) : 's.v.'}</span>
                     </div>
                   ))}
                 </CardContent>
@@ -204,8 +205,8 @@ export default function AdminVotiPage() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="font-medium">{player.vote}</div>
-                          <div className="text-xs text-gray-400">FV {player.fantaVote}</div>
+                          <div className="font-medium">{player.vote != null ? formatVote(player.vote) : 's.v.'}</div>
+                          <div className="text-xs text-gray-400">FV {player.fantaVote != null ? formatVote(player.fantaVote) : '–'}</div>
                         </div>
                       </div>
                     ))}

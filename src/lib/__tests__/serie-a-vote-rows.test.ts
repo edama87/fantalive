@@ -36,6 +36,6 @@ describe('buildSerieAVoteRows', () => {
     expect(row.minutesPlayed).toBe(81);
     expect(row.fantacalcioVote).toBe(7);
     expect(row.bonuses.goals).toBe(1);
-    expect(row.fantaVote).toBeCloseTo(9.7, 5);
+    expect(row.fantaVote).toBeCloseTo(9.67, 5);
   });
 });

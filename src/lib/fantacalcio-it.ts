@@ -183,7 +183,8 @@ export function fantavotoFromVote(
   total += count('yellow_card') * r.yellowCardMalus;
   total += count('red_card') * r.redCardMalus;
   total += count('goal_conceded') * r.goalConcededMalus;
-  return Math.round(total * 10) / 10;
+  // Solo pulizia dei float (6,67 + 3 = 9,670000001): i voti hanno al massimo 2 decimali.
+  return Math.round(total * 100) / 100;
 }
 
 export function bonusToEventType(type: FantacalcioBonusType): EventType | null {

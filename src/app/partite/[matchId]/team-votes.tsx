@@ -6,12 +6,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Sheet } from '@/components/ui/sheet';
 import { EVENT_EMOJI, EventEmojis } from '@/components/match/event-emoji';
 import { ConsolidatedMark, CONSOLIDATED_TITLE, ESTIMATED_TITLE } from '@/components/match/vote-source';
-import { cn, formatNumber, formatVote } from '@/lib/utils';
+import { cn, formatSignedPoints, formatVote } from '@/lib/utils';
 import type { SerieAVoteRow } from '@/lib/serie-a-vote-rows';
 
 const ROLE_LABELS: Record<string, string> = { P: 'Portiere', D: 'Difensore', C: 'Centrocampista', A: 'Attaccante' };
 const fmtVote = (value: number | null) => (value == null ? 's.v.' : formatVote(value));
-const signed = (value: number) => `${value > 0 ? '+' : ''}${formatVote(value)}`;
+const signed = formatSignedPoints;
 
 export function TeamVotes({ title, rows }: { title: string; rows: SerieAVoteRow[] }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
@@ -66,7 +66,7 @@ export function TeamVotes({ title, rows }: { title: string; rows: SerieAVoteRow[
                   <div className="w-11">
                     <div className="text-[10px] uppercase tracking-wide text-gray-400">FV</div>
                     <div className={cn('font-bold text-gray-900 tabular-nums', row.estimated && 'italic')}>
-                      {row.fantaVote != null ? formatNumber(row.fantaVote) : '–'}
+                      {row.fantaVote != null ? formatVote(row.fantaVote) : '–'}
                     </div>
                   </div>
                   <ChevronRight size={14} className="text-gray-300" aria-hidden />
@@ -167,7 +167,7 @@ function PlayerVoteDetail({ row }: { row: SerieAVoteRow }) {
         <div className="rounded-xl border border-gray-100 px-3 py-2">
           <dt className="text-[10px] uppercase tracking-wide text-gray-400">Fantavoto</dt>
           <dd className={cn('text-lg font-bold text-gray-900 tabular-nums', row.estimated && 'italic')}>
-            {row.fantaVote != null ? formatNumber(row.fantaVote) : '–'}
+            {row.fantaVote != null ? formatVote(row.fantaVote) : '–'}
             {bonusTotal != null && bonusTotal !== 0 && (
               <span className="ml-1.5 text-xs font-normal text-gray-400">({signed(bonusTotal)})</span>
             )}

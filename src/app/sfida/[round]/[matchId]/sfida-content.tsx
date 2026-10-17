@@ -9,7 +9,7 @@ import { TeamLineupCard } from '@/components/match/team-lineup-card';
 import { EventLegend } from '@/components/match/event-emoji';
 import { VoteSourceLegend } from '@/components/match/vote-source';
 import { RouteSkeleton } from '@/components/ui/route-skeleton';
-import { cn, formatNumber } from '@/lib/utils';
+import { cn, formatSignedPoints, formatVote } from '@/lib/utils';
 import { FantasyMatchResult, PlayerMatchData, ModifiersBreakdown } from '@/types';
 import { getRoundByNumber } from '@/data/calendar';
 import { getTeamById } from '@/data/teams';
@@ -147,7 +147,7 @@ export function SfidaContent() {
                   {homeTeam.name}
                 </div>
                 <div className="text-3xl font-bold mt-2">
-                  {formatNumber(match.homeTotal)}
+                  {formatVote(match.homeTotal)}
                 </div>
                 <div className="text-xl text-gray-600">
                   {match.homeGoals} gol
@@ -173,7 +173,7 @@ export function SfidaContent() {
                   {awayTeam.name}
                 </div>
                 <div className="text-3xl font-bold mt-2">
-                  {formatNumber(match.awayTotal)}
+                  {formatVote(match.awayTotal)}
                 </div>
                 <div className="text-xl text-gray-600">
                   {match.awayGoals} gol
@@ -240,7 +240,7 @@ function ModifierRow({
         {onOpen && <Info size={12} className="text-gray-300" aria-hidden />}
       </span>
       <span className={cn('font-medium', color)}>
-        {value > 0 ? '+' : ''}{value}
+        {formatSignedPoints(value)}
       </span>
     </>
   );
@@ -288,7 +288,7 @@ function ModifiersCard({
             modifiers.total > 0 ? 'text-green-600' : 
             modifiers.total < 0 ? 'text-red-600' : 'text-gray-900'
           )}>
-            {modifiers.total > 0 ? '+' : ''}{modifiers.total}
+            {formatSignedPoints(modifiers.total)}
           </span>
         </div>
       </CardContent>

@@ -3,7 +3,7 @@ import { connection } from 'next/server';
 import { Header } from '@/components/layout/header';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { cn, formatVote } from '@/lib/utils';
 import { LiveStandingsEntry, PlayerMatchData } from '@/types';
 import { getCurrentRound, calendar } from '@/data/calendar';
 import { getTeamById, teams } from '@/data/teams';
@@ -170,7 +170,7 @@ export function StandingsTable({
                       'py-2 text-center font-bold',
                       isUserTeam ? 'text-emerald-700' : 'text-gray-900'
                     )}>
-                      {entry.liveFantaPoints}
+                      {formatVote(entry.liveFantaPoints)}
                     </td>
                   </tr>
                 );
