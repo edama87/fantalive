@@ -5,14 +5,26 @@
  * Protected by CRON_SECRET in Authorization: Bearer header.
  * Fetches live data from the configured provider and writes to Supabase.
  * 
- * Called every minute via Supabase pg_cron + pg_net during match windows.
- * Returns fast (cheap early exit) when no Serie A match is live or within
- * -15/+150 minutes of kickoff.
+ * Called every minute via Supabase pg_cron + pg_net.
+ * Giornata corrente scelta per data (non per stato). Legge da ESPN tutte le
+ * partite dei giorni della giornata, le salva in serie_a_matches e aggiorna
+ * rounds.status ('finished' solo a 10 partite finite).
+ * Uscita veloce quando le partite sono già tutte nel DB e nessuna è live o
+ * entro -15/+150 minuti dal calcio d'inizio.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerClient, isSupabaseServerConfigured } from '@/lib/db/supabase';
 import { createProvider, getProviderType } from '@/providers/factory';
+import {
+  cronWindow,
+  deriveRoundStatus,
+  pickCurrentRound,
+  romeTodayIso,
+  roundEspnDates,
+  type DbRoundRow,
+  type DbSerieAMatchRow,
+} from '@/lib/round-schedule';
 
 export const maxDuration = 30;
 
@@ -32,73 +44,33 @@ async function verifyCronSecret(request: NextRequest): Promise<boolean> {
   return false;
 }
 
-/**
- * Check if any Serie A match is live or within the active window (-15/+150 min of kickoff).
- * Uses DB data (serie_a_matches/rounds) for the check, not the external provider.
- */
-async function isWithinMatchWindow(
-  supabase: ReturnType<typeof getServerClient>
-): Promise<{ active: boolean; reason: string; roundNumber?: number }> {
-  const now = new Date();
-  const windowStartMs = 15 * 60 * 1000;
-  const windowEndMs = 150 * 60 * 1000;
+type Supabase = ReturnType<typeof getServerClient>;
 
-  const { data: liveMatches } = await supabase
-    .from('serie_a_matches')
-    .select('id, status')
-    .in('status', ['live', 'halftime'])
-    .limit(1);
+interface CronRoundContext {
+  round: DbRoundRow;
+  dates: string[];
+  matches: DbSerieAMatchRow[];
+}
 
-  if (liveMatches && liveMatches.length > 0) {
-    return { active: true, reason: 'live_match_in_progress' };
-  }
-
-  const { data: upcomingRounds } = await supabase
+/** Giornata corrente per data + partite già nel DB + giorni ESPN da leggere. */
+async function loadRoundContext(supabase: Supabase, now: Date): Promise<CronRoundContext | null> {
+  const { data: rounds, error } = await supabase
     .from('rounds')
-    .select('number, kickoff_date, kickoff_time, status')
-    .in('status', ['scheduled', 'live'])
-    .order('kickoff_date', { ascending: true })
-    .limit(5);
+    .select('number, serie_a_matchday, kickoff_date, status')
+    .order('kickoff_date', { ascending: true });
+  if (error) throw new Error(`rounds: ${error.message}`);
+  const all = (rounds ?? []) as DbRoundRow[];
+  const round = pickCurrentRound(all, romeTodayIso(now));
+  if (!round) return null;
+  const next = all.find((r) => r.kickoff_date > round.kickoff_date) ?? null;
 
-  if (!upcomingRounds || upcomingRounds.length === 0) {
-    return { active: false, reason: 'no_scheduled_rounds' };
-  }
-
-  for (const round of upcomingRounds) {
-    if (round.status === 'live') {
-      return { active: true, reason: 'round_is_live', roundNumber: round.number };
-    }
-
-    const kickoffStr = `${round.kickoff_date}T${round.kickoff_time || '00:00:00'}`;
-    const kickoffTime = new Date(kickoffStr);
-    const diffMs = kickoffTime.getTime() - now.getTime();
-
-    if (diffMs >= -windowEndMs && diffMs <= windowStartMs) {
-      return { active: true, reason: 'within_kickoff_window', roundNumber: round.number };
-    }
-  }
-
-  const { data: recentMatches } = await supabase
+  const { data: matches, error: matchesError } = await supabase
     .from('serie_a_matches')
-    .select('id, kickoff_time, status')
-    .eq('status', 'scheduled')
-    .not('kickoff_time', 'is', null)
-    .order('kickoff_time', { ascending: true })
-    .limit(10);
+    .select('id, status, kickoff_time')
+    .eq('round_number', round.number);
+  if (matchesError) throw new Error(`serie_a_matches: ${matchesError.message}`);
 
-  if (recentMatches) {
-    for (const match of recentMatches) {
-      if (!match.kickoff_time) continue;
-      const kickoffTime = new Date(match.kickoff_time);
-      const diffMs = kickoffTime.getTime() - now.getTime();
-
-      if (diffMs >= -windowEndMs && diffMs <= windowStartMs) {
-        return { active: true, reason: 'match_within_window' };
-      }
-    }
-  }
-
-  return { active: false, reason: 'outside_match_window' };
+  return { round, dates: roundEspnDates(round, next), matches: (matches ?? []) as DbSerieAMatchRow[] };
 }
 
 export async function POST(request: NextRequest) {
@@ -119,13 +91,28 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = getServerClient();
+  const now = new Date();
 
-  const windowCheck = await isWithinMatchWindow(supabase);
+  let context: CronRoundContext | null;
+  try {
+    context = await loadRoundContext(supabase, now);
+  } catch (error) {
+    console.error('[Cron Live] round context:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+
+  if (!context) {
+    return NextResponse.json({ success: true, skipped: true, reason: 'no_rounds' });
+  }
+
+  const todayKey = romeTodayIso(now).replace(/-/g, '');
+  const windowCheck = cronWindow(context.matches, now, context.dates.includes(todayKey));
   if (!windowCheck.active) {
     return NextResponse.json({
       success: true,
       skipped: true,
       reason: windowCheck.reason,
+      round: context.round.number,
       message: 'No match within active window (-15/+150 min of kickoff)',
       durationMs: Date.now() - startTime,
     });
@@ -139,42 +126,29 @@ export async function POST(request: NextRequest) {
       .insert({
         job_name: 'live_ingestion',
         status: 'running',
+        round_number: context.round.number,
       })
       .select('id')
       .single();
     
     cronRunId = cronRun?.id || null;
 
-    const { data: currentRound } = await supabase
-      .from('rounds')
-      .select('number, serie_a_matchday')
-      .in('status', ['live', 'scheduled'])
-      .order('kickoff_date')
-      .limit(1)
-      .single();
-
-    if (!currentRound) {
-      await updateCronRun(supabase, cronRunId, 'success', {
-        message: 'No active round found',
-      });
-      return NextResponse.json({ success: true, message: 'No active round' });
-    }
-
+    const currentRound = context.round;
     const providerType = getProviderType();
     const provider = createProvider({ type: providerType });
     await provider.initialize();
 
-    const data = await provider.fetchLiveData(currentRound.serie_a_matchday);
+    const data = await provider.fetchLiveData(currentRound.serie_a_matchday, { dates: context.dates });
     provider.dispose();
 
     let matchesUpdated = 0;
     let votesUpdated = 0;
     let eventsIngested = 0;
+    const errors: string[] = [];
 
-    for (const match of data.serieAMatches) {
-      const { error: matchError } = await supabase
-        .from('serie_a_matches')
-        .upsert({
+    if (data.serieAMatches.length > 0) {
+      const { error: matchError } = await supabase.from('serie_a_matches').upsert(
+        data.serieAMatches.map((match) => ({
           id: match.matchId,
           round_number: currentRound.number,
           home_team: match.homeTeam,
@@ -187,88 +161,125 @@ export async function POST(request: NextRequest) {
           venue: match.venue,
           source_provider: providerType,
           source_match_id: match.matchId,
-        }, {
-          onConflict: 'id',
-        });
-
-      if (!matchError) matchesUpdated++;
+          updated_at: new Date().toISOString(),
+        })),
+        { onConflict: 'id' }
+      );
+      if (matchError) errors.push(`serie_a_matches: ${matchError.message}`);
+      else matchesUpdated = data.serieAMatches.length;
     }
 
-    for (const [playerId, playerData] of data.playerData) {
-      if (playerData.minutesPlayed === 0 && playerData.events.length === 0) {
-        continue;
-      }
+    const played = [...data.playerData.values()].filter(
+      (player) => player.minutesPlayed > 0 || player.events.length > 0
+    );
 
-      const { error: voteError } = await supabase
-        .from('live_votes')
-        .upsert({
+    if (played.length > 0) {
+      const { error: voteError } = await supabase.from('live_votes').upsert(
+        played.map((player) => ({
           round_number: currentRound.number,
-          player_id: playerId,
-          estimated_vote: playerData.estimatedVote,
+          player_id: player.playerId,
+          estimated_vote: player.estimatedVote,
           is_estimated: true,
-          source_rating: playerData.rating,
-          minutes_played: playerData.minutesPlayed,
-          is_playing: playerData.isPlaying,
-          is_subbed_out: playerData.isSubstitutedOut,
+          source_rating: player.rating,
+          minutes_played: player.minutesPlayed,
+          is_playing: player.isPlaying,
+          is_subbed_out: player.isSubstitutedOut,
           source_provider: providerType,
-        }, {
-          onConflict: 'round_number,player_id,source_provider',
-        });
+          updated_at: new Date().toISOString(),
+        })),
+        { onConflict: 'round_number,player_id,source_provider' }
+      );
+      if (voteError) errors.push(`live_votes: ${voteError.message}`);
+      else votesUpdated = played.length;
 
-      if (!voteError) votesUpdated++;
+      // Gli eventi di questi giocatori vengono riscritti per intero: così un gol
+      // annullato dal VAR o corretto dalla fonte sparisce anche dal DB.
+      const playerIds = played.map((player) => player.playerId);
+      const { error: deleteError } = await supabase
+        .from('live_events')
+        .delete()
+        .eq('round_number', currentRound.number)
+        .eq('source_provider', providerType)
+        .in('player_id', playerIds);
+      if (deleteError) errors.push(`live_events delete: ${deleteError.message}`);
 
-      for (const event of playerData.events) {
-        const { error: eventError } = await supabase
-          .from('live_events')
-          .upsert({
+      const seen = new Set<string>();
+      const eventRows = played.flatMap((player) =>
+        player.events.map((event, index) => {
+          let sourceId = `${player.playerId}-${event.type}-${event.minute}`;
+          if (seen.has(sourceId)) sourceId = `${sourceId}-${index}`;
+          seen.add(sourceId);
+          return {
             round_number: currentRound.number,
-            player_id: playerId,
+            player_id: player.playerId,
             event_type: event.type,
             minute: event.minute,
-            related_player_id: event.relatedPlayerId || null,
+            // related_player_id ha FK su players: il gol subito dal portiere
+            // ('opponent') si salva puntando al portiere stesso (vedi round-player-data).
+            related_player_id:
+              event.relatedPlayerId === 'opponent' ? player.playerId : event.relatedPlayerId || null,
             source_provider: providerType,
-            source_event_id: `${playerId}-${event.type}-${event.minute}`,
-          }, {
-            onConflict: 'round_number,player_id,event_type,minute,source_provider',
-          });
-
-        if (!eventError) eventsIngested++;
+            source_event_id: sourceId,
+          };
+        })
+      );
+      // stesso giocatore/tipo/minuto (es. due gol subiti nello stesso minuto):
+      // il vincolo unico ne tiene uno solo, quindi deduplichiamo prima.
+      const unique = new Map<string, (typeof eventRows)[number]>();
+      for (const row of eventRows) {
+        unique.set(`${row.player_id}|${row.event_type}|${row.minute}`, row);
+      }
+      if (!deleteError && unique.size > 0) {
+        const { error: eventError } = await supabase.from('live_events').upsert([...unique.values()], {
+          onConflict: 'round_number,player_id,event_type,minute,source_provider',
+        });
+        if (eventError) errors.push(`live_events: ${eventError.message}`);
+        else eventsIngested = unique.size;
       }
     }
 
-    if (data.isLive) {
-      await supabase
+    // Stato giornata dalle partite: 'finished' solo quando tutte e 10 sono finite.
+    const { data: roundMatches } = await supabase
+      .from('serie_a_matches')
+      .select('status')
+      .eq('round_number', currentRound.number);
+    const roundStatus = deriveRoundStatus((roundMatches ?? []).map((m) => m.status as string));
+    if (roundStatus !== currentRound.status) {
+      const { error: roundError } = await supabase
         .from('rounds')
-        .update({ status: 'live' })
-        .eq('number', currentRound.number)
-        .eq('status', 'scheduled');
-    } else if (!data.isLive && data.serieAMatches.every(m => m.status === 'finished')) {
-      await supabase
-        .from('rounds')
-        .update({ status: 'finished' })
-        .eq('number', currentRound.number)
-        .eq('status', 'live');
+        .update({ status: roundStatus })
+        .eq('number', currentRound.number);
+      if (roundError) errors.push(`rounds: ${roundError.message}`);
     }
 
     const duration = Date.now() - startTime;
+    const unmatched = data.unmatchedPlayers ?? [];
 
-    await updateCronRun(supabase, cronRunId, 'success', {
+    await updateCronRun(supabase, cronRunId, errors.length > 0 ? 'error' : 'success', {
       round_number: currentRound.number,
       matches_updated: matchesUpdated,
       votes_updated: votesUpdated,
       events_ingested: eventsIngested,
       duration_ms: duration,
       is_live: data.isLive,
+      round_status: roundStatus,
+      dates: context.dates,
+      unmatched_count: unmatched.length,
+      unmatched_players: unmatched.slice(0, 60).map((p) => `${p.name} (${p.team ?? '?'})`),
+      error_message: errors.length > 0 ? errors.join('; ') : undefined,
     });
 
     return NextResponse.json({
-      success: true,
+      success: errors.length === 0,
       round: currentRound.number,
+      roundStatus,
       matchesUpdated,
       votesUpdated,
       eventsIngested,
+      unmatchedCount: unmatched.length,
       isLive: data.isLive,
       durationMs: duration,
+      ...(errors.length > 0 ? { errors } : {}),
     });
 
   } catch (error) {

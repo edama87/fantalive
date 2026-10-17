@@ -13,11 +13,12 @@ export async function GET(
   }
 
   try {
-    const { playerData, isLive } = await getRoundPlayerState(roundNumber);
+    const { playerData, isLive, fixtures } = await getRoundPlayerState(roundNumber);
     return NextResponse.json({
       roundNumber,
       isLive,
       players: [...playerData.values()],
+      fixtures,
     });
   } catch (error) {
     console.error('[API] player-data:', error);

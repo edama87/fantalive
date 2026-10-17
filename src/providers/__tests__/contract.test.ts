@@ -2,8 +2,11 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { LiveDataProvider, NormalizedMatchData } from '../types';
 import { MockProvider } from '../mock-provider';
 import { EspnProvider } from '../espn-provider';
-import scoreboardFixture from './fixtures/espn-scoreboard.json';
-import summaryFixture from './fixtures/espn-summary.json';
+import catalogPlayers from './fixtures/espn-catalog-players.json';
+import scoreboard16 from './fixtures/espn-scoreboard-20261016.json';
+import scoreboard17 from './fixtures/espn-scoreboard-20261017.json';
+import summaryFroSas from './fixtures/espn-summary-fro-sas.json';
+import type { FantacalcioCatalogPlayer } from '@/lib/fantacalcio-it';
 
 function runProviderContractTests(
   providerName: string,
@@ -176,113 +179,83 @@ function runProviderContractTests(
 
 runProviderContractTests('MockProvider', () => new MockProvider(12345));
 
-describe('EspnProvider with fixtures', () => {
-  let provider: EspnProvider;
+describe('EspnProvider with real ESPN fixtures (giornata 7, 16-17 ottobre)', () => {
+  const catalog = { players: catalogPlayers as FantacalcioCatalogPlayer[], aliases: [] };
+  let fetchMock: ReturnType<typeof vi.fn>;
+  let infoSpy: ReturnType<typeof vi.spyOn>;
+
+  function jsonResponse(body: unknown) {
+    return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) } as Response);
+  }
 
   beforeEach(() => {
-    provider = new EspnProvider();
-    
-    global.fetch = vi.fn().mockImplementation((url: string) => {
-      if (url.includes('/scoreboard')) {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(scoreboardFixture),
-        });
-      }
-      if (url.includes('/summary')) {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(summaryFixture),
-        });
-      }
+    infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/scoreboard') && url.includes('dates=20261016')) return jsonResponse(scoreboard16);
+      if (url.includes('/scoreboard') && url.includes('dates=20261017')) return jsonResponse(scoreboard17);
+      if (url.includes('/summary') && url.includes('event=401874959')) return jsonResponse(summaryFroSas);
       return Promise.reject(new Error(`Unexpected URL: ${url}`));
     });
   });
 
   afterEach(() => {
+    infoSpy.mockRestore();
+  });
+
+  async function fetchRound() {
+    const provider = new EspnProvider({ catalog, fetchImpl: fetchMock as unknown as typeof fetch });
+    await provider.initialize();
+    const data = await provider.fetchLiveData(7, { dates: ['20261016', '20261017'] });
     provider.dispose();
-    vi.restoreAllMocks();
+    return data;
+  }
+
+  it('fetches the scoreboard for every date and returns all fixtures with status and kickoff', async () => {
+    const data = await fetchRound();
+    const scoreboardCalls = fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => url.includes('/scoreboard'));
+    expect(scoreboardCalls).toHaveLength(2);
+    expect(data.serieAMatches.map((m) => m.matchId)).toEqual(['401874959', '401874760', '401874953', '401874935']);
+    const froSas = data.serieAMatches[0];
+    expect(froSas).toMatchObject({ homeTeam: 'Frosinone', awayTeam: 'Sassuolo', homeScore: 4, awayScore: 2, status: 'finished' });
+    expect(data.serieAMatches[1]).toMatchObject({ homeTeam: 'Venezia', awayTeam: 'Napoli', status: 'scheduled' });
+    expect(data.serieAMatches.every((m) => typeof m.kickoffTime === 'string')).toBe(true);
+    expect(data.isLive).toBe(false);
   });
 
-  it('has correct name and type', async () => {
-    await provider.initialize();
-    expect(provider.name).toBe('ESPN Provider');
-    expect(provider.type).toBe('espn');
+  it('only fetches summaries of matches that have started', async () => {
+    await fetchRound();
+    const summaryCalls = fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => url.includes('/summary'));
+    expect(summaryCalls).toHaveLength(1);
+    expect(summaryCalls[0]).toContain('event=401874959');
   });
 
-  it('parses scoreboard into matches', async () => {
-    await provider.initialize();
-    const data = await provider.fetchLiveData(7);
-    
-    expect(data.serieAMatches.length).toBe(3);
-    
-    const milanDerby = data.serieAMatches.find(m => m.matchId === '704001');
-    expect(milanDerby).toBeDefined();
-    expect(milanDerby!.homeTeam).toBe('Milan');
-    expect(milanDerby!.awayTeam).toBe('Inter');
-    expect(milanDerby!.homeScore).toBe(1);
-    expect(milanDerby!.awayScore).toBe(2);
-    expect(milanDerby!.status).toBe('live');
-    expect(milanDerby!.minute).toBe(35);
+  it('maps rosters and keyEvents to DB players (scorers, assists, GK conceded, cards, minutes)', async () => {
+    const data = await fetchRound();
+    const get = (id: string) => data.playerData.get(id);
+    const types = (id: string) => get(id)?.events.map((e) => e.type);
+
+    expect(data.playerData.size).toBe(19);
+    expect(types('raimondo-antonio-a')).toEqual(['goal', 'goal', 'goal']);
+    expect(get('raimondo-antonio-a')?.minutesPlayed).toBe(90);
+    // "Giacomo Calò" (ESPN) -> "CALO' Giacomo" (DB), sostituito all'80'
+    expect(types('calo-giacomo-c')).toEqual(['goal']);
+    expect(get('calo-giacomo-c')?.minutesPlayed).toBe(80);
+    expect(types('bakola-darryl-c')).toEqual(['assist']);
+    expect(types('berardi-domenico-a')).toEqual(['goal']);
+    expect(types('bowie-kieron-tom-a')).toEqual(['yellow_card']);
+    expect(get('bowie-kieron-tom-a')?.minutesPlayed).toBe(32);
+
+    const palmisani = get('palmisani-lorenzo-p')!;
+    expect(palmisani.events.filter((e) => e.type === 'goal' && e.relatedPlayerId === 'opponent')).toHaveLength(2);
+    const muric = get('muric-arijanet-anan-p')!;
+    expect(muric.events.filter((e) => e.type === 'goal' && e.relatedPlayerId === 'opponent')).toHaveLength(4);
   });
 
-  it('parses match statuses correctly', async () => {
-    await provider.initialize();
-    const data = await provider.fetchLiveData(7);
-    
-    const liveMatch = data.serieAMatches.find(m => m.matchId === '704001');
-    const scheduledMatch = data.serieAMatches.find(m => m.matchId === '704002');
-    const finishedMatch = data.serieAMatches.find(m => m.matchId === '704003');
-    
-    expect(liveMatch!.status).toBe('live');
-    expect(scheduledMatch!.status).toBe('scheduled');
-    expect(finishedMatch!.status).toBe('finished');
-  });
-
-  it('processes player events from plays', async () => {
-    await provider.initialize();
-    const data = await provider.fetchLiveData(7);
-    
-    const pulisic = data.playerData.get('fc-pulisic');
-    expect(pulisic).toBeDefined();
-    expect(pulisic!.events.some(e => e.type === 'goal')).toBe(true);
-    
-    const rabiot = data.playerData.get('ym-rabiot');
-    expect(rabiot).toBeDefined();
-    expect(rabiot!.events.some(e => e.type === 'assist')).toBe(true);
-  });
-
-  it('matches players using aliases', async () => {
-    await provider.initialize();
-    const data = await provider.fetchLiveData(7);
-    
-    const calhanoglu = data.playerData.get('st-calhanoglu');
-    expect(calhanoglu).toBeDefined();
-    expect(calhanoglu!.minutesPlayed).toBe(90);
-    expect(calhanoglu!.events.some(e => e.type === 'penalty_scored')).toBe(true);
-  });
-
-  it('estimates votes correctly', async () => {
-    await provider.initialize();
-    const data = await provider.fetchLiveData(7);
-    
-    const lautaro = data.playerData.get('psg-lautaro-martinez');
-    expect(lautaro).toBeDefined();
-    expect(lautaro!.estimatedVote).not.toBeNull();
-    expect(lautaro!.estimatedVote).toBeGreaterThanOrEqual(6);
-  });
-
-  it('returns isLive true when matches are in progress', async () => {
-    await provider.initialize();
-    const data = await provider.fetchLiveData(7);
-    
-    expect(data.isLive).toBe(true);
-  });
-
-  it('initializes player data for all fantasy players', async () => {
-    await provider.initialize();
-    const data = await provider.fetchLiveData(7);
-    
-    expect(data.playerData.size).toBeGreaterThan(200);
+  it('reports and logs players that are not in the DB', async () => {
+    const data = await fetchRound();
+    expect(data.unmatchedPlayers).toHaveLength(13);
+    expect(data.unmatchedPlayers).toContainEqual({ name: 'Ilario Monterisi', team: 'FRO' });
+    expect(infoSpy).toHaveBeenCalled();
+    expect(String(infoSpy.mock.calls[0][0])).toContain('non abbinati');
   });
 });

@@ -66,6 +66,13 @@ export interface NormalizedMatchData {
   playerData: Map<string, NormalizedPlayerData>;
   lastUpdated: Date;
   isLive: boolean;
+  /** Nomi della fonte non abbinati a giocatori del DB (solo log/diagnostica). */
+  unmatchedPlayers?: Array<{ name: string; team: string | null }>;
+}
+
+export interface FetchLiveDataOptions {
+  /** Giorni (yyyymmdd) della giornata di Serie A da leggere. Default: oggi. */
+  dates?: string[];
 }
 
 export interface LiveDataProvider {
@@ -74,7 +81,7 @@ export interface LiveDataProvider {
 
   initialize(): Promise<void>;
   
-  fetchLiveData(serieAMatchday: number): Promise<NormalizedMatchData>;
+  fetchLiveData(serieAMatchday: number, options?: FetchLiveDataOptions): Promise<NormalizedMatchData>;
   
   fetchFinalVotes?(serieAMatchday: number): Promise<Map<string, number>>;
   

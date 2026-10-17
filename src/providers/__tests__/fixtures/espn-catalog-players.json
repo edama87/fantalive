@@ -1,0 +1,368 @@
+[
+{
+"id": "bracaglia-gabriele-d",
+"name": "BRACAGLIA Gabriele",
+"role": "D",
+"realTeam": "FRO"
+},
+{
+"id": "calo-giacomo-c",
+"name": "CALO' Giacomo",
+"role": "C",
+"realTeam": "FRO"
+},
+{
+"id": "calvani-gabriele-d",
+"name": "CALVANI Gabriele",
+"role": "D",
+"realTeam": "FRO"
+},
+{
+"id": "cittadini-giorgio-d",
+"name": "CITTADINI Giorgio",
+"role": "D",
+"realTeam": "FRO"
+},
+{
+"id": "desplanches-sebastiano-p",
+"name": "DESPLANCHES Sebastiano",
+"role": "P",
+"realTeam": "FRO"
+},
+{
+"id": "ghedjemis-fares-a",
+"name": "GHEDJEMIS Fares",
+"role": "A",
+"realTeam": "FRO"
+},
+{
+"id": "kvernadze-giorgi-a",
+"name": "KVERNADZE Giorgi",
+"role": "A",
+"realTeam": "FRO"
+},
+{
+"id": "masini-patrizio-c",
+"name": "MASINI Patrizio",
+"role": "C",
+"realTeam": "FRO"
+},
+{
+"id": "oyono-anthony-henri-d",
+"name": "OYONO Anthony Henri",
+"role": "D",
+"realTeam": "FRO"
+},
+{
+"id": "palmisani-lorenzo-p",
+"name": "PALMISANI Lorenzo",
+"role": "P",
+"realTeam": "FRO"
+},
+{
+"id": "raimondo-antonio-a",
+"name": "RAIMONDO Antonio",
+"role": "A",
+"realTeam": "FRO"
+},
+{
+"id": "schmid-romano-c",
+"name": "SCHMID Romano",
+"role": "C",
+"realTeam": "FRO"
+},
+{
+"id": "floriani-mussolini-romano-d",
+"name": "FLORIANI MUSSOLINI Romano",
+"role": "D",
+"realTeam": "LAZ"
+},
+{
+"id": "frattesi-davide-c",
+"name": "FRATTESI Davide",
+"role": "C",
+"realTeam": "LAZ"
+},
+{
+"id": "furlanetto-alessio-p",
+"name": "FURLANETTO Alessio",
+"role": "P",
+"realTeam": "LAZ"
+},
+{
+"id": "gudmundsson-albert-c",
+"name": "GUDMUNDSSON Albert",
+"role": "C",
+"realTeam": "LAZ"
+},
+{
+"id": "isaksen-gustav-tang-c",
+"name": "ISAKSEN Gustav Tang",
+"role": "C",
+"realTeam": "LAZ"
+},
+{
+"id": "mandas-christos-p",
+"name": "MANDAS Christos",
+"role": "P",
+"realTeam": "LAZ"
+},
+{
+"id": "noslin-tijjani-a",
+"name": "NOSLIN Tijjani",
+"role": "A",
+"realTeam": "LAZ"
+},
+{
+"id": "pinamonti-andrea-a",
+"name": "PINAMONTI Andrea",
+"role": "A",
+"realTeam": "LAZ"
+},
+{
+"id": "provstgaard-oliver-d",
+"name": "PROVSTGAARD Oliver",
+"role": "D",
+"realTeam": "LAZ"
+},
+{
+"id": "rovella-nicolo-c",
+"name": "ROVELLA Nicolo'",
+"role": "C",
+"realTeam": "LAZ"
+},
+{
+"id": "tavares-nuno-albertino-d",
+"name": "TAVARES Nuno Albertino",
+"role": "D",
+"realTeam": "LAZ"
+},
+{
+"id": "taylor-kenneth-ina-c",
+"name": "TAYLOR Kenneth Ina",
+"role": "C",
+"realTeam": "LAZ"
+},
+{
+"id": "zaccagni-mattia-c",
+"name": "ZACCAGNI Mattia",
+"role": "C",
+"realTeam": "LAZ"
+},
+{
+"id": "bartesaghi-davide-d",
+"name": "BARTESAGHI Davide",
+"role": "D",
+"realTeam": "MIL"
+},
+{
+"id": "chukwueze-samuel-chimerenka-c",
+"name": "CHUKWUEZE Samuel Chimerenka",
+"role": "C",
+"realTeam": "MIL"
+},
+{
+"id": "cisse-alphadjo-c",
+"name": "CISSE' Alphadjo",
+"role": "C",
+"realTeam": "MIL"
+},
+{
+"id": "de-winter-koni-d",
+"name": "DE WINTER Koni",
+"role": "D",
+"realTeam": "MIL"
+},
+{
+"id": "estupinan-pervis-josue-d",
+"name": "ESTUPINAN Pervis Josue'",
+"role": "D",
+"realTeam": "MIL"
+},
+{
+"id": "gila-mario-d",
+"name": "GILA Mario",
+"role": "D",
+"realTeam": "MIL"
+},
+{
+"id": "maignan-mike-peterson-p",
+"name": "MAIGNAN Mike Peterson",
+"role": "P",
+"realTeam": "MIL"
+},
+{
+"id": "modric-luka-c",
+"name": "MODRIC Luka",
+"role": "C",
+"realTeam": "MIL"
+},
+{
+"id": "moreira-diego-manuel-c",
+"name": "MOREIRA Diego Manuel",
+"role": "C",
+"realTeam": "MIL"
+},
+{
+"id": "pavlovic-strahinja-d",
+"name": "PAVLOVIC Strahinja",
+"role": "D",
+"realTeam": "MIL"
+},
+{
+"id": "pulisic-christian-mate-c",
+"name": "PULISIC Christian Mate",
+"role": "C",
+"realTeam": "MIL"
+},
+{
+"id": "rabiot-adrien-c",
+"name": "RABIOT Adrien",
+"role": "C",
+"realTeam": "MIL"
+},
+{
+"id": "ramos-goncalo-matias-a",
+"name": "RAMOS Goncalo Matias",
+"role": "A",
+"realTeam": "MIL"
+},
+{
+"id": "terracciano-pietro-p",
+"name": "TERRACCIANO Pietro",
+"role": "P",
+"realTeam": "MIL"
+},
+{
+"id": "tomori-fikayo-d",
+"name": "TOMORI Fikayo",
+"role": "D",
+"realTeam": "MIL"
+},
+{
+"id": "torriani-lorenzo-p",
+"name": "TORRIANI Lorenzo",
+"role": "P",
+"realTeam": "MIL"
+},
+{
+"id": "adzic-vasilije-c",
+"name": "ADZIC Vasilije",
+"role": "C",
+"realTeam": "SAS"
+},
+{
+"id": "bakola-darryl-c",
+"name": "BAKOLA Darryl",
+"role": "C",
+"realTeam": "SAS"
+},
+{
+"id": "berardi-domenico-a",
+"name": "BERARDI Domenico",
+"role": "A",
+"realTeam": "SAS"
+},
+{
+"id": "bowie-kieron-tom-a",
+"name": "BOWIE Kieron Tom",
+"role": "A",
+"realTeam": "SAS"
+},
+{
+"id": "doig-josh-thomas-d",
+"name": "DOIG Josh Thomas",
+"role": "D",
+"realTeam": "SAS"
+},
+{
+"id": "esposito-sebastiano-a",
+"name": "ESPOSITO Sebastiano",
+"role": "A",
+"realTeam": "SAS"
+},
+{
+"id": "idzes-jay-noah-d",
+"name": "IDZES Jay Noah",
+"role": "D",
+"realTeam": "SAS"
+},
+{
+"id": "lauriente-armand-a",
+"name": "LAURIENTE' Armand",
+"role": "A",
+"realTeam": "SAS"
+},
+{
+"id": "leysen-fedde-d",
+"name": "LEYSEN Fedde",
+"role": "D",
+"realTeam": "SAS"
+},
+{
+"id": "matic-nemanja-c",
+"name": "MATIC Nemanja",
+"role": "C",
+"realTeam": "SAS"
+},
+{
+"id": "muric-arijanet-anan-p",
+"name": "MURIC Arijanet Anan",
+"role": "P",
+"realTeam": "SAS"
+},
+{
+"id": "odenthal-cas-d",
+"name": "ODENTHAL Cas",
+"role": "D",
+"realTeam": "SAS"
+},
+{
+"id": "adams-akor-jerome-a",
+"name": "ADAMS Akor Jerome",
+"role": "A",
+"realTeam": "VEN"
+},
+{
+"id": "adorante-andrea-a",
+"name": "ADORANTE Andrea",
+"role": "A",
+"realTeam": "VEN"
+},
+{
+"id": "basic-toma-c",
+"name": "BASIC Toma",
+"role": "C",
+"realTeam": "VEN"
+},
+{
+"id": "busio-gianluca-c",
+"name": "BUSIO Gianluca",
+"role": "C",
+"realTeam": "VEN"
+},
+{
+"id": "correia-thierry-rendall-d",
+"name": "CORREIA Thierry Rendall",
+"role": "D",
+"realTeam": "VEN"
+},
+{
+"id": "hainaut-antoine-d",
+"name": "HAINAUT Antoine",
+"role": "D",
+"realTeam": "VEN"
+},
+{
+"id": "perez-enrique-c",
+"name": "PEREZ Enrique",
+"role": "C",
+"realTeam": "VEN"
+},
+{
+"id": "yeboah-john-a",
+"name": "YEBOAH John",
+"role": "A",
+"realTeam": "VEN"
+}
+]

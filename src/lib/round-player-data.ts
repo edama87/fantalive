@@ -5,6 +5,7 @@
 
 import { getServerClient } from '@/lib/db/supabase';
 import type { EventType, PlayerEvent, PlayerMatchData } from '@/types';
+import { fixtureFromRow, type RoundFixture, type SerieAMatchRow } from '@/lib/serie-a-fixtures';
 
 const PLAYER_EVENT_TYPES = new Set<EventType>([
   'goal',
@@ -49,6 +50,8 @@ export interface SerieAMatchStatusRow {
 export interface RoundPlayerState {
   playerData: Map<string, PlayerMatchData>;
   isLive: boolean;
+  /** Partite di Serie A della giornata (serie_a_matches). */
+  fixtures: RoundFixture[];
 }
 
 function finiteNumber(value: unknown): number | null {
@@ -145,7 +148,16 @@ function liveEventsByPlayer(rows: readonly LiveEventRow[]): Map<string, PlayerEv
       playerId: row.player_id,
       type: row.event_type,
       minute: finiteNumber(row.minute) ?? 0,
-      ...(row.related_player_id ? { relatedPlayerId: row.related_player_id } : {}),
+      // Gol con related_player_id = se stesso = gol subito dal portiere (il cron
+      // non può salvare 'opponent' per la FK su players).
+      ...(row.related_player_id
+        ? {
+            relatedPlayerId:
+              row.event_type === 'goal' && row.related_player_id === row.player_id
+                ? 'opponent'
+                : row.related_player_id,
+          }
+        : {}),
     });
     grouped.set(row.player_id, events);
   }
@@ -226,18 +238,20 @@ export async function getRoundPlayerState(roundNumber: number): Promise<RoundPla
       .order('minute'),
     supabase
       .from('serie_a_matches')
-      .select('status')
-      .eq('round_number', roundNumber),
+      .select('id, home_team, away_team, home_score, away_score, status, minute, kickoff_time')
+      .eq('round_number', roundNumber)
+      .order('kickoff_time'),
   ]);
 
   const officialVotes = assertQuery<OfficialVoteRow>('official_votes', officialResult);
   const liveVotes = assertQuery<LiveVoteRow>('live_votes', liveVotesResult);
   const liveEvents = assertQuery<LiveEventRow>('live_events', liveEventsResult);
-  const matches = assertQuery<SerieAMatchStatusRow>('serie_a_matches', matchesResult);
+  const matches = assertQuery<SerieAMatchRow>('serie_a_matches', matchesResult);
 
   return {
     playerData: assembleRoundPlayerData(officialVotes, liveVotes, liveEvents),
     isLive: isRoundLive(liveVotes, matches),
+    fixtures: matches.map(fixtureFromRow),
   };
 }
 

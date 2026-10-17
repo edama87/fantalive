@@ -1,17 +1,20 @@
 'use client';
 
 import type { PlayerMatchData } from '@/types';
+import type { RoundFixture } from '@/lib/serie-a-fixtures';
 
 export interface RoundPlayerResponse {
   roundNumber: number;
   isLive: boolean;
   players: PlayerMatchData[];
+  fixtures?: RoundFixture[];
 }
 
 export async function fetchRoundPlayerData(roundNumber: number): Promise<{
   playerData: Map<string, PlayerMatchData>;
   isLive: boolean;
   lastUpdated: Date;
+  fixtures: RoundFixture[];
 }> {
   const res = await fetch(`/api/rounds/${roundNumber}/player-data`, {
     cache: 'no-store',
@@ -33,5 +36,6 @@ export async function fetchRoundPlayerData(roundNumber: number): Promise<{
     playerData,
     isLive: body.isLive === true,
     lastUpdated: new Date(),
+    fixtures: Array.isArray(body.fixtures) ? body.fixtures : [],
   };
 }
