@@ -14,6 +14,7 @@ import {
   AttackModifierExplanation,
 } from '@/types';
 import { getTeamById, getPlayerById } from '@/data/teams';
+import { roundScore } from '@/lib/vote-precision';
 
 export type PlayerDirectory = Record<string, Player>;
 
@@ -49,39 +50,39 @@ function withResolvedFormation(lineup: Lineup, directory?: PlayerDirectory): Lin
 
 const ALLOWED_FORMATIONS = ['6-3-1', '5-3-2', '5-4-1', '4-5-1', '4-4-2', '4-3-3', '3-6-1', '3-5-2', '3-4-3'];
 
+/** Soglie gol (limite inferiore incluso, confronto a piena precisione). */
 const GOAL_THRESHOLDS = [
-  { min: 0, max: 65.99, goals: 0 },
-  { min: 66, max: 71.99, goals: 1 },
-  { min: 72, max: 76.99, goals: 2 },
-  { min: 77, max: 80.99, goals: 3 },
-  { min: 81, max: 84.99, goals: 4 },
-  { min: 85, max: 88.99, goals: 5 },
+  { min: 85, goals: 5 },
+  { min: 81, goals: 4 },
+  { min: 77, goals: 3 },
+  { min: 72, goals: 2 },
+  { min: 66, goals: 1 },
 ];
 
 /** Tabelle dei modificatori (regolamento Bundlesliga). */
-export const DEFENSE_MODIFIER_TABLE: Array<{ maxAvg: number; modifier: number }> = [
-  { maxAvg: 5.19, modifier: 4 },
-  { maxAvg: 5.39, modifier: 3 },
-  { maxAvg: 5.59, modifier: 2 },
-  { maxAvg: 5.79, modifier: 1 },
-  { maxAvg: 5.99, modifier: 0 },
-  { maxAvg: 6.19, modifier: -1 },
-  { maxAvg: 6.39, modifier: -2 },
-  { maxAvg: 6.59, modifier: -3 },
-  { maxAvg: 6.79, modifier: -4 },
-  { maxAvg: Infinity, modifier: -5 },
+export const DEFENSE_MODIFIER_TABLE: Array<{ minAvg: number; maxAvg: number; modifier: number }> = [
+  { minAvg: 0, maxAvg: 5.199, modifier: 4 },
+  { minAvg: 5.2, maxAvg: 5.399, modifier: 3 },
+  { minAvg: 5.4, maxAvg: 5.599, modifier: 2 },
+  { minAvg: 5.6, maxAvg: 5.799, modifier: 1 },
+  { minAvg: 5.8, maxAvg: 5.999, modifier: 0 },
+  { minAvg: 6, maxAvg: 6.199, modifier: -1 },
+  { minAvg: 6.2, maxAvg: 6.399, modifier: -2 },
+  { minAvg: 6.4, maxAvg: 6.699, modifier: -3 },
+  { minAvg: 6.7, maxAvg: 6.999, modifier: -4 },
+  { minAvg: 7, maxAvg: Infinity, modifier: -5 },
 ];
 
 export const MIDFIELD_MODIFIER_TABLE: Array<{ minDiff: number; bonus: number; malus: number }> = [
   { minDiff: 0, bonus: 0, malus: 0 },
   { minDiff: 0.75, bonus: 0.5, malus: -0.5 },
   { minDiff: 1.5, bonus: 1, malus: -1 },
-  { minDiff: 2.25, bonus: 1.5, malus: -1.5 },
-  { minDiff: 3, bonus: 2, malus: -2 },
-  { minDiff: 3.75, bonus: 2.5, malus: -2.5 },
-  { minDiff: 4.5, bonus: 3, malus: -3 },
-  { minDiff: 5.25, bonus: 3.5, malus: -3.5 },
-  { minDiff: 6, bonus: 4, malus: -4 },
+  { minDiff: 2.5, bonus: 1.5, malus: -1.5 },
+  { minDiff: 3.5, bonus: 2, malus: -2 },
+  { minDiff: 4.5, bonus: 2.5, malus: -2.5 },
+  { minDiff: 5.5, bonus: 3, malus: -3 },
+  { minDiff: 6.5, bonus: 3.5, malus: -3.5 },
+  { minDiff: 7.5, bonus: 4, malus: -4 },
 ];
 
 export const ATTACK_MODIFIER_TABLE: Array<{ vote: number; bonus: number }> = [
@@ -182,10 +183,14 @@ function toInput(v: VoteLike): ModifierVoteInput {
   return { ...base, usedVote: base.riserva || base.vote === 0 ? 5 : base.vote };
 }
 
-/** Correzione per numero di difensori: 3 dif -1, 5 dif +1, 6 dif +2. */
+/**
+ * Correzione per numero di difensori. Il modificatore va sommato all'avversario:
+ * difesa a 3 "peggiorata di un punto" = +1 all'avversario; oltre 4 difensori
+ * migliora di un punto per difensore = -1 all'avversario per ognuno.
+ */
 export function defenseFormationAdjustment(numDefenders: number): number {
-  if (numDefenders === 3) return -1;
-  if (numDefenders > 4) return numDefenders - 4;
+  if (numDefenders === 3) return 1;
+  if (numDefenders > 4) return -(numDefenders - 4);
   return 0;
 }
 
@@ -203,15 +208,11 @@ export function explainDefenseModifier(
   if (inputs.length === 0) {
     return { teamId, inputs, average: null, band: null, numDefenders: numDefendersInFormation, formationAdjustment, modifier: 0 };
   }
-  const average = inputs.reduce((sum, i) => sum + i.usedVote, 0) / inputs.length;
+  // Media a piena precisione (solo il rumore dei float viene eliminato): 5,1995 resta sotto 5,20.
+  const average = Math.round((inputs.reduce((sum, i) => sum + i.usedVote, 0) / inputs.length) * 1e6) / 1e6;
   let band: DefenseModifierExplanation['band'] = null;
-  let minAvg = 0;
   for (const entry of DEFENSE_MODIFIER_TABLE) {
-    if (average <= entry.maxAvg) {
-      band = { minAvg, maxAvg: entry.maxAvg, modifier: entry.modifier };
-      break;
-    }
-    minAvg = Math.round((entry.maxAvg + 0.01) * 100) / 100;
+    if (average >= entry.minAvg) band = { ...entry };
   }
   const modifier = (band?.modifier ?? 0) + formationAdjustment;
   return { teamId, inputs, average, band, numDefenders: numDefendersInFormation, formationAdjustment, modifier };
@@ -245,7 +246,7 @@ export function explainMidfieldModifier(
   const awayInputs = normalize(awayMidfielders);
   const homeTotal = homeInputs.reduce((a, b) => a + b.usedVote, 0);
   const awayTotal = awayInputs.reduce((a, b) => a + b.usedVote, 0);
-  const diff = Math.abs(homeTotal - awayTotal);
+  const diff = roundScore(Math.abs(homeTotal - awayTotal));
 
   let band = MIDFIELD_MODIFIER_TABLE[0];
   for (let i = MIDFIELD_MODIFIER_TABLE.length - 1; i >= 0; i--) {
@@ -321,9 +322,7 @@ export function calculateGoals(totalPoints: number): number {
   }
 
   for (const threshold of GOAL_THRESHOLDS) {
-    if (totalPoints >= threshold.min && totalPoints <= threshold.max) {
-      return threshold.goals;
-    }
+    if (totalPoints >= threshold.min) return threshold.goals;
   }
   return 0;
 }
@@ -334,7 +333,7 @@ export function applyGoalConversionRules(
   homeGoals: number,
   awayGoals: number
 ): { homeGoals: number; awayGoals: number } {
-  const diff = Math.abs(homePoints - awayPoints);
+  const diff = roundScore(Math.abs(homePoints - awayPoints));
   const minPoints = Math.min(homePoints, awayPoints);
   const maxPoints = Math.max(homePoints, awayPoints);
 
@@ -700,7 +699,9 @@ export function calculateTeamScore(
     if (voteSource) score.voteSource = voteSource;
   }
 
-  return { total, playerScores, attackModifier, attackExplanation };
+  // Totale a 3 decimali come FMS: le soglie gol (66, 72, ...) e le regole a-d
+  // confrontano questo valore, non quello mostrato a 2 decimali.
+  return { total: roundScore(total), playerScores, attackModifier, attackExplanation };
 }
 
 export function calculateMatch(

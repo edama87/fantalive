@@ -12,6 +12,7 @@
  * decoys and are ignored.
  */
 
+import { roundScore } from '@/lib/vote-precision';
 import * as cheerio from 'cheerio';
 import type { AnyNode } from 'domhandler';
 import type { EventType, PlayerRole } from '@/types';
@@ -183,8 +184,8 @@ export function fantavotoFromVote(
   total += count('yellow_card') * r.yellowCardMalus;
   total += count('red_card') * r.redCardMalus;
   total += count('goal_conceded') * r.goalConcededMalus;
-  // Solo pulizia dei float (6,67 + 3 = 9,670000001): i voti hanno al massimo 2 decimali.
-  return Math.round(total * 100) / 100;
+  // Solo pulizia dei float (6,667 + 3 = 9,667000001): le medie hanno al massimo 3 decimali.
+  return roundScore(total);
 }
 
 export function bonusToEventType(type: FantacalcioBonusType): EventType | null {
@@ -537,6 +538,55 @@ export function matchFantacalcioPlayer(
     }
   }
 
+  if (best && !tied) {
+    return { playerId: best.player.id, playerName: best.player.name, confidence: best.score / 100 };
+  }
+  return looseClubMatch(rawName, players, context);
+}
+
+/** Parole del nome (minuscole, senza accenti), con i cognomi composti divisi ("kessie'" -> "kessie"). */
+function nameWords(value: string): string[] {
+  return normalizePlayerName(value.replace(/[-']/g, ' ')).split(' ').filter(Boolean);
+}
+
+/**
+ * Secondo tentativo, solo nello stesso club: "COGNOME I." dove l'iniziale non è
+ * il primo nome in anagrafica (NDICKA E. = NDICKA Obite Evan), il cognome è
+ * composto (MUSSOLINI R. = FLORIANI MUSSOLINI Romano), il cognome è il secondo
+ * nome brasiliano (GABRIEL T. = TIAGO GABRIEL) o l'iniziale è di un soprannome
+ * (PEREZ K. = Kike, PEREZ Enrique). Tutte le parole lunghe devono comparire
+ * nel nome in anagrafica; l'iniziale e il ruolo servono solo per spareggiare.
+ * Se resta un pareggio non abbina (meglio un alias che un voto sbagliato).
+ */
+export function looseClubMatch(
+  rawName: string,
+  players: readonly FantacalcioCatalogPlayer[],
+  context?: FantacalcioMatchContext
+): { playerId: string; playerName: string; confidence: number } | null {
+  const contextTeam = canonicalTeamCode(context?.realTeam);
+  if (!contextTeam) return null;
+  const tokens = nameWords(rawName);
+  const words = tokens.filter((token) => token.length >= 3);
+  const initials = tokens.filter((token) => token.length < 3);
+  if (words.length === 0) return null;
+
+  let best: { player: FantacalcioCatalogPlayer; score: number } | null = null;
+  let tied = false;
+  for (const player of players) {
+    if (canonicalTeamCode(player.realTeam) !== contextTeam) continue;
+    const dbWords = nameWords(player.name);
+    if (!words.every((word) => dbWords.includes(word))) continue;
+    const rest = dbWords.filter((word) => !words.includes(word));
+    let score = 60;
+    if (initials.length > 0 && initials.every((initial) => rest.some((word) => word.startsWith(initial)))) score += 10;
+    if (context?.role && player.role === context.role) score += 3;
+    if (!best || score > best.score) {
+      best = { player, score };
+      tied = false;
+    } else if (score === best.score) {
+      tied = true;
+    }
+  }
   if (!best || tied) return null;
   return { playerId: best.player.id, playerName: best.player.name, confidence: best.score / 100 };
 }

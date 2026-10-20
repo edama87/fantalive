@@ -189,16 +189,16 @@ describe('Defense Modifier', () => {
     expect(calculateDefenseModifier([7.5, 7, 7, 7.5], 4)).toBe(-5);
   });
 
-  it('penalizes 3-defender formations by -1', () => {
+  it('difesa a 3: modificatore peggiorato di un punto (+1 all\'avversario)', () => {
     const base = calculateDefenseModifier([5.5, 5.5, 5.5], 4);
     const with3 = calculateDefenseModifier([5.5, 5.5, 5.5], 3);
-    expect(with3).toBe(base - 1);
+    expect(with3).toBe(base + 1);
   });
 
-  it('rewards extra defenders with +1 each', () => {
+  it('oltre 4 difensori: -1 all\'avversario per ogni difensore in più', () => {
     const base = calculateDefenseModifier([5.5, 5.5, 5.5, 5.5], 4);
     const with5 = calculateDefenseModifier([5.5, 5.5, 5.5, 5.5, 5.5], 5);
-    expect(with5).toBe(base + 1);
+    expect(with5).toBe(base - 1);
   });
 
   it('treats 0 votes as 5 for riserva d\'ufficio', () => {

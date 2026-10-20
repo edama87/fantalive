@@ -22,6 +22,8 @@ import {
 } from '@/lib/fantacalcio-it';
 import type { PlayerRole } from '@/types';
 
+import { averageOfVotes } from '@/lib/vote-precision';
+
 export const PIANETAFANTA_SOURCE = 'pianetafanta';
 
 export { pianetafantaVotesUrl } from '@/lib/pianetafanta-url';
@@ -77,13 +79,9 @@ export function parseCellNumber(value: string | undefined): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-const round2 = (value: number) => Math.round(value * 100) / 100;
-
-/** Media dei voti disponibili, arrotondata a 2 decimali. */
+/** Media dei voti disponibili, a 3 decimali come FMS (vedi vote-precision). */
 export function averageOfAvailable(votes: readonly (number | null)[]): number | null {
-  const present = votes.filter((vote): vote is number => vote != null);
-  if (present.length === 0) return null;
-  return round2(present.reduce((sum, vote) => sum + vote, 0) / present.length);
+  return averageOfVotes(votes);
 }
 
 function normalizeRole(value: string): PlayerRole | null {

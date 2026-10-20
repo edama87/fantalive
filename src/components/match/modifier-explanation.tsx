@@ -76,11 +76,10 @@ function Table({ rows }: { rows: Array<{ label: string; value: string; active: b
 export function ModifierExplanation({ kind, details }: { kind: ModifierKind; details: ModifierDetails }) {
   if (kind === 'defense') {
     const d = details.opponentDefense;
-    const rows = DEFENSE_MODIFIER_TABLE.map((entry, index) => {
-      const prev = DEFENSE_MODIFIER_TABLE[index - 1];
-      const min = prev ? Math.round((prev.maxAvg + 0.01) * 100) / 100 : 0;
+    const rows = DEFENSE_MODIFIER_TABLE.map((entry) => {
+      const min = entry.minAvg;
       const label =
-        entry.maxAvg === Infinity ? `da ${formatNumber(min, 2)}` : `${formatNumber(min, 2)} – ${formatNumber(entry.maxAvg, 2)}`;
+        entry.maxAvg === Infinity ? `da ${formatNumber(min, 2)}` : `${formatNumber(min, 2)} – ${formatNumber(entry.maxAvg, 3)}`;
       return { label, value: signed(entry.modifier), active: d.band?.maxAvg === entry.maxAvg };
     });
     return (
@@ -117,7 +116,7 @@ export function ModifierExplanation({ kind, details }: { kind: ModifierKind; det
     const rows = MIDFIELD_MODIFIER_TABLE.map((entry, index) => {
       const next = MIDFIELD_MODIFIER_TABLE[index + 1];
       return {
-        label: next ? `${formatNumber(entry.minDiff, 2)} – ${formatNumber(next.minDiff - 0.01, 2)}` : `da ${formatNumber(entry.minDiff, 2)}`,
+        label: next ? `${formatNumber(entry.minDiff, 2)} – ${formatNumber(Math.round((next.minDiff - 0.001) * 1000) / 1000, 3)}` : `da ${formatNumber(entry.minDiff, 2)}`,
         value: `±${formatVote(entry.bonus, { integerWithoutDecimals: true })}`,
         active: entry.minDiff === m.band.minDiff,
       };

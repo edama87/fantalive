@@ -143,3 +143,40 @@ describe('FantacalcioItProvider', () => {
     provider.dispose();
   });
 });
+
+describe('matchFantacalcioPlayer: SURNAME + initial, compound surnames, club tiebreak', () => {
+  const roster: FantacalcioCatalogPlayer[] = [
+    { id: 'ndicka', name: 'NDICKA Obite Evan', role: 'D', realTeam: 'ROM' },
+    { id: 'tiago', name: 'TIAGO GABRIEL Coelho Oliveira', role: 'D', realTeam: 'LEC' },
+    { id: 'calvani', name: 'CALVANI Gabriele', role: 'D', realTeam: 'FRO' },
+    { id: 'mussolini', name: 'FLORIANI MUSSOLINI Romano', role: 'D', realTeam: 'LAZ' },
+    { id: 'douvikas', name: 'DOUVIKAS Anastasios', role: 'A', realTeam: 'COM' },
+    { id: 'celik', name: 'CELIK Mehmet Zeki', role: 'D', realTeam: 'JUV' },
+    { id: 'perez', name: 'PEREZ Enrique', role: 'C', realTeam: 'VEN' },
+    { id: 'kessie', name: "KESSIE' Franck Yannick", role: 'C', realTeam: 'ATA' },
+    { id: 'thuram-m', name: 'THURAM Marcus Lilian', role: 'A', realTeam: 'INT' },
+    { id: 'thuram-k', name: 'THURAM Khephren', role: 'C', realTeam: 'JUV' },
+    { id: 'esp-1', name: 'ESPOSITO Francesco Pio', role: 'A', realTeam: 'INT' },
+    { id: 'esp-2', name: 'ESPOSITO Sebastiano', role: 'A', realTeam: 'INT' },
+  ];
+  const m = (name: string, team: string, role?: 'P' | 'D' | 'C' | 'A') =>
+    matchFantacalcioPlayer(name, roster, [], { realTeam: team, role })?.playerId ?? null;
+
+  it('matches the known pianetafanta misses', () => {
+    expect(m('NDICKA E.', 'ROMA', 'D')).toBe('ndicka');
+    expect(m('GABRIEL T.', 'LECCE', 'D')).toBe('tiago');
+    expect(m('MUSSOLINI R.', 'LAZIO', 'D')).toBe('mussolini');
+    expect(m('DOUVIKAS T.', 'COMO', 'A')).toBe('douvikas');
+    expect(m('CELIK Z.', 'JUVENTUS', 'D')).toBe('celik');
+    expect(m('PEREZ K.', 'VENEZIA', 'C')).toBe('perez');
+    expect(m('KESSIÉ F.', 'ATALANTA', 'C')).toBe('kessie');
+  });
+
+  it('never matches across clubs or on ties', () => {
+    expect(m('GABRIEL T.', 'FROSINONE', 'D')).toBeNull(); // Gabriele != Gabriel
+    expect(m('PEREZ K.', 'NAPOLI', 'C')).toBeNull();
+    expect(m('ESPOSITO X.', 'INTER', 'A')).toBeNull(); // due Esposito, iniziale inutile
+    expect(m('ESPOSITO S.', 'INTER', 'A')).toBe('esp-2'); // l'iniziale spareggia
+    expect(m('THURAM', 'JUVENTUS', 'C')).toBe('thuram-k');
+  });
+});

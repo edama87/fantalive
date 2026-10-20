@@ -42,7 +42,7 @@ describe('parsePianetafantaRows (export reale giornata 7)', () => {
   it('voti per testata e media dei voti presenti', () => {
     const ghedjemis = byName('GHEDJEMIS F.');
     expect(ghedjemis.votes).toEqual({ gazzetta: 7, corriere: 6.5, tuttosport: 6.5 });
-    expect(ghedjemis.average).toBe(6.67);
+    expect(ghedjemis.average).toBe(6.666); // troncato come FMS
     expect(ghedjemis.voteCount).toBe(3);
     // Voto parziale: solo Gazzetta.
     const cichella = byName('CICHELLA M.');
@@ -115,7 +115,7 @@ describe('righe official_votes e priorità', () => {
       vote_tuttosport: 7.5,
       minutes_played: 80,
     });
-    expect(row.fanta_vote).toBe(11.33); // 2 decimali (colonna NUMERIC(4,2) con la migrazione fanta_vote_two_decimals)
+    expect(row.fanta_vote).toBe(11.333); // 3 decimali nel calcolo (la colonna NUMERIC(4,2) salva 11,33, solo informativa)
     expect(row.bonus_malus.map((b) => b.type)).toEqual(['goal', 'assist', 'substitution_out']);
   });
 

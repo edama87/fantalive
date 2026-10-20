@@ -6,6 +6,8 @@
  */
 
 import { getServerClient } from '@/lib/db/supabase';
+import { averageOfVotes } from '@/lib/vote-precision';
+import { canonicalTeamCode } from '@/lib/fantacalcio-it';
 import type { EventType, PlayerEvent, PlayerMatchData } from '@/types';
 import { fixtureFromRow, type RoundFixture, type SerieAMatchRow } from '@/lib/serie-a-fixtures';
 
@@ -27,6 +29,9 @@ export interface OfficialVoteRow {
   vote_fantacalcio: number | string | null;
   /** Media dei voti di testata (Gazzetta/Corriere/Tuttosport), vedi migrazione pianetafanta. */
   vote_average?: number | string | null;
+  vote_gazzetta?: number | string | null;
+  vote_corriere?: number | string | null;
+  vote_tuttosport?: number | string | null;
   /** 'fantacalcio' (default) o 'pianetafanta' (consolidato). */
   source?: string | null;
   minutes_played: number | string | null;
@@ -116,6 +121,16 @@ export function bonusMalusToEvents(playerId: string, bonusMalus: unknown): Playe
   return events;
 }
 
+/**
+ * Media consolidata a 3 decimali (come FMS) dai voti di testata; vote_average
+ * nel DB è NUMERIC(4,2) e resta solo come ripiego per righe senza i tre voti.
+ */
+function consolidatedVote(row: OfficialVoteRow): number | null {
+  const votes = [row.vote_gazzetta, row.vote_corriere, row.vote_tuttosport].map((v) => finiteNumber(v ?? null));
+  if (votes.some((v) => v != null)) return averageOfVotes(votes);
+  return finiteNumber(row.vote_average ?? null);
+}
+
 function officialVoteToPlayerMatchData(row: OfficialVoteRow): PlayerMatchData | null {
   const minutes = finiteNumber(row.minutes_played);
   const events = bonusMalusToEvents(row.player_id, row.bonus_malus);
@@ -125,7 +140,7 @@ function officialVoteToPlayerMatchData(row: OfficialVoteRow): PlayerMatchData | 
     // s.v. definitivo (nessuna stima live lo sostituisce).
     return {
       playerId: row.player_id,
-      estimatedVote: finiteNumber(row.vote_average),
+      estimatedVote: consolidatedVote(row),
       minutesPlayed: minutes ?? 0,
       isPlaying: false,
       events,
@@ -185,10 +200,25 @@ function liveEventsByPlayer(rows: readonly LiveEventRow[]): Map<string, PlayerEv
   return grouped;
 }
 
+export interface ConsolidatedCoverage {
+  /** Codici squadra (INT, VEN, ...) delle partite con voti consolidati importati. */
+  teams: ReadonlySet<string>;
+  /** Squadra reale di ogni giocatore (id -> nome o codice). */
+  playerTeams: ReadonlyMap<string, string | null>;
+}
+
+/** Giocatore di una partita già consolidata: se non è nel file non ha voto (s.v.), niente stime live. */
+function coveredByConsolidated(playerId: string, coverage?: ConsolidatedCoverage): boolean {
+  if (!coverage || coverage.teams.size === 0) return false;
+  const team = canonicalTeamCode(coverage.playerTeams.get(playerId) ?? null);
+  return team != null && coverage.teams.has(team);
+}
+
 export function assembleRoundPlayerData(
   officialVotes: readonly OfficialVoteRow[],
   liveVotes: readonly LiveVoteRow[],
-  liveEvents: readonly LiveEventRow[]
+  liveEvents: readonly LiveEventRow[],
+  coverage?: ConsolidatedCoverage
 ): Map<string, PlayerMatchData> {
   const playerData = new Map<string, PlayerMatchData>();
 
@@ -200,6 +230,7 @@ export function assembleRoundPlayerData(
   const eventsByPlayer = liveEventsByPlayer(liveEvents);
   for (const row of pickLatestLiveVotes(liveVotes)) {
     if (playerData.has(row.player_id)) continue;
+    if (coveredByConsolidated(row.player_id, coverage)) continue;
     playerData.set(row.player_id, {
       playerId: row.player_id,
       estimatedVote: finiteNumber(row.estimated_vote),
@@ -213,6 +244,7 @@ export function assembleRoundPlayerData(
 
   for (const [playerId, events] of eventsByPlayer) {
     if (playerData.has(playerId)) continue;
+    if (coveredByConsolidated(playerId, coverage)) continue;
     playerData.set(playerId, {
       playerId,
       estimatedVote: null,
@@ -243,12 +275,33 @@ function assertQuery<T>(label: string, result: { data: T[] | null; error: { mess
   return result.data ?? [];
 }
 
+async function consolidatedCoverage(
+  supabase: ReturnType<typeof getServerClient>,
+  imports: ReadonlyArray<{ home_team: string | null; away_team: string | null }>,
+  livePlayerIds: readonly string[]
+): Promise<ConsolidatedCoverage | undefined> {
+  const teams = new Set<string>();
+  for (const row of imports) {
+    for (const team of [row.home_team, row.away_team]) {
+      const code = canonicalTeamCode(team);
+      if (code) teams.add(code);
+    }
+  }
+  if (teams.size === 0 || livePlayerIds.length === 0) return undefined;
+  const { data, error } = await supabase.from('players').select('id, real_team').in('id', livePlayerIds);
+  if (error) throw new Error(`players: ${error.message}`);
+  return {
+    teams,
+    playerTeams: new Map((data ?? []).map((row) => [row.id as string, (row.real_team as string | null) ?? null])),
+  };
+}
+
 export async function getRoundPlayerState(roundNumber: number): Promise<RoundPlayerState> {
   const supabase = getServerClient();
-  const [officialResult, liveVotesResult, liveEventsResult, matchesResult] = await Promise.all([
+  const [officialResult, liveVotesResult, liveEventsResult, matchesResult, importsResult] = await Promise.all([
     supabase
       .from('official_votes')
-      .select('player_id, vote_fantacalcio, vote_average, source, minutes_played, bonus_malus')
+      .select('player_id, vote_fantacalcio, vote_average, vote_gazzetta, vote_corriere, vote_tuttosport, source, minutes_played, bonus_malus')
       .eq('round_number', roundNumber),
     supabase
       .from('live_votes')
@@ -264,6 +317,11 @@ export async function getRoundPlayerState(roundNumber: number): Promise<RoundPla
       .select('id, home_team, away_team, home_score, away_score, status, minute, kickoff_time')
       .eq('round_number', roundNumber)
       .order('kickoff_time'),
+    supabase
+      .from('official_vote_imports')
+      .select('home_team, away_team')
+      .eq('round_number', roundNumber)
+      .eq('source', 'pianetafanta'),
   ]);
 
   const officialVotes = assertQuery<OfficialVoteRow>('official_votes', officialResult);
@@ -271,8 +329,16 @@ export async function getRoundPlayerState(roundNumber: number): Promise<RoundPla
   const liveEvents = assertQuery<LiveEventRow>('live_events', liveEventsResult);
   const matches = assertQuery<SerieAMatchRow>('serie_a_matches', matchesResult);
 
+  const imports = assertQuery<{ home_team: string | null; away_team: string | null }>(
+    'official_vote_imports',
+    importsResult
+  );
+  const coverage = await consolidatedCoverage(supabase, imports, [
+    ...new Set([...liveVotes.map((row) => row.player_id), ...liveEvents.map((row) => row.player_id)]),
+  ]);
+
   return {
-    playerData: assembleRoundPlayerData(officialVotes, liveVotes, liveEvents),
+    playerData: assembleRoundPlayerData(officialVotes, liveVotes, liveEvents, coverage),
     isLive: isRoundLive(liveVotes, matches),
     fixtures: matches.map(fixtureFromRow),
   };
