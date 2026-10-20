@@ -7,7 +7,7 @@ function stored(name: string, team: string, votes: [number | null, number | null
   return {
     sourceId: name, name, role: 'C', team, teamCode: null, starter: true,
     votes: { gazzetta: votes[0], corriere: votes[1], tuttosport: votes[2] },
-    average: 6.67, voteCount: 3, bonuses: [], subIn: null, subOut: null,
+    average: 6.67, voteCount: 3, bonuses: [], subIn: null, subOut: null, minutesPlayed: 90,
     playerId: null, matchedName: null,
   } as PianetafantaMatchedPlayer;
 }

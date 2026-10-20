@@ -14,6 +14,7 @@ import {
   UserPlus,
   ClipboardList,
   Loader2,
+  Link2,
 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -60,6 +61,13 @@ export default function AdminPage() {
           icon={ClipboardList}
           title="Voti"
           description="Voti consolidati pianetafanta o fantacalcio.it"
+        />
+
+        <AdminMenuItem
+          href="/admin/alias"
+          icon={Link2}
+          title="Alias giocatori"
+          description="Abbina i nomi non riconosciuti nei file voti"
         />
 
         <div className="pt-4">
