@@ -15,6 +15,7 @@ import {
   ClipboardList,
   Loader2,
   Link2,
+  Lightbulb,
 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -34,6 +35,13 @@ export default function AdminPage() {
       
       <div className="px-4 py-4 space-y-4 max-w-lg mx-auto">
         <h2 className="text-xl font-bold text-gray-900 mb-6">Pannello Amministrazione</h2>
+
+        <AdminMenuItem
+          href="/admin/consigli"
+          icon={Lightbulb}
+          title="Formazione consigliata"
+          description="Formazione suggerita per la prossima giornata"
+        />
 
         <AdminMenuItem
           href="/admin/mercato"
