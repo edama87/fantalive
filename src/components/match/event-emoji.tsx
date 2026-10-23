@@ -1,5 +1,21 @@
 import type { BonusBreakdown } from '@/types';
 
+/** Pallone rosso dell'autogol (SVG: un'emoji non si colora in modo affidabile). */
+export function RedBallIcon({ className = 'inline-block h-[1em] w-[1em] align-[-0.125em]' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden className={className}>
+      <circle cx="12" cy="12" r="10.5" fill="#dc2626" stroke="#991b1b" strokeWidth="1" />
+      <path d="M12 7.2l3.4 2.5-1.3 4h-4.2l-1.3-4z" fill="#7f1d1d" />
+      <path d="M12 7.2V2.3M15.4 9.7l4.6-1.6M14.1 13.7l2.9 4M9.9 13.7l-2.9 4M8.6 9.7L4 8.1" stroke="#7f1d1d" strokeWidth="1.1" fill="none" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Icona dell'evento: emoji, o pallone rosso per l'autogol. */
+export function EventIcon({ eventKey, emoji }: { eventKey: string; emoji: string }) {
+  return eventKey.startsWith('ownGoals') ? <RedBallIcon /> : <>{emoji}</>;
+}
+
 /**
  * Unica mappa evento -> emoji: la usano sia la legenda sia le righe giocatore,
  * così non possono divergere.
@@ -18,7 +34,7 @@ export const EVENT_EMOJI: ReadonlyArray<{
   { key: 'penaltySaved', emoji: '🧤', label: 'Rig parato', countLabel: 'Rigori parati', points: '+3' },
   { key: 'yellowCards', emoji: '🟨', label: 'Amm.', countLabel: 'Ammonizioni', points: '-0,5' },
   { key: 'redCards', emoji: '🟥', label: 'Esp.', countLabel: 'Espulsioni', points: '-1' },
-  { key: 'ownGoals', emoji: '⚽↩️', label: 'Autogol', countLabel: 'Autogol', points: '-1' },
+  { key: 'ownGoals', emoji: '🔴⚽', label: 'Autogol', countLabel: 'Autogol', points: '-1' },
   { key: 'penaltyMissed', emoji: '❌', label: 'Rig sbagliato', countLabel: 'Rigori sbagliati', points: '-3' },
   { key: 'goalsConceded', emoji: '🥅', label: 'Gol subito (P)', countLabel: 'Gol subiti', points: '-1' },
 ];
@@ -72,7 +88,7 @@ export function EventEmojis({
       {parenthesized && <span aria-hidden className="text-gray-400">(</span>}
       {items.map((item) => (
         <span key={item.key} role="img" aria-label={item.label} title={item.label} className="inline-flex items-baseline">
-          {item.emoji}
+          <EventIcon eventKey={item.key} emoji={item.emoji} />
           {item.count > 1 && (
             <span aria-hidden className="ml-px text-[0.75em] font-semibold tabular-nums text-gray-500">
               ×{item.count}
@@ -91,7 +107,7 @@ export function EventLegend({ className }: { className?: string }) {
       <ul className="flex flex-wrap justify-center gap-x-3 gap-y-1">
         {EVENT_EMOJI.map((entry) => (
           <li key={entry.key} className="whitespace-nowrap">
-            {entry.emoji} {entry.label} {entry.points}
+            <EventIcon eventKey={entry.key} emoji={entry.emoji} /> {entry.label} {entry.points}
           </li>
         ))}
       </ul>

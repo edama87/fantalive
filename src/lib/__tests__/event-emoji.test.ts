@@ -20,7 +20,7 @@ describe('event emoji (shared by legend and player rows)', () => {
     expect(new Set(emojis).size).toBe(emojis.length);
     expect(Object.fromEntries(EVENT_EMOJI.map((e) => [e.key, e.emoji]))).toMatchObject({
       goals: '⚽', penaltyGoals: '🅿️', penaltyMissed: '❌', penaltySaved: '🧤',
-      assists: '👟', yellowCards: '🟨', redCards: '🟥', ownGoals: '⚽↩️',
+      assists: '👟', yellowCards: '🟨', redCards: '🟥', ownGoals: '🔴⚽',
     });
   });
 

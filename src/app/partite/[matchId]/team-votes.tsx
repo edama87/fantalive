@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Sheet } from '@/components/ui/sheet';
-import { EVENT_EMOJI, EventEmojis } from '@/components/match/event-emoji';
+import { EVENT_EMOJI, EventEmojis, EventIcon } from '@/components/match/event-emoji';
 import { ConsolidatedMark, CONSOLIDATED_TITLE, ESTIMATED_TITLE } from '@/components/match/vote-source';
 import { cn, formatSignedPoints, formatVote } from '@/lib/utils';
 import type { SerieAVoteRow } from '@/lib/serie-a-vote-rows';
@@ -150,7 +150,7 @@ function PlayerVoteDetail({ row }: { row: SerieAVoteRow }) {
             {events.map((entry) => (
               <li key={entry.key} className="flex items-center justify-between">
                 <span>
-                  <span aria-hidden className="mr-1.5">{entry.emoji}</span>
+                  <span aria-hidden className="mr-1.5"><EventIcon eventKey={entry.key} emoji={entry.emoji} /></span>
                   {entry.label}
                   {row.bonuses[entry.key] > 1 && <span className="text-gray-400"> ×{row.bonuses[entry.key]}</span>}
                 </span>
