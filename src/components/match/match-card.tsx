@@ -63,11 +63,6 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false, classN
           {isUserMatch && (
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xs text-emerald-600 font-medium">● LA TUA SFIDA</span>
-              {isLive && (
-                <Badge variant="live" className="text-[10px]">
-                  Vittoria virtuale
-                </Badge>
-              )}
             </div>
           )}
 
@@ -85,9 +80,9 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false, classN
                 )}
               </div>
               <div className="text-2xl font-bold text-gray-900 tabular-nums">
-                {formatVote(match.homeTotal)}
+                {match.homeGoals}
                 <span className="text-sm font-normal text-gray-500 ml-1">
-                  ({match.homeGoals})
+                  ({formatVote(match.homeTotal)})
                 </span>
               </div>
               <VoteSourceSummary scores={match.homePlayerScores} />
@@ -117,9 +112,9 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false, classN
               </div>
               <div className="text-2xl font-bold text-gray-900 tabular-nums">
                 <span className="text-sm font-normal text-gray-500 mr-1">
-                  ({match.awayGoals})
+                  ({formatVote(match.awayTotal)})
                 </span>
-                {formatVote(match.awayTotal)}
+                {match.awayGoals}
               </div>
               <VoteSourceSummary scores={match.awayPlayerScores} align="right" />
               {isLive && awayPlayingCount > 0 && (

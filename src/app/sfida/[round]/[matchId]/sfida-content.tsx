@@ -146,14 +146,11 @@ export function SfidaContent() {
               >
                 <span className="line-clamp-2">{homeTeam.name}</span>
               </div>
-              <div className="col-start-1 row-start-3 text-3xl font-bold mt-2 tabular-nums">{formatVote(match.homeTotal)}</div>
-              <div className="col-start-1 row-start-4 text-xl text-gray-600">{match.homeGoals} gol</div>
+              <div className="col-start-1 row-start-3 text-4xl font-bold mt-2 tabular-nums" aria-label={`${match.homeGoals} gol`}>{match.homeGoals}</div>
+              <div className="col-start-1 row-start-4 text-base text-gray-500 tabular-nums">({formatVote(match.homeTotal)})</div>
 
-              <div className="col-start-2 row-start-2 row-span-3 flex flex-col items-center justify-center px-1">
-                <span className="text-2xl text-gray-400">vs</span>
-                <div className="text-sm text-gray-500 mt-2 tabular-nums whitespace-nowrap">
-                  {match.homeGoals} - {match.awayGoals}
-                </div>
+              <div className="col-start-2 row-start-3 mt-2 flex items-center justify-center px-1">
+                <span className="text-3xl font-light text-gray-300">–</span>
               </div>
 
               <div className="col-start-3 row-start-1 flex items-center justify-center gap-1 text-sm text-gray-500 mb-1">
@@ -166,8 +163,8 @@ export function SfidaContent() {
               >
                 <span className="line-clamp-2">{awayTeam.name}</span>
               </div>
-              <div className="col-start-3 row-start-3 text-3xl font-bold mt-2 tabular-nums">{formatVote(match.awayTotal)}</div>
-              <div className="col-start-3 row-start-4 text-xl text-gray-600">{match.awayGoals} gol</div>
+              <div className="col-start-3 row-start-3 text-4xl font-bold mt-2 tabular-nums" aria-label={`${match.awayGoals} gol`}>{match.awayGoals}</div>
+              <div className="col-start-3 row-start-4 text-base text-gray-500 tabular-nums">({formatVote(match.awayTotal)})</div>
             </div>
           </CardContent>
         </Card>
