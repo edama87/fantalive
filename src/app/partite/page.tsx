@@ -1,5 +1,6 @@
 import { connection } from 'next/server';
-import { getCurrentRound } from '@/data/calendar';
+import { calendar, getCurrentRound, getRoundByNumber } from '@/data/calendar';
+import { parseGiornata } from '@/lib/standings';
 import {
   fantacalcioCalendarUrl,
   parseFantacalcioCalendar,
@@ -10,9 +11,11 @@ import { PartiteList } from './partite-list';
 
 export const instant = false;
 
-export default async function PartiteSerieAPage() {
+export default async function PartiteSerieAPage({ searchParams }: { searchParams: Promise<{ giornata?: string }> }) {
   await connection();
-  const currentRound = getCurrentRound();
+  const liveRound = getCurrentRound();
+  const giornata = parseGiornata((await searchParams).giornata, calendar.length);
+  const currentRound = (giornata ? getRoundByNumber(giornata) : undefined) ?? liveRound;
   let matches: FantacalcioCalendarMatch[] = [];
   let error: string | null = null;
 
@@ -25,6 +28,9 @@ export default async function PartiteSerieAPage() {
 
   return (
     <PartiteList
+      key={currentRound.number}
+      roundNumber={currentRound.number}
+      currentRound={liveRound.number}
       giornata={currentRound.serieAMatchday}
       date={currentRound.date}
       initialMatches={matches}

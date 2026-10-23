@@ -1,6 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { RoundNav } from '@/components/layout/round-nav';
+import { calendar } from '@/data/calendar';
+
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/layout/header';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,11 +14,16 @@ import type { FantacalcioCalendarMatch } from '@/lib/fantacalcio-it';
 
 export function PartiteList({
   giornata,
+  roundNumber,
+  currentRound,
   date,
   initialMatches,
   initialError,
 }: {
   giornata: number;
+  /** Giornata del fantacalcio (per la navigazione ?giornata=N). */
+  roundNumber: number;
+  currentRound: number;
   date: string;
   initialMatches: FantacalcioCalendarMatch[];
   initialError: string | null;
@@ -45,6 +53,9 @@ export function PartiteList({
     <div className="min-h-screen bg-gray-50 pb-20">
       <Header isLive={isLive} />
       <div className="px-4 py-4 space-y-4">
+      <Suspense>
+        <RoundNav selected={roundNumber} max={calendar.length} current={currentRound} />
+      </Suspense>
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-gray-900">Partite Serie A</h2>

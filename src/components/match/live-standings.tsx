@@ -1,85 +1,66 @@
 'use client';
 
+import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { LiveDot } from '@/components/ui/live-dot';
 import { cn, formatVote } from '@/lib/utils';
-import { LiveStandingsEntry } from '@/types';
+import type { CumulativeStandingsEntry } from '@/lib/standings';
 import { getTeamById } from '@/data/teams';
 import { useMyTeamId } from '@/lib/hooks/use-my-team';
 
 interface LiveStandingsProps {
-  standings: LiveStandingsEntry[];
+  standings: CumulativeStandingsEntry[];
+  /** Giornata dopo la quale è calcolata la classifica. */
+  round: number;
+  /** Giornata ancora in corso: classifica parziale. */
+  partial: boolean;
 }
 
-export function LiveStandings({ standings }: LiveStandingsProps) {
+export function LiveStandings({ standings, round, partial }: LiveStandingsProps) {
   const myTeamId = useMyTeamId();
   return (
     <Card>
       <div className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-900">Classifica live</h3>
-          <Badge variant="live" className="text-[10px]">
-            <LiveDot size="sm" className="mr-1" />
-            Tempo reale
-          </Badge>
-        </div>
-        <p className="text-xs text-gray-500 mb-4">
-          Calcolata in tempo reale
-        </p>
-
-        <div className="space-y-0">
-          <div className="flex items-center text-xs text-gray-500 pb-2 border-b border-gray-100">
-            <span className="w-8">Pos</span>
-            <span className="flex-1">Squadra</span>
-            <span className="w-8 text-center">Pt Fantapunti</span>
-          </div>
-
-          {standings.map((entry, index) => {
-            const team = getTeamById(entry.teamId);
-            const isUserTeam = myTeamId !== null && entry.teamId === myTeamId;
-            const isRising = entry.liveFantaPoints > entry.fantaPoints;
-            const isFalling = entry.liveFantaPoints < entry.fantaPoints;
-
-            return (
-              <div
-                key={entry.teamId}
-                className={cn(
-                  'flex items-center py-2 text-sm',
-                  isUserTeam && 'bg-emerald-50 -mx-4 px-4 rounded-lg'
-                )}
-              >
-                <span className="w-8 font-medium text-gray-600 flex items-center gap-1">
-                  {index + 1}
-                  {isRising && <span className="text-green-500 text-xs">▲</span>}
-                  {isFalling && <span className="text-red-500 text-xs">▼</span>}
-                </span>
-                <span className={cn(
-                  'flex-1 flex items-center gap-2',
-                  isUserTeam && 'font-semibold text-emerald-700'
-                )}>
-                  {team?.name || entry.teamName}
-                  {isUserTeam && (
-                    <Badge variant="userTeam" className="text-[10px]">Tu</Badge>
-                  )}
-                </span>
-                <span className="w-8 text-center text-gray-500">
-                  {entry.currentMatchResult?.fantaPoints ?? 0}
-                </span>
-                <span className={cn(
-                  'w-12 text-right font-semibold',
-                  isUserTeam ? 'text-emerald-700' : 'text-gray-900'
-                )}>
-                  {formatVote(entry.liveFantaPoints)}
-                </span>
-              </div>
-            );
-          })}
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-gray-900">Classifica dopo la {round}ª giornata</h3>
+          {partial && (
+            <Badge variant="live" className="text-[10px]">
+              <LiveDot size="sm" className="mr-1" />
+              Parziale
+            </Badge>
+          )}
         </div>
 
-        <p className="text-xs text-gray-400 mt-4 text-center">
-          Punteggi stimati: i voti ufficiali arrivano a fine giornata
-        </p>
+        <div className="flex items-center text-xs text-gray-500 pb-2 border-b border-gray-100">
+          <span className="w-8">Pos</span>
+          <span className="flex-1">Squadra</span>
+          <span className="w-8 text-center">G</span>
+          <span className="w-10 text-center">Pt</span>
+          <span className="w-14 text-right">FP</span>
+        </div>
+
+        {standings.map((entry, index) => {
+          const isUserTeam = myTeamId !== null && entry.teamId === myTeamId;
+          return (
+            <div key={entry.teamId} className={cn('flex items-center py-2 text-sm', isUserTeam && 'bg-emerald-50 -mx-4 px-4 rounded-lg')}>
+              <span className="w-8 font-medium text-gray-600">{index + 1}</span>
+              <span className={cn('flex-1 flex min-w-0 items-center gap-2', isUserTeam && 'font-semibold text-emerald-700')}>
+                <span className="truncate">{getTeamById(entry.teamId)?.name || entry.teamName}</span>
+                {isUserTeam && <Badge variant="userTeam" className="text-[10px]">Tu</Badge>}
+                {entry.live && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" title="Sfida in corso" />}
+              </span>
+              <span className="w-8 text-center text-gray-500">{entry.played}</span>
+              <span className={cn('w-10 text-center font-bold', isUserTeam ? 'text-emerald-700' : 'text-gray-900')}>{entry.points}</span>
+              <span className="w-14 text-right text-gray-500">{formatVote(entry.fantaTotal)}</span>
+            </div>
+          );
+        })}
+
+        <div className="mt-4 flex items-center justify-between text-xs text-gray-400">
+          <span>{partial ? 'Punteggi stimati finché non arrivano i voti ufficiali' : 'Pt: 3 vittoria, 1 pareggio'}</span>
+          <Link href={`/classifica?giornata=${round}`} className="font-medium text-emerald-700 hover:underline">Classifica completa</Link>
+        </div>
       </div>
     </Card>
   );

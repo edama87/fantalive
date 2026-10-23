@@ -1,155 +1,222 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { cn } from '@/lib/utils';
-import { LiveStandingsEntry, PlayerMatchData } from '@/types';
-import { getCurrentRound, calendar } from '@/data/calendar';
+import { useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { RoundNav } from '@/components/layout/round-nav';
+import { cn, formatVote } from '@/lib/utils';
+import { calendar } from '@/data/calendar';
 import { getTeamById } from '@/data/teams';
 import { useMyTeamId } from '@/lib/hooks/use-my-team';
-import { 
-  calculateAllMatches, 
-  calculateLiveStandings, 
-  getInitialStandings,
-  convertProviderDataToPlayerMatchData,
-  inferMatchStatuses,
-} from '@/lib/live-data';
-import { shouldUseMockLiveData } from '@/lib/live-source';
-import { fetchRoundPlayerData } from '@/lib/round-player-data-client';
-import { teamStatusesFromFixtures, type RoundFixture } from '@/lib/serie-a-fixtures';
-import { createLineupProvider, fetchLineupBundle } from '@/lib/lineup-store';
-import { createMockProvider } from '@/providers/mock-provider';
-import { StandingsTable, CalendarView } from './page';
+import type { CumulativeStandingsEntry } from '@/lib/standings';
+import type { StandingsAfterRound } from '@/lib/standings-server';
+import type { FantasyMatchResult } from '@/types';
 
-type Tab = 'classifica' | 'calendario';
+type View = 'classifica' | 'calendario';
+const REFRESH_MS = 60000;
 
 export function ClassificaClient({
-  initialStandings,
-  initialIsLive,
+  view,
+  data,
+  currentRound,
+  calendarRound,
+  totalRounds,
 }: {
-  initialStandings: LiveStandingsEntry[];
-  initialIsLive: boolean;
+  view: View;
+  data: StandingsAfterRound;
+  currentRound: number;
+  calendarRound: number;
+  totalRounds: number;
 }) {
-  const [activeTab, setActiveTab] = useState<Tab>('classifica');
+  const router = useRouter();
   const myTeamId = useMyTeamId();
-  const [standings, setStandings] = useState<LiveStandingsEntry[]>(initialStandings);
-  const [isLive, setIsLive] = useState(initialIsLive);
-  const [selectedRound, setSelectedRound] = useState(getCurrentRound().number);
 
-  const currentRound = getCurrentRound();
-
-  const fetchData = useCallback(async () => {
-    try {
-      const lineupPromise = fetchLineupBundle(currentRound.number).catch(() => ({
-        lineups: {},
-        players: {},
-      }));
-
-      let playerDataMap: Map<string, PlayerMatchData>;
-      let live: boolean;
-      let roundFixtures: RoundFixture[] = [];
-
-      if (shouldUseMockLiveData()) {
-        const provider = createMockProvider(42);
-        await provider.initialize();
-        const data = await provider.fetchLiveData(currentRound.serieAMatchday);
-        playerDataMap = convertProviderDataToPlayerMatchData(data);
-        live = data.isLive;
-        provider.dispose();
-      } else {
-        const roundData = await fetchRoundPlayerData(currentRound.number);
-        playerDataMap = roundData.playerData;
-        live = roundData.isLive;
-        roundFixtures = roundData.fixtures;
-      }
-
-      const { lineups, players } = await lineupPromise;
-      const matchStatuses = shouldUseMockLiveData()
-        ? new Map(
-            currentRound.pairings.map((pairing) => [
-              `${pairing.homeTeamId}-${pairing.awayTeamId}`,
-              live ? 'live' as const : 'scheduled' as const,
-            ])
-          )
-        : roundFixtures.length > 0
-          ? undefined
-          : inferMatchStatuses(currentRound.pairings, live, playerDataMap);
-
-      const matches = calculateAllMatches(
-        currentRound.number,
-        playerDataMap,
-        matchStatuses,
-        createLineupProvider(lineups),
-        players,
-        roundFixtures.length > 0 ? teamStatusesFromFixtures(roundFixtures) : undefined
-      );
-      const liveStandings = calculateLiveStandings(matches, getInitialStandings());
-
-      setStandings(liveStandings);
-      setIsLive(live);
-    } catch (error) {
-      console.error('[classifica] voti non disponibili', error);
-    }
-  }, [currentRound]);
-
+  // Giornata in corso: aggiorna i dati del server ogni minuto.
   useEffect(() => {
-    const interval = setInterval(fetchData, 60000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+    if (view !== 'classifica' || !data.partial) return;
+    const id = setInterval(() => router.refresh(), REFRESH_MS);
+    return () => clearInterval(id);
+  }, [view, data.partial, router]);
+
+  const tab = (v: View, label: string, round: number) => (
+    <Link
+      href={`/classifica?vista=${v}&giornata=${round}`}
+      className={cn(
+        'px-4 py-2 rounded-lg font-medium text-sm transition-colors',
+        view === v ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+      )}
+    >
+      {label}
+    </Link>
+  );
 
   return (
     <>
       <div className="flex items-center gap-2">
-        <button
-          onClick={() => setActiveTab('classifica')}
-          className={cn(
-            'px-4 py-2 rounded-lg font-medium text-sm transition-colors',
-            activeTab === 'classifica'
-              ? 'bg-emerald-600 text-white'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          )}
-        >
-          Classifica
-        </button>
-        <button
-          onClick={() => setActiveTab('calendario')}
-          className={cn(
-            'px-4 py-2 rounded-lg font-medium text-sm transition-colors',
-            activeTab === 'calendario'
-              ? 'bg-emerald-600 text-white'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          )}
-        >
-          Calendario
-        </button>
+        {tab('classifica', 'Classifica', data.round || 1)}
+        {tab('calendario', 'Calendario', view === 'calendario' ? calendarRound : data.round || currentRound)}
       </div>
 
-      {activeTab === 'classifica' && (
-        <StandingsTable standings={standings} isLive={isLive} myTeamId={myTeamId} />
-      )}
-
-      {activeTab === 'calendario' && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2">
-            {calendar.slice(0, 9).map(r => (
-              <button
-                key={r.number}
-                onClick={() => setSelectedRound(r.number)}
-                className={cn(
-                  'px-3 py-1 rounded-full text-sm whitespace-nowrap',
-                  selectedRound === r.number
-                    ? 'bg-emerald-600 text-white'
-                    : r.number === currentRound.number
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-gray-100 text-gray-600'
-                )}
-              >
-                {r.number}ª
-              </button>
-            ))}
-          </div>
-          <CalendarView myTeamId={myTeamId} currentRound={currentRound.number} selectedRound={selectedRound} />
-        </div>
+      {view === 'classifica' ? (
+        data.round === 0 ? (
+          <p className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-500">
+            Nessuna giornata giocata finora.
+          </p>
+        ) : (
+          <>
+            <RoundNav selected={data.round} max={data.maxRound} current={currentRound} label={(n) => `Dopo la ${n}ª giornata`} />
+            <StandingsTable standings={data.standings} round={data.round} partial={data.partial} myTeamId={myTeamId} />
+            <RoundResults round={data.round} matches={data.matches} myTeamId={myTeamId} />
+          </>
+        )
+      ) : (
+        <>
+          <RoundNav selected={calendarRound} max={totalRounds} current={currentRound} />
+          <CalendarView round={calendarRound} myTeamId={myTeamId} />
+        </>
       )}
     </>
+  );
+}
+
+export function StandingsTable({
+  standings,
+  round,
+  partial,
+  myTeamId = null,
+}: {
+  standings: CumulativeStandingsEntry[];
+  round: number;
+  partial: boolean;
+  myTeamId?: string | null;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-semibold text-gray-900">Classifica dopo la {round}ª giornata</h3>
+          {partial && <Badge variant="live" className="text-[10px]">Parziale · in corso</Badge>}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 text-gray-500 text-xs">
+                <th className="text-left py-2 w-8">#</th>
+                <th className="text-left py-2">Squadra</th>
+                <th className="text-center py-2 w-8" title="Giocate">G</th>
+                <th className="text-center py-2 w-8" title="Vinte">V</th>
+                <th className="text-center py-2 w-8" title="Pareggiate">P</th>
+                <th className="text-center py-2 w-8" title="Sconfitte">S</th>
+                <th className="text-center py-2 w-10" title="Gol fatti">GF</th>
+                <th className="text-center py-2 w-10" title="Gol subiti">GS</th>
+                <th className="text-center py-2 w-10 font-bold" title="Punti">Pt</th>
+                <th className="text-right py-2 w-16" title="Fantapunti totali">FP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {standings.map((e, idx) => {
+                const mine = myTeamId !== null && e.teamId === myTeamId;
+                return (
+                  <tr key={e.teamId} className={cn('border-b border-gray-50', mine && 'bg-emerald-50')}>
+                    <td className="py-2 font-medium text-gray-600">{idx + 1}</td>
+                    <td className={cn('py-2', mine ? 'font-semibold text-emerald-700' : 'text-gray-900')}>
+                      <div className="flex items-center gap-2">
+                        <span className="truncate">{getTeamById(e.teamId)?.name || e.teamName}</span>
+                        {mine && <Badge variant="userTeam" className="text-[10px]">Tu</Badge>}
+                        {e.live && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" title="Sfida in corso" />}
+                      </div>
+                    </td>
+                    <td className="py-2 text-center text-gray-600">{e.played}</td>
+                    <td className="py-2 text-center text-gray-600">{e.won}</td>
+                    <td className="py-2 text-center text-gray-600">{e.drawn}</td>
+                    <td className="py-2 text-center text-gray-600">{e.lost}</td>
+                    <td className="py-2 text-center text-gray-600">{e.goalsFor}</td>
+                    <td className="py-2 text-center text-gray-600">{e.goalsAgainst}</td>
+                    <td className={cn('py-2 text-center font-bold', mine ? 'text-emerald-700' : 'text-gray-900')}>{e.points}</td>
+                    <td className="py-2 text-right text-gray-600">{formatVote(e.fantaTotal)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-3 text-xs text-gray-400">
+          A parità di punti conta la somma dei fantapunti. {partial ? 'I risultati della giornata in corso sono stimati.' : ''}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RoundResults({ round, matches, myTeamId }: { round: number; matches: FantasyMatchResult[]; myTeamId: string | null }) {
+  if (!matches.length) return null;
+  const statusLabel = (m: FantasyMatchResult) =>
+    m.status === 'finished' ? 'Finale' : m.status === 'scheduled' ? 'Da giocare' : 'In corso';
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <h3 className="font-semibold text-gray-900">Risultati {round}ª giornata</h3>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-2">
+          {matches.map((m) => {
+            const mine = myTeamId !== null && (m.homeTeamId === myTeamId || m.awayTeamId === myTeamId);
+            const hasLineups = m.homePlayerScores.length > 0 && m.awayPlayerScores.length > 0;
+            const showScore = hasLineups && m.status !== 'scheduled';
+            return (
+              <li key={`${m.homeTeamId}-${m.awayTeamId}`}>
+                <Link
+                  href={`/sfida/${round}/${m.homeTeamId}-${m.awayTeamId}`}
+                  className={cn('grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-lg p-3 text-sm transition-colors hover:bg-emerald-50', mine ? 'bg-emerald-50' : 'bg-gray-50')}
+                >
+                  <span className="truncate text-gray-900">{getTeamById(m.homeTeamId)?.name}</span>
+                  <span className="text-center">
+                    <span className="block font-bold text-gray-900">{showScore ? `${m.homeGoals} - ${m.awayGoals}` : 'vs'}</span>
+                    <span className="block text-[11px] text-gray-500">
+                      {showScore ? `${formatVote(m.homeTotal)} · ${formatVote(m.awayTotal)}` : hasLineups ? statusLabel(m) : 'Formazioni non disponibili'}
+                    </span>
+                  </span>
+                  <span className="truncate text-right text-gray-900">{getTeamById(m.awayTeamId)?.name}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function CalendarView({ round: roundNumber, myTeamId = null }: { round: number; myTeamId?: string | null }) {
+  const round = calendar.find((r) => r.number === roundNumber);
+  if (!round) return null;
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-gray-900">{round.number}ª Giornata</h3>
+          <span className="text-sm text-gray-500">Serie A {round.serieAMatchday}ª · {round.date}</span>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {round.pairings.map((p) => {
+            const mine = myTeamId !== null && (p.homeTeamId === myTeamId || p.awayTeamId === myTeamId);
+            return (
+              <Link key={`${p.homeTeamId}-${p.awayTeamId}`} href={`/sfida/${round.number}/${p.homeTeamId}-${p.awayTeamId}`}
+                className={cn('flex items-center justify-between p-3 rounded-lg hover:bg-emerald-50', mine ? 'bg-emerald-50' : 'bg-gray-50')}>
+                <span className={cn('flex-1', myTeamId === p.homeTeamId && 'font-semibold text-emerald-700')}>{getTeamById(p.homeTeamId)?.name}</span>
+                <span className="px-3 text-gray-400">vs</span>
+                <span className={cn('flex-1 text-right', myTeamId === p.awayTeamId && 'font-semibold text-emerald-700')}>{getTeamById(p.awayTeamId)?.name}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

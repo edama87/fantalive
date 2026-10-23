@@ -1,6 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { RoundNav } from '@/components/layout/round-nav';
+import { parseGiornata, type CumulativeStandingsEntry } from '@/lib/standings';
 import { Header } from '@/components/layout/header';
 import { MatchCard } from '@/components/match/match-card';
 import { EventLegend } from '@/components/match/event-emoji';
@@ -9,13 +12,11 @@ import { MatchSkeleton, Spinner } from '@/components/ui/spinner';
 import { SerieAFixturesCard } from '@/components/match/serie-a-fixtures-card';
 import { LiveStandings } from '@/components/match/live-standings';
 import { Badge } from '@/components/ui/badge';
-import { FantasyMatchResult, LiveStandingsEntry, PlayerMatchData } from '@/types';
-import { getCurrentRound, getRoundByNumber } from '@/data/calendar';
+import { FantasyMatchResult, PlayerMatchData } from '@/types';
+import { calendar, getCurrentRound, getRoundByNumber } from '@/data/calendar';
 import { useMyTeamId } from '@/lib/hooks/use-my-team';
 import { 
   calculateAllMatches, 
-  calculateLiveStandings, 
-  getInitialStandings,
   convertProviderDataToPlayerMatchData,
   inferMatchStatuses,
 } from '@/lib/live-data';
@@ -28,8 +29,16 @@ import { createMockProvider } from '@/providers/mock-provider';
 const POLLING_INTERVAL = 60000;
 
 export default function GiornataLivePage() {
+  return (
+    <Suspense>
+      <GiornataLive />
+    </Suspense>
+  );
+}
+
+function GiornataLive() {
   const [matches, setMatches] = useState<FantasyMatchResult[]>([]);
-  const [standings, setStandings] = useState<LiveStandingsEntry[]>([]);
+  const [standings, setStandings] = useState<CumulativeStandingsEntry[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isLive, setIsLive] = useState(false);
   // Primo caricamento (scheletri) e aggiornamenti periodici (spinner piccolo).
@@ -38,7 +47,11 @@ export default function GiornataLivePage() {
   const myTeamId = useMyTeamId();
   const [fixtures, setFixtures] = useState<RoundFixture[]>([]);
 
-  const currentRound = getCurrentRound();
+  const liveRound = getCurrentRound();
+  const searchParams = useSearchParams();
+  const giornata = parseGiornata(searchParams.get('giornata'), calendar.length);
+  const currentRound = (giornata ? getRoundByNumber(giornata) : undefined) ?? liveRound;
+  const [standingsMeta, setStandingsMeta] = useState<{ round: number; partial: boolean }>({ round: 0, partial: false });
 
   const fetchData = useCallback(async () => {
     setRefreshing(true);
@@ -83,8 +96,14 @@ export default function GiornataLivePage() {
       setMatches(calculatedMatches);
       setFixtures(roundFixtures);
 
-      const liveStandings = calculateLiveStandings(calculatedMatches, getInitialStandings());
-      setStandings(liveStandings);
+      // Classifica cumulata dopo questa giornata (giornate precedenti incluse).
+      const standingsRes = await fetch(`/api/standings?giornata=${Math.min(currentRound.number, liveRound.number)}`, { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+      if (standingsRes?.standings) {
+        setStandings(standingsRes.standings);
+        setStandingsMeta({ round: standingsRes.round, partial: standingsRes.partial });
+      }
 
       setLastUpdate(updatedAt);
       setIsLive(live);
@@ -94,7 +113,7 @@ export default function GiornataLivePage() {
       setRefreshing(false);
       setLoaded(true);
     }
-  }, [currentRound]);
+  }, [currentRound, liveRound.number]);
 
   useEffect(() => {
     fetchData();
@@ -120,6 +139,8 @@ export default function GiornataLivePage() {
       <Header isLive={isLive} />
       
       <div className="px-4 py-4 space-y-4">
+        <RoundNav selected={currentRound.number} max={calendar.length} current={liveRound.number} />
+
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-gray-900">Bundlesliga</h2>
@@ -127,7 +148,7 @@ export default function GiornataLivePage() {
               {currentRound.number}ª giornata · Serie A {currentRound.serieAMatchday}ª · {currentRound.date}
             </p>
           </div>
-          <Badge variant="live">stima live</Badge>
+          {currentRound.number === liveRound.number && <Badge variant="live">stima live</Badge>}
         </div>
 
         <div className="text-sm text-gray-500">
@@ -151,7 +172,7 @@ export default function GiornataLivePage() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                Scontri diretti in corso
+                {currentRound.number === liveRound.number ? 'Scontri diretti in corso' : currentRound.number < liveRound.number ? 'Risultati' : 'Scontri diretti'}
               </h3>
               <span className="text-xs text-gray-400">{loaded ? `${matches.length} partite` : ''}</span>
             </div>
@@ -195,7 +216,9 @@ export default function GiornataLivePage() {
                 .filter((team): team is string => Boolean(team))}
             />
 
-            <LiveStandings standings={standings} />
+            {currentRound.number <= liveRound.number && standingsMeta.round > 0 && (
+              <LiveStandings standings={standings} round={standingsMeta.round} partial={standingsMeta.partial} />
+            )}
           </div>
         </div>
 
