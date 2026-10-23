@@ -1,5 +1,7 @@
 'use client';
 
+import { countOnPitch } from '@/lib/on-pitch';
+
 import { Card } from '@/components/ui/card';
 import { VoteSourceSummary } from '@/components/match/vote-source';
 import { LinkPendingIcon } from '@/components/ui/link-pending';
@@ -46,7 +48,7 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false, classN
 
 
   const playingCount = (scores: typeof match.homePlayerScores) =>
-    scores.filter(s => s.status === 'playing').length;
+    countOnPitch(scores);
 
   const homePlayingCount = playingCount(match.homePlayerScores);
   const awayPlayingCount = playingCount(match.awayPlayerScores);
