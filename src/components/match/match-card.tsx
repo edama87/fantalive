@@ -71,11 +71,11 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false, classN
             </div>
           )}
 
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0">
+              <div className="flex min-h-12 items-center gap-2">
                 <span className={cn(
-                  'font-semibold text-gray-900',
+                  'font-semibold text-gray-900 line-clamp-2 break-words',
                   isMine(match.homeTeamId) && 'text-emerald-700'
                 )}>
                   {homeTeam?.name || match.homeTeamId}
@@ -84,7 +84,7 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false, classN
                   <Badge variant="userTeam" className="text-[10px]">Tu</Badge>
                 )}
               </div>
-              <div className="text-2xl font-bold text-gray-900 mt-1">
+              <div className="text-2xl font-bold text-gray-900 tabular-nums">
                 {formatVote(match.homeTotal)}
                 <span className="text-sm font-normal text-gray-500 ml-1">
                   ({match.homeGoals})
@@ -99,23 +99,23 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false, classN
               )}
             </div>
 
-            <div className="px-4 text-gray-400 text-sm">
+            <div className="flex h-[5.25rem] items-center px-4 text-gray-400 text-sm">
               <LinkPendingIcon size={16}>vs</LinkPendingIcon>
             </div>
 
-            <div className="flex-1 text-right">
-              <div className="flex items-center justify-end gap-2">
+            <div className="flex-1 min-w-0 text-right">
+              <div className="flex min-h-12 items-center justify-end gap-2">
                 {isMine(match.awayTeamId) && (
                   <Badge variant="userTeam" className="text-[10px]">Tu</Badge>
                 )}
                 <span className={cn(
-                  'font-semibold text-gray-900',
+                  'font-semibold text-gray-900 line-clamp-2 break-words',
                   isMine(match.awayTeamId) && 'text-emerald-700'
                 )}>
                   {awayTeam?.name || match.awayTeamId}
                 </span>
               </div>
-              <div className="text-2xl font-bold text-gray-900 mt-1">
+              <div className="text-2xl font-bold text-gray-900 tabular-nums">
                 <span className="text-sm font-normal text-gray-500 mr-1">
                   ({match.awayGoals})
                 </span>
