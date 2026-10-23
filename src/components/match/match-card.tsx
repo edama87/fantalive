@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { countOnPitch } from '@/lib/on-pitch';
 
 import { Card } from '@/components/ui/card';
@@ -35,6 +36,43 @@ function BonusSummary({ scores, side }: { scores: PlayerScore[]; side: 'home' | 
         </span>
       )}
     </div>
+  );
+}
+
+function hasBonusEvents(scores: PlayerScore[]): boolean {
+  const { counted, excluded } = splitBonusSummary(scores);
+  return eventEmojiSequence(counted, { includeConceded: false }).length + eventEmojiSequence(excluded, { includeConceded: false }).length > 0;
+}
+
+/** Puntino rosso in overlay: al tocco spiega che i voti sono live. Sta dentro il Link, quindi blocca la navigazione. */
+function LiveVotesDot() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: Event) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', close);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', esc); };
+  }, [open]);
+  return (
+    <span ref={ref} className="absolute right-2 top-2 z-10">
+      <button
+        type="button"
+        aria-label="Voti live, giornata in corso"
+        aria-expanded={open}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((o) => !o); }}
+        className="flex h-6 w-6 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+      >
+        <LiveDot size="md" />
+      </button>
+      {open && (
+        <span role="tooltip" className="absolute right-0 top-7 whitespace-nowrap rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-md ring-1 ring-gray-200">
+          Voti live, giornata in corso
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -75,8 +113,10 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false, classN
     <Link href={`/sfida/${roundNumber}/${match.homeTeamId}-${match.awayTeamId}`} className={className}>
       <Card className={cn(
         'hover:shadow-md transition-shadow cursor-pointer',
+        'relative',
         isUserMatch && 'ring-1 ring-emerald-200 bg-emerald-50/30'
       )}>
+        {isLive && <LiveVotesDot />}
         <div className="p-4">
           {isUserMatch && (
             <div className="flex items-center gap-2 mb-2">
@@ -97,19 +137,13 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false, classN
             <Side id={match.awayTeamId} name={awayTeam?.name || match.awayTeamId} mine={isMine(match.awayTeamId)} scores={match.awayPlayerScores} playing={awayPlayingCount} isLive={isLive} />
           </div>
 
-          {showBonusSummary && (
+          {showBonusSummary && (hasBonusEvents(match.homePlayerScores) || hasBonusEvents(match.awayPlayerScores)) && (
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
               <BonusSummary scores={match.homePlayerScores} side="home" />
               <BonusSummary scores={match.awayPlayerScores} side="away" />
             </div>
           )}
 
-          {!isUserMatch && isLive && (
-            <div className="flex items-center justify-center gap-1 mt-3 text-xs text-gray-400">
-              <LiveDot size="sm" />
-              <span>{match.status === 'halftime' ? 'Intervallo' : 'In corso'}</span>
-            </div>
-          )}
         </div>
       </Card>
     </Link>
