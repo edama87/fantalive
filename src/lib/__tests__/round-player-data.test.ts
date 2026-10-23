@@ -107,13 +107,13 @@ describe('official votes take priority over live votes', () => {
     related_player_id: null,
   };
 
-  it('keeps the pure official vote and ignores live events for that player', () => {
+  it('keeps the official vote and events, with on-pitch status and minutes from the live feed', () => {
     const map = assembleRoundPlayerData([official], [liveVote], [liveEvent]);
     const data = map.get('raimondo-antonio-a');
 
     expect(data?.estimatedVote).toBe(8.5);
-    expect(data?.minutesPlayed).toBe(90);
-    expect(data?.isPlaying).toBe(false);
+    expect(data?.minutesPlayed).toBe(40);
+    expect(data?.isPlaying).toBe(true);
     expect(data?.events).toHaveLength(3);
     expect(data?.events.every((event) => event.type === 'goal' && !event.relatedPlayerId)).toBe(true);
   });

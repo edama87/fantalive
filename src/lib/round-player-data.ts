@@ -43,6 +43,7 @@ export interface LiveVoteRow {
   estimated_vote: number | string | null;
   minutes_played: number | string | null;
   is_playing: boolean | null;
+  is_subbed_out?: boolean | null;
   updated_at?: string | null;
   source_provider?: string | null;
 }
@@ -229,7 +230,20 @@ export function assembleRoundPlayerData(
 
   const eventsByPlayer = liveEventsByPlayer(liveEvents);
   for (const row of pickLatestLiveVotes(liveVotes)) {
-    if (playerData.has(row.player_id)) continue;
+    const existing = playerData.get(row.player_id);
+    if (existing) {
+      // Voto fantacalcio.it durante la partita: lo stato in campo e i minuti
+      // restano quelli del feed live (ESPN), che li azzera a fine partita o
+      // dopo un cambio. Un espulso non è più in campo.
+      if (existing.voteSource === 'official') {
+        const sentOff = existing.events.some((e) => e.type === 'red_card');
+        existing.isPlaying = row.is_playing === true && row.is_subbed_out !== true && !sentOff;
+        const liveMinutes = finiteNumber(row.minutes_played);
+        const officialMinutes = officialVotes.find((o) => o.player_id === row.player_id)?.minutes_played;
+        if (existing.isPlaying && liveMinutes != null && finiteNumber(officialMinutes ?? null) == null) existing.minutesPlayed = liveMinutes;
+      }
+      continue;
+    }
     if (coveredByConsolidated(row.player_id, coverage)) continue;
     playerData.set(row.player_id, {
       playerId: row.player_id,
@@ -305,7 +319,7 @@ export async function getRoundPlayerState(roundNumber: number): Promise<RoundPla
       .eq('round_number', roundNumber),
     supabase
       .from('live_votes')
-      .select('player_id, estimated_vote, minutes_played, is_playing, updated_at, source_provider')
+      .select('player_id, estimated_vote, minutes_played, is_playing, is_subbed_out, updated_at, source_provider')
       .eq('round_number', roundNumber),
     supabase
       .from('live_events')
