@@ -5,7 +5,6 @@ import { countOnPitch } from '@/lib/on-pitch';
 import { Card } from '@/components/ui/card';
 import { VoteSourceSummary } from '@/components/match/vote-source';
 import { LinkPendingIcon } from '@/components/ui/link-pending';
-import { Badge } from '@/components/ui/badge';
 import { LiveDot } from '@/components/ui/live-dot';
 import { EventEmojis, eventEmojiSequence } from '@/components/match/event-emoji';
 import { cn, formatVote } from '@/lib/utils';
@@ -46,7 +45,6 @@ function Side({ id, name, mine, scores, playing, isLive }: { id: string; name: s
       <div className="mt-1.5 flex min-h-10 items-start justify-center">
         <span className={cn('line-clamp-2 break-words text-sm font-semibold leading-5 text-gray-900', mine && 'text-emerald-700')}>{name}</span>
       </div>
-      {mine && <Badge variant="userTeam" className="mt-0.5 text-[10px]">Tu</Badge>}
       <VoteSourceSummary scores={scores} align="center" />
       {isLive && playing > 0 && (
         <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
