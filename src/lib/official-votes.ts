@@ -31,7 +31,7 @@ export async function saveFantacalcioOfficialVotes(
 ): Promise<{ saved: number; skippedConsolidated: number }> {
   const byPlayer = new Map<string, FantacalcioScrapedPlayer>();
   for (const player of players) {
-    if (!player.playerId || player.vote == null) continue;
+    if (!player.playerId || player.vote == null || !(player.vote > 0 && player.vote <= 10)) continue; // fuori scala = senza voto
     byPlayer.set(player.playerId, player);
   }
 

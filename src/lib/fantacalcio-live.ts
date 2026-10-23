@@ -166,6 +166,14 @@ function toRole(position: string): PlayerRole | null {
   return p === 'P' || p === 'D' || p === 'C' || p === 'A' ? p : null;
 }
 
+/**
+ * Voto valido solo in (0, 10]: come formatGrade di fantacalcio.it, ogni altro
+ * valore (0 = non entrato, 55 = senza voto per i subentrati a fine gara) è "-".
+ */
+export function isLiveGrade(vote: number | null | undefined): vote is number {
+  return typeof vote === 'number' && Number.isFinite(vote) && vote > 0 && vote <= 10;
+}
+
 function toVotePlayer(p: LivePlayer, team: string): FantacalcioVotePlayer | null {
   const role = toRole(p.position);
   if (!p.name || !role) return null;
@@ -188,7 +196,7 @@ function toVotePlayer(p: LivePlayer, team: string): FantacalcioVotePlayer | null
       ? { ...(inMinute !== undefined ? { in: inMinute } : {}), ...(outMinute !== undefined ? { out: outMinute } : {}) }
       : null;
   // vote 0 / assente = senza voto (non entrato o s.v.).
-  const vote = p.vote != null && p.vote > 0 ? p.vote : null;
+  const vote = isLiveGrade(p.vote) ? p.vote : null;
   return {
     name: p.name,
     role,
