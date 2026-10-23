@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { LiveDot } from '@/components/ui/live-dot';
 import { LinkPendingSpinner } from '@/components/ui/link-pending';
+import { matchClockText } from '@/lib/match-clock';
 import type { FantacalcioCalendarMatch } from '@/lib/fantacalcio-it';
 
 export function PartiteList({
@@ -93,14 +94,14 @@ export function PartiteList({
                         {match.status === 'live' && (
                           <div className="flex items-center gap-1 text-xs text-green-600">
                             <LiveDot size="sm" />
-                            <span>{match.minute}&apos;</span>
+                            <span>{matchClockText(match)}</span>
                           </div>
                         )}
                         {match.status === 'halftime' && (
                           <span className="text-xs text-amber-600">Intervallo</span>
                         )}
                         {match.status === 'finished' && (
-                          <span className="text-xs text-gray-400">Finita</span>
+                          <span className="text-xs text-gray-400">Finale</span>
                         )}
                       </div>
                     )}

@@ -7,6 +7,7 @@ import {
   type FantacalcioCalendarMatch,
 } from '@/lib/fantacalcio-it';
 import { fetchFantacalcioHtml } from '@/lib/fantacalcio-it-client';
+import { withEspnClock } from '@/lib/serie-a-subs-loader';
 import { PartiteList } from './partite-list';
 
 export const instant = false;
@@ -21,7 +22,7 @@ export default async function PartiteSerieAPage({ searchParams }: { searchParams
 
   try {
     const html = await fetchFantacalcioHtml(fantacalcioCalendarUrl(currentRound.serieAMatchday));
-    matches = parseFantacalcioCalendar(html);
+    matches = await withEspnClock(parseFantacalcioCalendar(html));
   } catch {
     error = 'Calendario non disponibile';
   }

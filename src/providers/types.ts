@@ -56,6 +56,8 @@ export interface NormalizedSerieAMatch {
   homeScore: number;
   awayScore: number;
   minute: number;
+  /** displayClock ESPN grezzo ("83'", "45'+2'"). */
+  displayClock?: string;
   status: MatchStatus;
   kickoffTime?: string;
   venue?: string;

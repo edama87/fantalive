@@ -182,6 +182,7 @@ export function parseEspnScoreboard(scoreboard: EspnScoreboard): NormalizedSerie
       homeScore: Number.parseInt(home.score ?? '0', 10) || 0,
       awayScore: Number.parseInt(away.score ?? '0', 10) || 0,
       minute: parseClockMinute(status?.displayClock, status?.clock),
+      displayClock: status?.displayClock,
       status: parseEspnMatchStatus(status?.type),
       kickoffTime: event.date,
       venue: competition.venue?.fullName,

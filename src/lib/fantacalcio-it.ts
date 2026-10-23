@@ -75,6 +75,8 @@ export interface FantacalcioCalendarMatch {
   awayScore: number;
   status: 'scheduled' | 'live' | 'halftime' | 'finished';
   minute: number;
+  /** Minuto live da ESPN ("83′", "45′+2"). */
+  clock?: string;
   kickoffTime?: string;
   venue?: string;
   matchUrl: string;
