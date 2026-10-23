@@ -159,6 +159,7 @@ const EVENT_BONUS: Record<number, [FantacalcioBonusType, string]> = {
   23: ['assist', 'Assist'],
 };
 const PLAYER_OUT = 14;
+const PLAYER_IN = 15;
 
 function toRole(position: string): PlayerRole | null {
   const p = position.trim().toUpperCase();
@@ -176,6 +177,16 @@ function toVotePlayer(p: LivePlayer, team: string): FantacalcioVotePlayer | null
     if (existing) existing.count += 1;
     else bonuses.push({ type: mapped[0], label: mapped[1], count: 1, minute: p.eventsMinutes[i] || null });
   });
+  const minuteOf = (code: number) => {
+    const i = p.events.indexOf(code);
+    return i < 0 ? undefined : p.eventsMinutes[i] || null;
+  };
+  const inMinute = minuteOf(PLAYER_IN);
+  const outMinute = minuteOf(PLAYER_OUT);
+  const substitution =
+    inMinute !== undefined || outMinute !== undefined
+      ? { ...(inMinute !== undefined ? { in: inMinute } : {}), ...(outMinute !== undefined ? { out: outMinute } : {}) }
+      : null;
   // vote 0 / assente = senza voto (non entrato o s.v.).
   const vote = p.vote != null && p.vote > 0 ? p.vote : null;
   return {
@@ -188,6 +199,7 @@ function toVotePlayer(p: LivePlayer, team: string): FantacalcioVotePlayer | null
     bonuses,
     substitutedOut: p.events.includes(PLAYER_OUT),
     sourcePlayerId: p.id ? String(p.id) : null,
+    ...(substitution ? { substitution } : {}),
   };
 }
 

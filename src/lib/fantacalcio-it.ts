@@ -91,6 +91,8 @@ export interface FantacalcioVotePlayer {
   bonuses: FantacalcioBonus[];
   substitutedOut: boolean;
   sourcePlayerId: string | null;
+  /** Minuti di ingresso/uscita quando la fonte li fornisce (file live fantacalcio.it). */
+  substitution?: { in?: number | null; out?: number | null };
 }
 
 export interface FantacalcioCatalogPlayer {

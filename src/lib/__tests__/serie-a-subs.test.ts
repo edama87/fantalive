@@ -37,12 +37,12 @@ describe('cambi Serie A', () => {
 
   it('con ESPN segna entrati e usciti con il minuto', () => {
     const map = substitutionsByPlayer(players, extractEspnSubstitutions(summary));
-    expect(info(map, 'Sassuolo', 'Bowie')).toEqual({ in: { minute: 58 } });
-    expect(info(map, 'Sassuolo', 'Thorstvedt')).toEqual({ out: { minute: 58 } });
-    expect(info(map, 'Sassuolo', 'Dominguez B.')).toEqual({ in: { minute: 67 } });
-    expect(info(map, 'Sassuolo', 'Esposito Se.')).toEqual({ out: { minute: 67 } });
-    expect(info(map, 'Frosinone', 'Birligea')).toEqual({ in: { minute: 90 } });
-    expect(info(map, 'Frosinone', 'Raimondo')).toEqual({ out: { minute: 90 } });
+    expect(info(map, 'Sassuolo', 'Bowie')).toMatchObject({ in: { minute: 58, for: 'Thorstvedt' } });
+    expect(info(map, 'Sassuolo', 'Thorstvedt')).toMatchObject({ out: { minute: 58, by: 'Bowie' } });
+    expect(info(map, 'Sassuolo', 'Dominguez B.')).toMatchObject({ in: { minute: 67 } });
+    expect(info(map, 'Sassuolo', 'Esposito Se.')).toMatchObject({ out: { minute: 67 } });
+    expect(info(map, 'Frosinone', 'Birligea')).toMatchObject({ in: { minute: 90 } });
+    expect(info(map, 'Frosinone', 'Raimondo')).toMatchObject({ out: { minute: 90 } });
     expect(info(map, 'Frosinone', 'Masini')).toBeUndefined();
     expect([...map.values()].filter((i) => i.in)).toHaveLength(10);
     expect([...map.values()].filter((i) => i.out)).toHaveLength(10);
@@ -50,10 +50,10 @@ describe('cambi Serie A', () => {
 
   it('senza ESPN usa l’ordine di fantacalcio.it (chi entra segue chi esce), senza minuti', () => {
     const map = substitutionsByPlayer(players);
-    expect(info(map, 'Frosinone', 'Oyono A.')).toEqual({ out: { minute: null } });
-    expect(info(map, 'Frosinone', 'Amey')).toEqual({ in: { minute: null } });
-    expect(info(map, 'Sassuolo', 'Lipani')).toEqual({ in: { minute: null } });
-    expect(info(map, 'Sassuolo', 'Volpato')).toEqual({ in: { minute: null } });
+    expect(info(map, 'Frosinone', 'Oyono A.')).toMatchObject({ out: { minute: null, by: 'Amey' } });
+    expect(info(map, 'Frosinone', 'Amey')).toMatchObject({ in: { minute: null, for: 'Oyono A.' } });
+    expect(info(map, 'Sassuolo', 'Lipani')).toMatchObject({ in: { minute: null } });
+    expect(info(map, 'Sassuolo', 'Volpato')).toMatchObject({ in: { minute: null } });
     expect(info(map, 'Frosinone', 'Masini')).toBeUndefined();
   });
 

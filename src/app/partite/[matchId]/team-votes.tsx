@@ -47,8 +47,8 @@ export function TeamVotes({ title, rows }: { title: string; rows: SerieAVoteRow[
                   )}
                   {(row.subIn || row.subOut) && (
                     <div className="mt-0.5 flex flex-wrap gap-x-3 pl-7 text-xs">
-                      {row.subIn && <SubMarker kind="in" minute={row.subIn.minute} />}
-                      {row.subOut && <SubMarker kind="out" minute={row.subOut.minute} />}
+                      {row.subIn && <SubMarker kind="in" minute={row.subIn.minute} partner={row.subIn.for} />}
+                      {row.subOut && <SubMarker kind="out" minute={row.subOut.minute} partner={row.subOut.by} />}
                     </div>
                   )}
                 </div>
@@ -180,8 +180,8 @@ function PlayerVoteDetail({ row }: { row: SerieAVoteRow }) {
           </dd>
           {(row.subIn || row.subOut) && (
             <div className="flex flex-wrap gap-x-2 text-xs">
-              {row.subIn && <SubMarker kind="in" minute={row.subIn.minute} />}
-              {row.subOut && <SubMarker kind="out" minute={row.subOut.minute} />}
+              {row.subIn && <SubMarker kind="in" minute={row.subIn.minute} partner={row.subIn.for} />}
+              {row.subOut && <SubMarker kind="out" minute={row.subOut.minute} partner={row.subOut.by} />}
             </div>
           )}
         </div>
@@ -194,8 +194,9 @@ function PlayerVoteDetail({ row }: { row: SerieAVoteRow }) {
   );
 }
 
-function SubMarker({ kind, minute }: { kind: 'in' | 'out'; minute: number | null }) {
-  const label = `${kind === 'in' ? 'entrato' : 'uscito'}${minute != null ? ` ${minute}′` : ''}`;
+function SubMarker({ kind, minute, partner }: { kind: 'in' | 'out'; minute: number | null; partner?: string }) {
+  const base = `${kind === 'in' ? 'entrato' : 'uscito'}${minute != null ? ` ${minute}′` : ''}`;
+  const label = partner ? `${base} ${kind === 'in' ? 'al posto di' : 'per'} ${partner}` : base;
   return kind === 'in' ? (
     <span className="inline-flex items-center gap-0.5 font-medium text-emerald-600">
       <ArrowUp aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />

@@ -6,7 +6,7 @@
 
 import type { BonusBreakdown } from '@/types';
 import { fantavotoFromVote, type FantacalcioVotePlayer } from '@/lib/fantacalcio-it';
-import { fantacalcioBonusBreakdown, type PlayerSubInfo } from '@/lib/serie-a-subs';
+import { fantacalcioBonusBreakdown, orderWithSubstitutions, type PlayerSubInfo } from '@/lib/serie-a-subs';
 import { samePianetafantaName, type ConsolidatedVoteEntry } from '@/lib/pianetafanta-url';
 
 export interface SerieAVoteRow {
@@ -24,8 +24,8 @@ export interface SerieAVoteRow {
   estimated: boolean;
   /** Voto fantacalcio.it originale (per confronto nella modale). */
   fantacalcioVote: number | null;
-  subIn: { minute: number | null } | null;
-  subOut: { minute: number | null } | null;
+  subIn: { minute: number | null; for?: string } | null;
+  subOut: { minute: number | null; by?: string } | null;
   /** Minuti giocati: dal file consolidato, altrimenti dedotti dai cambi; null se non noti. */
   minutesPlayed: number | null;
 }
@@ -55,7 +55,7 @@ export function buildSerieAVoteRows(
   subs: ReadonlyMap<string, PlayerSubInfo>,
   consolidated: readonly ConsolidatedVoteEntry[] | null
 ): SerieAVoteRow[] {
-  return players.map((player) => {
+  return orderWithSubstitutions(players, subs).map((player) => {
     const sub = subs.get(`${player.team}|${player.name}`);
     const official = consolidated ? findConsolidatedEntry(consolidated, player) : null;
     const vote = official ? official.average : player.vote;
