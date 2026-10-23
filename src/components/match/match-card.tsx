@@ -12,6 +12,7 @@ import { cn, formatVote } from '@/lib/utils';
 import { FantasyMatchResult, PlayerScore } from '@/types';
 import { splitBonusSummary } from '@/lib/bonus-summary';
 import { getTeamById } from '@/data/teams';
+import { GoalsPill, TeamBadge } from '@/components/match/team-badge';
 import { useMyTeamId } from '@/lib/hooks/use-my-team';
 import Link from 'next/link';
 
@@ -33,6 +34,25 @@ function BonusSummary({ scores, side }: { scores: PlayerScore[]; side: 'home' | 
         <span className="opacity-60" title="Non contano nel totale">
           <EventEmojis bonuses={excluded} includeConceded={false} parenthesized className={emojiClass} />
         </span>
+      )}
+    </div>
+  );
+}
+
+function Side({ id, name, mine, scores, playing, isLive }: { id: string; name: string; mine: boolean; scores: PlayerScore[]; playing: number; isLive: boolean }) {
+  return (
+    <div className="flex min-w-0 flex-col items-center text-center">
+      <TeamBadge id={id} name={name} mine={mine} />
+      <div className="mt-1.5 flex min-h-10 items-start justify-center">
+        <span className={cn('line-clamp-2 break-words text-sm font-semibold leading-5 text-gray-900', mine && 'text-emerald-700')}>{name}</span>
+      </div>
+      {mine && <Badge variant="userTeam" className="mt-0.5 text-[10px]">Tu</Badge>}
+      <VoteSourceSummary scores={scores} align="center" />
+      {isLive && playing > 0 && (
+        <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+          <LiveDot size="sm" />
+          <span>In campo {playing}/11</span>
+        </div>
       )}
     </div>
   );
@@ -66,64 +86,17 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false, classN
             </div>
           )}
 
-          <div className="flex items-start justify-between">
-            <div className="flex-1 min-w-0">
-              <div className="flex min-h-12 items-center gap-2">
-                <span className={cn(
-                  'font-semibold text-gray-900 line-clamp-2 break-words',
-                  isMine(match.homeTeamId) && 'text-emerald-700'
-                )}>
-                  {homeTeam?.name || match.homeTeamId}
-                </span>
-                {isMine(match.homeTeamId) && (
-                  <Badge variant="userTeam" className="text-[10px]">Tu</Badge>
-                )}
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-x-2">
+            <Side id={match.homeTeamId} name={homeTeam?.name || match.homeTeamId} mine={isMine(match.homeTeamId)} scores={match.homePlayerScores} playing={homePlayingCount} isLive={isLive} />
+            <div className="flex flex-col items-center pt-1">
+              <GoalsPill home={match.homeGoals} away={match.awayGoals} />
+              <div className="mt-1.5 flex w-full justify-between gap-4 px-1 text-xs tabular-nums text-gray-400">
+                <span title="Fantapunti casa">{formatVote(match.homeTotal)}</span>
+                <span title="Fantapunti trasferta">{formatVote(match.awayTotal)}</span>
               </div>
-              <div className="text-2xl font-bold text-gray-900 tabular-nums">
-                {match.homeGoals}
-                <span className="text-sm font-normal text-gray-500 ml-1">
-                  ({formatVote(match.homeTotal)})
-                </span>
-              </div>
-              <VoteSourceSummary scores={match.homePlayerScores} />
-              {isLive && homePlayingCount > 0 && (
-                <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
-                  <LiveDot size="sm" />
-                  <span>In campo {homePlayingCount}/11</span>
-                </div>
-              )}
+              <LinkPendingIcon size={12} className="mt-1 text-gray-400" />
             </div>
-
-            <div className="flex h-[5.25rem] items-center px-4 text-gray-400 text-sm">
-              <LinkPendingIcon size={16}>vs</LinkPendingIcon>
-            </div>
-
-            <div className="flex-1 min-w-0 text-right">
-              <div className="flex min-h-12 items-center justify-end gap-2">
-                {isMine(match.awayTeamId) && (
-                  <Badge variant="userTeam" className="text-[10px]">Tu</Badge>
-                )}
-                <span className={cn(
-                  'font-semibold text-gray-900 line-clamp-2 break-words',
-                  isMine(match.awayTeamId) && 'text-emerald-700'
-                )}>
-                  {awayTeam?.name || match.awayTeamId}
-                </span>
-              </div>
-              <div className="text-2xl font-bold text-gray-900 tabular-nums">
-                <span className="text-sm font-normal text-gray-500 mr-1">
-                  ({formatVote(match.awayTotal)})
-                </span>
-                {match.awayGoals}
-              </div>
-              <VoteSourceSummary scores={match.awayPlayerScores} align="right" />
-              {isLive && awayPlayingCount > 0 && (
-                <div className="flex items-center justify-end gap-1 mt-1 text-xs text-gray-500">
-                  <span>In campo {awayPlayingCount}/11</span>
-                  <LiveDot size="sm" />
-                </div>
-              )}
-            </div>
+            <Side id={match.awayTeamId} name={awayTeam?.name || match.awayTeamId} mine={isMine(match.awayTeamId)} scores={match.awayPlayerScores} playing={awayPlayingCount} isLive={isLive} />
           </div>
 
           {showBonusSummary && (

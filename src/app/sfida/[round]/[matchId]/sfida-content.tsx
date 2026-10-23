@@ -9,6 +9,7 @@ import { TeamLineupCard } from '@/components/match/team-lineup-card';
 import { EventLegend } from '@/components/match/event-emoji';
 import { VoteSourceLegend } from '@/components/match/vote-source';
 import { RouteSkeleton } from '@/components/ui/route-skeleton';
+import { GoalsPill, TeamBadge } from '@/components/match/team-badge';
 import { cn, formatSignedPoints, formatVote } from '@/lib/utils';
 import { FantasyMatchResult, PlayerMatchData, ModifiersBreakdown } from '@/types';
 import { getRoundByNumber } from '@/data/calendar';
@@ -134,37 +135,27 @@ export function SfidaContent() {
               )}
             </div>
 
-            {/* Griglia a righe condivise: punteggi e gol allineati qualunque sia la lunghezza del nome. */}
-            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] grid-rows-[auto_auto_auto_auto] gap-x-3 text-center">
-              <div className="col-start-1 row-start-1 flex items-center justify-center gap-1 text-sm text-gray-500 mb-1">
-                <Home size={14} />
-                <span>Casa</span>
+            {/* Stemmi ai lati, pillola con i gol al centro, fantapunti sotto. Righe condivise: allineato qualunque sia il nome. */}
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-x-3 text-center">
+              {([['home', homeTeamId, homeTeam.name, Home, 'Casa'], ['away', awayTeamId, awayTeam.name, Plane, 'Trasferta']] as const).map(([side, id, name, Icon, label]) => (
+                <div key={side} className={cn('flex min-w-0 flex-col items-center', side === 'home' ? 'col-start-1' : 'col-start-3', 'row-start-1')}>
+                  <div className="mb-2 flex items-center justify-center gap-1 text-xs text-gray-500">
+                    <Icon size={13} />
+                    <span>{label}</span>
+                  </div>
+                  <TeamBadge id={id} name={name} mine={id === myTeamId} size="lg" />
+                  <div title={name} className={cn('mt-2 flex min-h-[3rem] items-start justify-center text-base font-bold leading-6 break-words', id === myTeamId && 'text-emerald-700')}>
+                    <span className="line-clamp-2">{name}</span>
+                  </div>
+                </div>
+              ))}
+              <div className="col-start-2 row-start-1 flex flex-col items-center pt-9">
+                <GoalsPill home={match.homeGoals} away={match.awayGoals} size="lg" />
+                <div className="mt-2 flex w-full justify-between gap-6 px-1 text-sm tabular-nums text-gray-400">
+                  <span title="Fantapunti casa">{formatVote(match.homeTotal)}</span>
+                  <span title="Fantapunti trasferta">{formatVote(match.awayTotal)}</span>
+                </div>
               </div>
-              <div
-                title={homeTeam.name}
-                className={cn('col-start-1 row-start-2 flex min-h-[3.5rem] items-center justify-center font-bold text-lg leading-7 break-words', homeTeamId === myTeamId && 'text-emerald-700')}
-              >
-                <span className="line-clamp-2">{homeTeam.name}</span>
-              </div>
-              <div className="col-start-1 row-start-3 text-4xl font-bold mt-2 tabular-nums" aria-label={`${match.homeGoals} gol`}>{match.homeGoals}</div>
-              <div className="col-start-1 row-start-4 text-base text-gray-500 tabular-nums">({formatVote(match.homeTotal)})</div>
-
-              <div className="col-start-2 row-start-3 mt-2 flex items-center justify-center px-1">
-                <span className="text-3xl font-light text-gray-300">–</span>
-              </div>
-
-              <div className="col-start-3 row-start-1 flex items-center justify-center gap-1 text-sm text-gray-500 mb-1">
-                <Plane size={14} />
-                <span>Trasferta</span>
-              </div>
-              <div
-                title={awayTeam.name}
-                className={cn('col-start-3 row-start-2 flex min-h-[3.5rem] items-center justify-center font-bold text-lg leading-7 break-words', awayTeamId === myTeamId && 'text-emerald-700')}
-              >
-                <span className="line-clamp-2">{awayTeam.name}</span>
-              </div>
-              <div className="col-start-3 row-start-3 text-4xl font-bold mt-2 tabular-nums" aria-label={`${match.awayGoals} gol`}>{match.awayGoals}</div>
-              <div className="col-start-3 row-start-4 text-base text-gray-500 tabular-nums">({formatVote(match.awayTotal)})</div>
             </div>
           </CardContent>
         </Card>
