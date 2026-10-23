@@ -9,6 +9,7 @@
  *   (pianetafanta); il trigger DB official_votes_keep_consolidated fa da rete.
  */
 
+import { resolveMatchVotes } from '@/lib/fantacalcio-live';
 import {
   canonicalTeamCode,
   fantacalcioCalendarUrl,
@@ -176,7 +177,16 @@ export async function fetchActiveMatchVotes(
       result.requests += 1;
       try {
         const html = await fetchFantacalcioHtml(item.votesUrl, fetchImpl, { timeoutMs: REQUEST_TIMEOUT_MS });
-        return { id: match.id, label, rows: matchScrapedRows(item.matchId, parseFantacalcioVotes(html), catalog, { log: false }) };
+        // In partita i voti non sono nell'HTML ma nel file live protobuf.
+        const resolved = await resolveMatchVotes(
+          html,
+          parseFantacalcioVotes(html),
+          { homeTeam: item.homeTeam, awayTeam: item.awayTeam, matchId: item.matchId, url: item.votesUrl },
+          fetchImpl,
+          { timeoutMs: REQUEST_TIMEOUT_MS }
+        );
+        if (resolved.source === 'live') result.requests += 2;
+        return { id: match.id, label, rows: matchScrapedRows(item.matchId, resolved.players, catalog, { log: false }) };
       } catch (error) {
         return { id: match.id, label, rows: [] as FantacalcioScrapedPlayer[], error: error instanceof Error ? error.message : String(error) };
       }

@@ -3,6 +3,7 @@
  * Parsing stays in fantacalcio-it.ts so tests can use saved HTML.
  */
 
+import { resolveMatchVotes } from '@/lib/fantacalcio-live';
 import type { PlayerRole } from '@/types';
 import { getPublicClient, isSupabaseConfigured } from '@/lib/db/supabase';
 import { getAllPlayers } from '@/data/teams';
@@ -161,5 +162,17 @@ export async function loadFantacalcioMatchVotes(
   const match = parseFantacalcioCalendar(calendarHtml).find((item) => item.matchId === matchId) ?? null;
   if (!match) return { match: null, players: [] };
   const votesHtml = await fetchFantacalcioHtml(match.votesUrl, fetchImpl);
-  return { match, players: parseFantacalcioVotes(votesHtml) };
+  const parsed = parseFantacalcioVotes(votesHtml);
+  try {
+    const resolved = await resolveMatchVotes(
+      votesHtml,
+      parsed,
+      { homeTeam: match.homeTeam, awayTeam: match.awayTeam, matchId: match.matchId, url: match.votesUrl },
+      fetchImpl,
+      { timeoutMs: 8000 }
+    );
+    return { match, players: resolved.players };
+  } catch {
+    return { match, players: parsed };
+  }
 }
