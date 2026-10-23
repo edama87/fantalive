@@ -24,7 +24,7 @@ interface MatchCardProps {
 
 function BonusSummary({ scores, side }: { scores: PlayerScore[]; side: 'home' | 'away' }) {
   const { counted, excluded } = splitBonusSummary(scores);
-  const emojiClass = 'inline-flex flex-wrap items-center gap-0.5 text-sm leading-none';
+  const emojiClass = 'inline-flex flex-wrap items-center gap-1 text-sm leading-none';
   return (
     <div className={cn('flex items-center flex-wrap gap-1', side === 'away' && 'justify-end')}>
       <EventEmojis bonuses={counted} includeConceded={false} className={emojiClass} />

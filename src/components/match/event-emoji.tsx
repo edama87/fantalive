@@ -8,17 +8,19 @@ export const EVENT_EMOJI: ReadonlyArray<{
   key: keyof BonusBreakdown;
   emoji: string;
   label: string;
+  /** Etichetta accessibile con conteggio ("Ammonizioni: 4"). */
+  countLabel: string;
   points: string;
 }> = [
-  { key: 'goals', emoji: '⚽', label: 'Gol', points: '+3' },
-  { key: 'penaltyGoals', emoji: '🅿️', label: 'Rig', points: '+2' },
-  { key: 'penaltyMissed', emoji: '❌', label: 'Rig sbagliato', points: '-3' },
-  { key: 'penaltySaved', emoji: '🧤', label: 'Rig parato', points: '+3' },
-  { key: 'assists', emoji: '👟', label: 'Assist', points: '+1' },
-  { key: 'yellowCards', emoji: '🟨', label: 'Amm.', points: '-0,5' },
-  { key: 'redCards', emoji: '🟥', label: 'Esp.', points: '-1' },
-  { key: 'ownGoals', emoji: '⚽↩️', label: 'Autogol', points: '-1' },
-  { key: 'goalsConceded', emoji: '🥅', label: 'Gol subito (P)', points: '-1' },
+  { key: 'goals', emoji: '⚽', label: 'Gol', countLabel: 'Gol', points: '+3' },
+  { key: 'penaltyGoals', emoji: '🅿️', label: 'Rig', countLabel: 'Rigori segnati', points: '+2' },
+  { key: 'assists', emoji: '👟', label: 'Assist', countLabel: 'Assist', points: '+1' },
+  { key: 'penaltySaved', emoji: '🧤', label: 'Rig parato', countLabel: 'Rigori parati', points: '+3' },
+  { key: 'yellowCards', emoji: '🟨', label: 'Amm.', countLabel: 'Ammonizioni', points: '-0,5' },
+  { key: 'redCards', emoji: '🟥', label: 'Esp.', countLabel: 'Espulsioni', points: '-1' },
+  { key: 'ownGoals', emoji: '⚽↩️', label: 'Autogol', countLabel: 'Autogol', points: '-1' },
+  { key: 'penaltyMissed', emoji: '❌', label: 'Rig sbagliato', countLabel: 'Rigori sbagliati', points: '-3' },
+  { key: 'goalsConceded', emoji: '🥅', label: 'Gol subito (P)', countLabel: 'Gol subiti', points: '-1' },
 ];
 
 /** Emoji ripetute per conteggio (es. ⚽⚽⚽ per una tripletta). */
@@ -37,6 +39,20 @@ export function eventEmojiSequence(
   return out;
 }
 
+/** Un'icona per tipo con il conteggio (⚽×2 👟 🟨×4), in ordine fisso. */
+export function eventEmojiGroups(
+  bonuses: BonusBreakdown,
+  options: { includeConceded?: boolean } = {}
+): Array<{ key: string; emoji: string; count: number; label: string }> {
+  const out: Array<{ key: string; emoji: string; count: number; label: string }> = [];
+  for (const entry of EVENT_EMOJI) {
+    if (entry.key === 'goalsConceded' && options.includeConceded === false) continue;
+    const count = Math.max(0, Math.floor(bonuses[entry.key] ?? 0));
+    if (count > 0) out.push({ key: entry.key, emoji: entry.emoji, count, label: `${entry.countLabel}: ${count}` });
+  }
+  return out;
+}
+
 export function EventEmojis({
   bonuses,
   includeConceded = true,
@@ -49,14 +65,19 @@ export function EventEmojis({
   parenthesized?: boolean;
   className?: string;
 }) {
-  const items = eventEmojiSequence(bonuses, { includeConceded });
+  const items = eventEmojiGroups(bonuses, { includeConceded });
   if (items.length === 0) return null;
   return (
-    <span className={className ?? 'inline-flex items-center gap-0.5 text-sm leading-none whitespace-nowrap'}>
+    <span className={className ?? 'inline-flex items-center gap-1 text-sm leading-none whitespace-nowrap'}>
       {parenthesized && <span aria-hidden className="text-gray-400">(</span>}
       {items.map((item) => (
-        <span key={item.key} role="img" aria-label={item.label} title={item.label}>
+        <span key={item.key} role="img" aria-label={item.label} title={item.label} className="inline-flex items-baseline">
           {item.emoji}
+          {item.count > 1 && (
+            <span aria-hidden className="ml-px text-[0.75em] font-semibold tabular-nums text-gray-500">
+              ×{item.count}
+            </span>
+          )}
         </span>
       ))}
       {parenthesized && <span aria-hidden className="text-gray-400">)</span>}
