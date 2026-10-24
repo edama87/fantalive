@@ -4,7 +4,7 @@
 export async function getNotifyRegistration(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return null;
   try {
-    await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.register('/sw.js', { scope: '/' });
     return await navigator.serviceWorker.ready;
   } catch {
     return null;
@@ -19,7 +19,7 @@ export async function showAppNotification(title: string, options: NotificationOp
   if (!notificationsSupported() || Notification.permission !== 'granted') return false;
   const { url, ...rest } = options;
   const reg = await getNotifyRegistration();
-  const opts: NotificationOptions = { lang: 'it', ...rest, data: { url: url ?? '/' } };
+  const opts: NotificationOptions = { lang: 'it', icon: '/icons/icon-192.png', badge: '/icons/icon-192.png', ...rest, data: { url: url ?? '/' } };
   if (reg) {
     await reg.showNotification(title, opts);
     return true;

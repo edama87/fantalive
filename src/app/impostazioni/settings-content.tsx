@@ -35,6 +35,10 @@ export function SettingsContent() {
   }, []);
 
   const teamId = myTeamId ?? settings.teamId;
+  // iPhone/iPad: le notifiche esistono solo nell'app aperta dall'icona della schermata Home.
+  const iosBlocked = ios.device && !ios.standalone;
+  const iosTooOld = ios.device && ios.standalone && perm === 'unsupported';
+  const switchDisabled = !teamId || iosBlocked || iosTooOld;
   const update = (next: Partial<NotifySettings>) => {
     const merged = { ...settings, teamId, ...next };
     setSettings(merged);
@@ -91,6 +95,12 @@ export function SettingsContent() {
     <div className="min-h-screen bg-gray-50">
       <Header title="Impostazioni" isLive={false} />
       <div className="space-y-4 px-4 py-4">
+        {iosBlocked && <IosInstallHint />}
+        {iosTooOld && (
+          <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            Questa versione di iOS non supporta le notifiche web: aggiorna l’iPhone a iOS 16.4 o successivo.
+          </div>
+        )}
         <Card>
           <CardContent className="space-y-2 p-4">
             <label htmlFor="team" className="text-sm font-semibold text-gray-900">La tua squadra</label>
@@ -120,7 +130,7 @@ export function SettingsContent() {
                 role="switch"
                 aria-checked={settings.enabled}
                 aria-label="Attiva promemoria partite"
-                disabled={!teamId}
+                disabled={switchDisabled}
                 onClick={toggle}
                 className={cn('relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-40', settings.enabled ? 'bg-emerald-500' : 'bg-gray-200')}
               >
@@ -167,7 +177,7 @@ export function SettingsContent() {
                 role="switch"
                 aria-checked={settings.liveEnabled}
                 aria-label="Attiva notifiche eventi live"
-                disabled={!teamId}
+                disabled={switchDisabled}
                 onClick={toggleLive}
                 className={cn('relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-40', settings.liveEnabled ? 'bg-emerald-500' : 'bg-gray-200')}
               >
@@ -218,13 +228,27 @@ export function SettingsContent() {
           <CardContent className="space-y-2 p-4 text-xs text-gray-600">
             <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-900"><Smartphone size={16} aria-hidden /> Come funzionano</p>
             <p>Promemoria ed eventi live arrivano solo mentre FantaLive è aperta (anche in un’altra scheda): con l’app chiusa non arrivano. Durante le partite l’app controlla ogni 90 secondi, quindi un evento può arrivare con 1-3 minuti di ritardo.</p>
-            {ios.device && !ios.standalone && (
-              <p className="rounded-lg bg-amber-50 p-2 text-amber-800">Su iPhone/iPad: tocca Condividi → “Aggiungi alla schermata Home” e apri FantaLive da lì (iOS 16.4 o successivo), poi attiva i promemoria.</p>
-            )}
             <p>Le preferenze restano solo su questo dispositivo.</p>
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+/** Passi per installare FantaLive come app su iPhone/iPad: solo così iOS consente le notifiche. */
+function IosInstallHint() {
+  return (
+    <div role="alert" className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+      <p className="font-semibold">Su iPhone le notifiche funzionano solo dall’app installata</p>
+      <p className="text-xs text-amber-900">Ora stai usando FantaLive in una scheda del browser: qui iOS non permette le notifiche, per questo gli interruttori sono disattivati.</p>
+      <ol className="list-decimal space-y-1 pl-5 text-xs text-amber-900">
+        <li>Apri <strong>fantalive-mu.vercel.app</strong> in <strong>Safari</strong> (o Chrome, con iOS 16.4 o successivo).</li>
+        <li>Tocca <strong>Condividi</strong> (il quadrato con la freccia) → <strong>Aggiungi alla schermata Home</strong> → <strong>Aggiungi</strong>.</li>
+        <li>Chiudi il browser e apri FantaLive <strong>dall’icona verde con la F</strong> sulla schermata Home: deve aprirsi a tutto schermo, senza barra degli indirizzi.</li>
+        <li>Torna in <strong>Impostazioni</strong> e attiva le notifiche: tocca <strong>Consenti</strong> quando iOS lo chiede.</li>
+      </ol>
+      <p className="text-xs text-amber-900"><strong>Hai già un’icona FantaLive</strong> (per esempio una “F” grigia)? È solo un collegamento al sito: tienila premuta → <strong>Rimuovi</strong>, poi aggiungila di nuovo con i passi qui sopra.</p>
     </div>
   );
 }
