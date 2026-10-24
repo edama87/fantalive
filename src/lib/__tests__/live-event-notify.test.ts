@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collectLiveNotifications, DEFAULT_LIVE_EVENT_PREFS, parseLiveEventPrefs } from '@/lib/live-event-notify';
+import { collectLiveNotifications, DEFAULT_LIVE_EVENT_PREFS, displaySurname, parseLiveEventPrefs } from '@/lib/live-event-notify';
 import type { PlayerMatchData } from '@/types';
 
 const d = (playerId: string, events: PlayerMatchData['events'], minutesPlayed = 60): PlayerMatchData => ({ playerId, estimatedVote: 6, minutesPlayed, isPlaying: true, events });
@@ -21,9 +21,16 @@ describe('collectLiveNotifications', () => {
       ['opp1', d('opp1', [{ playerId: 'opp1', type: 'red_card', minute: 80 }, { playerId: 'opp1', type: 'yellow_card', minute: 20 }])],
     ]);
     const n = collectLiveNotifications({ ...base, playerData });
-    expect(n.map((x) => x.title)).toEqual(['⚽ Gol di MCTOMINAY (Napoli) 12′', '⚽ Gol di MCTOMINAY (Napoli) 40′', '🧤 Rigore parato da MANDAS (LAZ) 70′', '🟥 Espulso KEAN (FIO) 80′']);
-    expect(n[0]).toMatchObject({ key: 'r2:mct:goal:1', body: 'Amatori ProSecco' });
-    expect(n[3].body).toBe('Real Pedrotte');
+    expect(n.map((x) => x.body)).toEqual(['Gol di McTominay (Napoli) 12′', 'Gol di McTominay (Napoli) 40′', 'Rigore parato da Mandas (LAZ) 70′', 'Espulso Kean (FIO) 80′']);
+    expect(n[0]).toMatchObject({ key: 'r2:mct:goal:1', title: '⚽ Amatori ProSecco' });
+    expect(n[2].title).toBe('🧤 Amatori ProSecco');
+    expect(n[3].title).toBe('🟥 Real Pedrotte');
+  });
+
+  it('formats surnames for display', () => {
+    expect(displaySurname('MCTOMINAY')).toBe('McTominay');
+    expect(displaySurname('DE BRUYNE')).toBe('De Bruyne');
+    expect(displaySurname("N'DICKA")).toBe("N'Dicka");
   });
   it('respects per-side toggles and bench players who came on', () => {
     const prefs = parseLiveEventPrefs({ goal: { ours: false } });

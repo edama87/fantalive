@@ -82,12 +82,12 @@ export function SettingsContent() {
     update({ live: { ...settings.live, [type]: { ...settings.live[type], [side]: value } } });
 
   const testLive = async () => {
-    const ok = await showAppNotification('⚽ Gol di MCTOMINAY (Napoli) 23′', { body: 'Amatori ProSecco', tag: 'test-live' });
+    const ok = await showAppNotification('⚽ Amatori ProSecco', { body: 'Gol di McTominay (Napoli) 23′', tag: 'test-live' });
     setLiveMessage(ok ? 'Notifica live di prova inviata.' : 'Notifica non inviata: controlla il permesso.');
   };
 
   const test = async () => {
-    const ok = await showAppNotification('FantaLive', { body: 'Le notifiche funzionano ⚽', tag: 'test' });
+    const ok = await showAppNotification('⏰ COM–SAS tra 30′', { body: 'In campo: Paz, Douvikas (prova)', tag: 'test' });
     setMessage(ok ? 'Notifica di prova inviata.' : 'Notifica non inviata: controlla il permesso.');
   };
 

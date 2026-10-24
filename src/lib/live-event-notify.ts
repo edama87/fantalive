@@ -100,7 +100,8 @@ export function collectLiveNotifications(input: {
       const data = input.playerData.get(playerId);
       if (!data || (!starter && !benchPlayerOn(data))) continue;
       const player = input.players[playerId];
-      const name = player?.name.split(' ').filter((w, i, a) => a.slice(0, i + 1).every((x) => x === x.toUpperCase())).join(' ') || player?.name || playerId;
+      const surname = player?.name.split(' ').filter((w, i, a) => a.slice(0, i + 1).every((x) => x === x.toUpperCase())).join(' ');
+      const name = surname ? displaySurname(surname) : player?.name || playerId;
       const code = serieATeamCode(player?.realTeam);
       const club = code ? clubName.get(code) ?? player?.realTeam ?? null : null;
       const counts = new Map<EventType, number>();
@@ -113,11 +114,19 @@ export function collectLiveNotifications(input: {
         if (!input.prefs[type][side]) continue;
         out.push({
           key: `r${input.round}:${playerId}:${type}:${n}`,
-          title: `${EMOJI[type]} ${text(type, name, club, event.minute)}`,
-          body: team.teamName,
+          title: `${EMOJI[type]} ${team.teamName}`,
+          body: text(type, name, club, event.minute),
         });
       }
     }
   }
   return out;
+}
+
+/** 'MCTOMINAY' → 'McTominay', 'DE BRUYNE' → 'De Bruyne', "N'DICKA" → "N'Dicka". */
+export function displaySurname(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/(^|[\s'’-])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase())
+    .replace(/\bMc(\p{L})/gu, (_, ch: string) => 'Mc' + ch.toUpperCase());
 }

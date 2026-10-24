@@ -33,7 +33,7 @@ describe('notifiche', () => {
       { fixture: fx('3', 'LEC', 'JUV', '2026-10-24T11:00:00Z', 'live'), players: [{ name: 'Z', starter: true }] },
     ], 30, now);
     expect(plan).toHaveLength(1);
-    expect(plan[0]).toMatchObject({ at: Date.parse('2026-10-24T12:30:00Z'), title: 'TOR-MON tra 30′', body: 'In campo: KEITA (+1 in panchina)' });
+    expect(plan[0]).toMatchObject({ at: Date.parse('2026-10-24T12:30:00Z'), title: '⏰ TOR–MON tra 30′', body: 'In campo: Keita (+1 in panchina)' });
   });
   it('detects iOS', () => {
     expect(isIos('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)')).toBe(true);
