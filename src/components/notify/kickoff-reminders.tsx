@@ -8,6 +8,7 @@ import { fetchRoundPlayerData } from '@/lib/round-player-data-client';
 import { buildMatchRecap } from '@/lib/match-recap';
 import { loadNotifySettings, NOTIFY_SETTINGS_EVENT, planReminders, type NotifySettings } from '@/lib/notify-settings';
 import { notificationsSupported, showAppNotification } from '@/lib/notify-client';
+import { isPushActive, PUSH_STATE_EVENT } from '@/lib/push-client';
 import type { Player } from '@/types';
 
 const SENT_KEY = 'fantalive_notify_sent';
@@ -29,17 +30,21 @@ function markSent(tag: string) {
  */
 export function KickoffReminders() {
   const [settings, setSettings] = useState<NotifySettings | null>(null);
+  const [pushActive, setPushActive] = useState(false);
 
   useEffect(() => {
-    const read = () => setSettings(loadNotifySettings());
+    const read = () => { setSettings(loadNotifySettings()); setPushActive(isPushActive()); };
     read();
     window.addEventListener(NOTIFY_SETTINGS_EVENT, read);
+    window.addEventListener(PUSH_STATE_EVENT, read);
     window.addEventListener('storage', read);
-    return () => { window.removeEventListener(NOTIFY_SETTINGS_EVENT, read); window.removeEventListener('storage', read); };
+    return () => { window.removeEventListener(NOTIFY_SETTINGS_EVENT, read); window.removeEventListener(PUSH_STATE_EVENT, read); window.removeEventListener('storage', read); };
   }, []);
 
   useEffect(() => {
     if (!settings?.enabled || !settings.teamId || !notificationsSupported() || Notification.permission !== 'granted') return;
+    // Push dal server attivo: le notifiche arrivano da lì, niente doppioni locali.
+    if (pushActive) return;
     const teamId = settings.teamId;
     let timers: ReturnType<typeof setTimeout>[] = [];
     let cancelled = false;
@@ -71,7 +76,7 @@ export function KickoffReminders() {
     void schedule();
     const refresh = setInterval(() => void schedule(), 10 * 60_000);
     return () => { cancelled = true; clearInterval(refresh); timers.forEach(clearTimeout); };
-  }, [settings]);
+  }, [settings, pushActive]);
 
   return null;
 }

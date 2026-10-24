@@ -1,5 +1,5 @@
 /** Preferenze notifiche, salvate nel localStorage del dispositivo. */
-import { DEFAULT_LIVE_EVENT_PREFS, displaySurname, parseLiveEventPrefs, type LiveEventPrefs } from '@/lib/live-event-notify';
+import { DEFAULT_LIVE_EVENT_PREFS, playerSurname, parseLiveEventPrefs, type LiveEventPrefs } from '@/lib/live-event-notify';
 
 export const NOTIFY_SETTINGS_KEY = 'fantalive_notify';
 export const NOTIFY_SETTINGS_EVENT = 'fantalive-notify-change';
@@ -61,7 +61,7 @@ export function planReminders(
     const kickoff = Date.parse(fixture.kickoffTime);
     const at = kickoff - minutesBefore * 60_000;
     if (!Number.isFinite(at) || at <= now) continue;
-    const starters = players.filter((p) => p.starter).map((p) => displaySurname(p.name));
+    const starters = players.filter((p) => p.starter).map((p) => playerSurname(p.name));
     const bench = players.length - starters.length;
     const who = starters.length ? starters.join(', ') : 'solo panchinari';
     out.push({

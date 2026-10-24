@@ -2,13 +2,14 @@ import type { EventType, Player, PlayerMatchData } from '@/types';
 import { serieATeamCode, type RoundFixture } from '@/lib/serie-a-fixtures';
 
 /** Eventi live notificabili. 'goal' esclude i gol subiti dal portiere (relatedPlayerId 'opponent'). */
-export const LIVE_EVENT_TYPES = ['goal', 'own_goal', 'penalty_scored', 'penalty_missed', 'penalty_saved', 'red_card'] as const;
+export const LIVE_EVENT_TYPES = ['goal', 'assist', 'own_goal', 'penalty_scored', 'penalty_missed', 'penalty_saved', 'red_card'] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 export type LiveSide = 'ours' | 'opp';
 export type LiveEventPrefs = Record<LiveEventType, Record<LiveSide, boolean>>;
 
 export const DEFAULT_LIVE_EVENT_PREFS: LiveEventPrefs = {
   goal: { ours: true, opp: true },
+  assist: { ours: true, opp: false },
   own_goal: { ours: true, opp: false },
   penalty_scored: { ours: true, opp: true },
   penalty_missed: { ours: true, opp: true },
@@ -18,6 +19,7 @@ export const DEFAULT_LIVE_EVENT_PREFS: LiveEventPrefs = {
 
 export const LIVE_EVENT_LABELS: Record<LiveEventType, { label: string; ours: string; opp: string }> = {
   goal: { label: 'Gol', ours: 'segnati da noi', opp: 'subiti (gol avversari)' },
+  assist: { label: 'Assist', ours: 'nostri', opp: 'degli avversari' },
   own_goal: { label: 'Autogol', ours: 'dei nostri', opp: 'degli avversari' },
   penalty_scored: { label: 'Rigore segnato', ours: 'nostro', opp: 'avversario' },
   penalty_missed: { label: 'Rigore sbagliato', ours: 'nostro', opp: 'avversario' },
@@ -52,7 +54,7 @@ export interface LiveNotification {
 }
 
 const EMOJI: Record<LiveEventType, string> = {
-  goal: '⚽', own_goal: '🔴⚽', penalty_scored: '🎯', penalty_missed: '❌', penalty_saved: '🧤', red_card: '🟥',
+  goal: '⚽', assist: '👟', own_goal: '🔴⚽', penalty_scored: '🎯', penalty_missed: '❌', penalty_saved: '🧤', red_card: '🟥',
 };
 
 function text(type: LiveEventType, name: string, club: string | null, minute: number): string {
@@ -60,6 +62,7 @@ function text(type: LiveEventType, name: string, club: string | null, minute: nu
   const at = minute > 0 ? ` ${minute}′` : '';
   switch (type) {
     case 'goal': return `Gol di ${who}${at}`;
+    case 'assist': return `Assist di ${who}${at}`;
     case 'own_goal': return `Autogol di ${who}${at}`;
     case 'penalty_scored': return `Rigore segnato da ${who}${at}`;
     case 'penalty_missed': return `Rigore sbagliato da ${who}${at}`;
@@ -100,8 +103,7 @@ export function collectLiveNotifications(input: {
       const data = input.playerData.get(playerId);
       if (!data || (!starter && !benchPlayerOn(data))) continue;
       const player = input.players[playerId];
-      const surname = player?.name.split(' ').filter((w, i, a) => a.slice(0, i + 1).every((x) => x === x.toUpperCase())).join(' ');
-      const name = surname ? displaySurname(surname) : player?.name || playerId;
+      const name = player?.name ? playerSurname(player.name) : playerId;
       const code = serieATeamCode(player?.realTeam);
       const club = code ? clubName.get(code) ?? player?.realTeam ?? null : null;
       const counts = new Map<EventType, number>();
@@ -129,4 +131,10 @@ export function displaySurname(raw: string): string {
     .toLowerCase()
     .replace(/(^|[\s'’-])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase())
     .replace(/\bMc(\p{L})/gu, (_, ch: string) => 'Mc' + ch.toUpperCase());
+}
+
+/** Cognome leggibile da 'CAQUERET Maxence' → 'Caqueret' (le parole iniziali in maiuscolo). */
+export function playerSurname(fullName: string): string {
+  const surname = fullName.split(' ').filter((w, i, a) => a.slice(0, i + 1).every((x) => x === x.toUpperCase())).join(' ');
+  return surname ? displaySurname(surname) : fullName;
 }

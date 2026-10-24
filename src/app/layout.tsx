@@ -5,6 +5,7 @@ import { BottomNav, SideNav } from "@/components/layout/bottom-nav";
 import { KickoffReminders } from "@/components/notify/kickoff-reminders";
 import { LiveEventNotifier } from "@/components/notify/live-event-notifier";
 import { ServiceWorkerRegister } from "@/components/notify/sw-register";
+import { PushSync } from "@/components/notify/push-sync";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <KickoffReminders />
         <LiveEventNotifier />
         <ServiceWorkerRegister />
+        <PushSync />
       </body>
     </html>
   );

@@ -11,6 +11,7 @@ import { useMyTeamId } from '@/lib/hooks/use-my-team';
 import { DEFAULT_NOTIFY_SETTINGS, isIos, loadNotifySettings, REMINDER_OPTIONS, saveNotifySettings, type NotifySettings } from '@/lib/notify-settings';
 import { LIVE_EVENT_LABELS, LIVE_EVENT_TYPES, type LiveEventType, type LiveSide } from '@/lib/live-event-notify';
 import { getNotifyRegistration, notificationsSupported, showAppNotification } from '@/lib/notify-client';
+import { isPushActive, PUSH_STATE_EVENT, pushSupported, sendServerTestPush } from '@/lib/push-client';
 
 type Perm = NotificationPermission | 'unsupported';
 
@@ -21,6 +22,15 @@ export function SettingsContent() {
   const [ios, setIos] = useState({ device: false, standalone: false });
   const [message, setMessage] = useState<string | null>(null);
   const [liveMessage, setLiveMessage] = useState<string | null>(null);
+  const [push, setPush] = useState({ supported: false, active: false });
+  const [pushMessage, setPushMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const read = () => setPush({ supported: pushSupported(), active: isPushActive() });
+    read();
+    window.addEventListener(PUSH_STATE_EVENT, read);
+    return () => window.removeEventListener(PUSH_STATE_EVENT, read);
+  }, []);
 
   useEffect(() => {
     // Lettura iniziale di localStorage/API del browser, disponibili solo dopo il montaggio.
@@ -84,6 +94,12 @@ export function SettingsContent() {
   const testLive = async () => {
     const ok = await showAppNotification('⚽ Amatori ProSecco', { body: 'Gol di McTominay (Napoli) 23′', tag: 'test-live' });
     setLiveMessage(ok ? 'Notifica live di prova inviata.' : 'Notifica non inviata: controlla il permesso.');
+  };
+
+  const testServer = async () => {
+    setPushMessage(null);
+    const ok = await sendServerTestPush();
+    setPushMessage(ok ? 'Push inviato dal server: chiudi l’app per vederlo arrivare anche in background.' : 'Push non inviato (riprova tra un minuto).');
   };
 
   const test = async () => {
@@ -170,7 +186,7 @@ export function SettingsContent() {
               <Radio size={18} className={settings.liveEnabled ? 'text-red-500' : 'text-gray-400'} aria-hidden />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-gray-900">Eventi live della sfida</p>
-                <p className="text-xs text-gray-500">Gol, rigori ed espulsioni dei giocatori in formazione tuoi e dell’avversario.</p>
+                <p className="text-xs text-gray-500">Gol, assist, rigori ed espulsioni dei giocatori in formazione tuoi e dell’avversario.</p>
               </div>
               <button
                 type="button"
@@ -227,8 +243,16 @@ export function SettingsContent() {
         <Card>
           <CardContent className="space-y-2 p-4 text-xs text-gray-600">
             <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-900"><Smartphone size={16} aria-hidden /> Come funzionano</p>
-            <p>Promemoria ed eventi live arrivano solo mentre FantaLive è aperta (anche in un’altra scheda): con l’app chiusa non arrivano. Durante le partite l’app controlla ogni 90 secondi, quindi un evento può arrivare con 1-3 minuti di ritardo.</p>
-            <p>Le preferenze restano solo su questo dispositivo.</p>
+            {push.active ? (
+              <p><span className="font-semibold text-emerald-700">Notifiche push attive:</span> arrivano anche con l’app chiusa o in background. Durante le partite il server controlla ogni minuto, quindi un evento arriva in 1-2 minuti.</p>
+            ) : (
+              <p>{push.supported ? 'Attiva una notifica qui sopra per riceverle anche con l’app chiusa.' : 'Su questo browser le notifiche arrivano solo mentre FantaLive è aperta (anche in un’altra scheda).'} Su iPhone servono l’app installata dalla schermata Home e iOS 16.4 o successivo.</p>
+            )}
+            {push.active && (settings.enabled || settings.liveEnabled) && (
+              <button type="button" onClick={testServer} className="text-xs font-medium text-emerald-700 underline-offset-2 hover:underline">Invia un push di prova dal server</button>
+            )}
+            {pushMessage && <p role="status" className="text-xs text-gray-700">{pushMessage}</p>}
+            <p>Le preferenze valgono per questo dispositivo.</p>
           </CardContent>
         </Card>
       </div>

@@ -8,6 +8,7 @@ import { fetchRoundPlayerData } from '@/lib/round-player-data-client';
 import { collectLiveNotifications } from '@/lib/live-event-notify';
 import { loadNotifySettings, NOTIFY_SETTINGS_EVENT, type NotifySettings } from '@/lib/notify-settings';
 import { notificationsSupported, showAppNotification } from '@/lib/notify-client';
+import { isPushActive, PUSH_STATE_EVENT } from '@/lib/push-client';
 import type { Player } from '@/types';
 
 const SEEN_KEY = 'fantalive_live_seen';
@@ -28,17 +29,21 @@ function writeSeen(round: number, keys: string[]) {
  */
 export function LiveEventNotifier() {
   const [settings, setSettings] = useState<NotifySettings | null>(null);
+  const [pushActive, setPushActive] = useState(false);
 
   useEffect(() => {
-    const read = () => setSettings(loadNotifySettings());
+    const read = () => { setSettings(loadNotifySettings()); setPushActive(isPushActive()); };
     read();
     window.addEventListener(NOTIFY_SETTINGS_EVENT, read);
+    window.addEventListener(PUSH_STATE_EVENT, read);
     window.addEventListener('storage', read);
-    return () => { window.removeEventListener(NOTIFY_SETTINGS_EVENT, read); window.removeEventListener('storage', read); };
+    return () => { window.removeEventListener(NOTIFY_SETTINGS_EVENT, read); window.removeEventListener(PUSH_STATE_EVENT, read); window.removeEventListener('storage', read); };
   }, []);
 
   useEffect(() => {
     if (!settings?.liveEnabled || !settings.teamId || !notificationsSupported() || Notification.permission !== 'granted') return;
+    // Push dal server attivo: le notifiche arrivano da lì, niente doppioni locali.
+    if (pushActive) return;
     const teamId = settings.teamId;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -87,7 +92,7 @@ export function LiveEventNotifier() {
 
     void poll();
     return () => { cancelled = true; if (timer) clearTimeout(timer); };
-  }, [settings]);
+  }, [settings, pushActive]);
 
   return null;
 }
