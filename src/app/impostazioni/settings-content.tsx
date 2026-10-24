@@ -245,7 +245,7 @@ function IosInstallHint() {
       <ol className="list-decimal space-y-1 pl-5 text-xs text-amber-900">
         <li>Apri <strong>fantalive-mu.vercel.app</strong> in <strong>Safari</strong> (o Chrome, con iOS 16.4 o successivo).</li>
         <li>Tocca <strong>Condividi</strong> (il quadrato con la freccia) → <strong>Aggiungi alla schermata Home</strong> → <strong>Aggiungi</strong>.</li>
-        <li>Chiudi il browser e apri FantaLive <strong>dall’icona verde con la F</strong> sulla schermata Home: deve aprirsi a tutto schermo, senza barra degli indirizzi.</li>
+        <li>Chiudi il browser e apri FantaLive <strong>dall’icona col logo FantaLive</strong> sulla schermata Home: deve aprirsi a tutto schermo, senza barra degli indirizzi.</li>
         <li>Torna in <strong>Impostazioni</strong> e attiva le notifiche: tocca <strong>Consenti</strong> quando iOS lo chiede.</li>
       </ol>
       <p className="text-xs text-amber-900"><strong>Hai già un’icona FantaLive</strong> (per esempio una “F” grigia)? È solo un collegamento al sito: tienila premuta → <strong>Rimuovi</strong>, poi aggiungila di nuovo con i passi qui sopra.</p>
