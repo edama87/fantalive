@@ -208,6 +208,7 @@ function toVotePlayer(p: LivePlayer, team: string): FantacalcioVotePlayer | null
     substitutedOut: p.events.includes(PLAYER_OUT),
     sourcePlayerId: p.id ? String(p.id) : null,
     ...(substitution ? { substitution } : {}),
+    ...(p.vote === 55 ? { noGrade: true } : {}),
   };
 }
 

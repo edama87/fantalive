@@ -148,8 +148,9 @@ function officialVoteToPlayerMatchData(row: OfficialVoteRow): PlayerMatchData | 
     };
   }
 
+  // Voto null = s.v. di fantacalcio.it per un giocatore entrato: niente stima
+  // ESPN (a partita in corso la stima live resta, vedi assembleRoundPlayerData).
   const estimatedVote = finiteNumber(row.vote_fantacalcio);
-  if (estimatedVote == null) return null;
   return {
     playerId: row.player_id,
     estimatedVote,
@@ -230,7 +231,10 @@ export function assembleRoundPlayerData(
   const eventsByPlayer = liveEventsByPlayer(liveEvents);
   for (const row of pickLatestLiveVotes(liveVotes)) {
     const existing = playerData.get(row.player_id);
-    if (existing) {
+    // s.v. provvisorio di chi è ancora in campo: vale il feed live.
+    const svStillPlaying =
+      existing?.voteSource === 'official' && existing.estimatedVote == null && row.is_playing === true && row.is_subbed_out !== true;
+    if (existing && !svStillPlaying) {
       // Voto fantacalcio.it durante la partita: lo stato in campo e i minuti
       // restano quelli del feed live (ESPN), che li azzera a fine partita o
       // dopo un cambio. Un espulso non è più in campo.

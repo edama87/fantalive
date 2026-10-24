@@ -190,3 +190,14 @@ describe('unused bench players', () => {
     expect(result.playerScores.find((ps) => ps.player.id === 'gk')?.isUnusedBench).toBeUndefined();
   });
 });
+
+describe('s.v. di fantacalcio.it a partita finita', () => {
+  it('non usa la stima ESPN quando la riga ufficiale è s.v. e il giocatore non è più in campo', () => {
+    const data = assembleRoundPlayerData(
+      [{ round_number: 2, player_id: 'ghilardi-daniele-d', vote_fantacalcio: null, minutes_played: null, bonus_malus: [], source: 'fantacalcio' } as never],
+      [{ player_id: 'ghilardi-daniele-d', estimated_vote: 5.5, minutes_played: 6, is_playing: false, is_subbed_out: false, updated_at: null } as never],
+      []
+    );
+    expect(data.get('ghilardi-daniele-d')?.estimatedVote).toBeNull();
+  });
+});

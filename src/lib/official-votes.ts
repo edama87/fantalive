@@ -31,8 +31,13 @@ export async function saveFantacalcioOfficialVotes(
 ): Promise<{ saved: number; skippedConsolidated: number }> {
   const byPlayer = new Map<string, FantacalcioScrapedPlayer>();
   for (const player of players) {
-    if (!player.playerId || player.vote == null || !(player.vote > 0 && player.vote <= 10)) continue; // fuori scala = senza voto
-    byPlayer.set(player.playerId, player);
+    if (!player.playerId) continue;
+    const graded = player.vote != null && player.vote > 0 && player.vote <= 10; // fuori scala = senza voto
+    // s.v. di chi è sceso in campo (subentrato o 55 = s.v. della fonte): si salva
+    // con voto null, così sostituisce la stima ESPN e un eventuale voto rimasto.
+    const enteredSv = !graded && (player.noGrade === true || player.substitution?.in != null);
+    if (!graded && !enteredSv) continue;
+    byPlayer.set(player.playerId, graded ? player : { ...player, vote: null, fantaVote: null });
   }
 
   // I voti consolidati (pianetafanta) non vengono sovrascritti dallo scraping.

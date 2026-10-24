@@ -95,6 +95,8 @@ export interface FantacalcioVotePlayer {
   sourcePlayerId: string | null;
   /** Minuti di ingresso/uscita quando la fonte li fornisce (file live fantacalcio.it). */
   substitution?: { in?: number | null; out?: number | null };
+  /** Senza voto dichiarato dalla fonte (file live: voto 55 = s.v.). */
+  noGrade?: boolean;
 }
 
 export interface FantacalcioCatalogPlayer {
