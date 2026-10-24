@@ -724,7 +724,10 @@ export function calculateTeamScore(
     });
   }
 
+  const benchPositions = new Map(lineup.bench.map((slot) => [slot.playerId, slot.position]));
   for (const score of playerScores) {
+    const benchPosition = score.isStarter ? undefined : benchPositions.get(score.player.id);
+    if (benchPosition != null) score.benchPosition = benchPosition;
     const voteSource = playerDataMap.get(score.player.id)?.voteSource;
     if (voteSource) score.voteSource = voteSource;
   }

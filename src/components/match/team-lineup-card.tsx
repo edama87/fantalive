@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { PlayerRow } from '@/components/match/player-row';
 import { cn, formatVote } from '@/lib/utils';
 import type { PlayerScore } from '@/types';
+import { benchList } from '@/lib/bench-list';
 import { fixtureForTeam, type RoundFixture } from '@/lib/serie-a-fixtures';
 import { Home, Plane } from 'lucide-react';
 
@@ -27,10 +28,8 @@ export function TeamLineupCard({
     (ps) => !ps.isUnusedBench && (ps.isStarter || ps.status !== 'to_play')
   );
   // Panchina completa: non entrati più chi è entrato al posto di un titolare
-  // (mostrato anche qui, segnato come entrato, in ordine di panchina).
-  const bench = playerScores.filter(
-    (ps) => ps.isUnusedBench || (!ps.isStarter && (ps.status === 'to_play' || ps.substitutedFor != null))
-  );
+  // (mostrato anche qui, segnato come entrato), nell'ordine originale della panchina.
+  const bench = benchList(playerScores);
   // Il titolare sostituito ha fantavoto 0: la somma resta quella dei soli che contano.
   const total = onField.reduce((sum, ps) => sum + (ps.substitutedBy ? 0 : ps.fantavoto), 0);
 

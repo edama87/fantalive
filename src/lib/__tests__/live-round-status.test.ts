@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { benchList } from '@/lib/bench-list';
 import catalogPlayers from '@/providers/__tests__/fixtures/espn-catalog-players.json';
 import summaryMilVen from '@/providers/__tests__/fixtures/espn-summary-mil-ven.json';
 import summaryPenSaved from '@/providers/__tests__/fixtures/espn-summary-pen-saved.json';
@@ -219,6 +220,25 @@ describe('early substitutions wait for the Serie A match', () => {
     expect(withSv.homeTotal).toBe(noRow.homeTotal);
     expect(withSv.homePlayerScores.map((s) => s.player.id)).toEqual(['d1', 'bd']);
     expect(withSv.homePlayerScores[0]).toMatchObject({ status: 'sv', fantavoto: 0 });
+  });
+
+  it('la panchina resta nel suo ordine: chi entra non sale in cima', () => {
+    const ordered: Record<string, Player> = {
+      d1: { id: 'd1', name: 'D1', role: 'D', teamId: 'dc', realTeam: 'SAS' },
+      b0: { id: 'b0', name: 'Bench A', role: 'A', teamId: 'dc', realTeam: 'ROM' },
+      bd: { id: 'bd', name: 'Bench D', role: 'D', teamId: 'dc', realTeam: 'FRO' },
+      b2: { id: 'b2', name: 'Bench C', role: 'C', teamId: 'dc', realTeam: 'ROM' },
+    };
+    const lu: Lineup = {
+      teamId: 'dc', roundNumber: 1, formation: '4-4-2',
+      starters: [{ playerId: 'd1', position: 0 }],
+      bench: [{ playerId: 'b0', position: 0 }, { playerId: 'bd', position: 1 }, { playerId: 'b2', position: 2 }],
+    };
+    const away: Lineup = { ...lu, teamId: 'ap', starters: [], bench: [] };
+    const sv = new Map([['d1', { ...vote('d1', 6), estimatedVote: null }], ['bd', vote('bd', 6.5)]]);
+    const result = calculateMatch(lu, away, sv, 'live', ordered, teamStatuses);
+    expect(result.homePlayerScores.find((s) => s.player.id === 'bd')?.substitutedFor?.id).toBe('d1');
+    expect(benchList(result.homePlayerScores).map((s) => s.player.id)).toEqual(['b0', 'bd', 'b2']);
   });
 
   it('marks a fantasy matchup finished only when all its Serie A matches are finished', () => {

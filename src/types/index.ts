@@ -184,6 +184,8 @@ export interface PlayerScore {
   substitutedBy?: Player;
   /** Panchinaro entrato in automatico: il titolare che sostituisce. */
   substitutedFor?: Player;
+  /** Posizione in panchina nella formazione schierata (solo panchinari): ordine della lista panchina. */
+  benchPosition?: number;
   /** Panchinaro non entrato: mostrato per info, escluso dal totale. */
   isUnusedBench?: boolean;
   /**
