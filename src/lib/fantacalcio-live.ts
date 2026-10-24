@@ -263,7 +263,21 @@ export async function resolveMatchVotes(
   fetchImpl: typeof fetch = fetch,
   options: { timeoutMs?: number } = {}
 ): Promise<{ players: FantacalcioVotePlayer[]; source: 'html' | 'live' }> {
-  if (parsed.some((p) => p.vote != null)) return { players: parsed, source: 'html' };
+  if (parsed.some((p) => p.vote != null)) {
+    // Partita finita: l'HTML non dice chi è entrato senza voto. Il file live sì
+    // (voto 55 = s.v., evento ingresso): si riportano quei dati sui senza voto.
+    if (!parsed.some((p) => p.vote == null)) return { players: parsed, source: 'html' };
+    const bridge = parseFantacalcioBridge(html);
+    if (!bridge) return { players: parsed, source: 'html' };
+    try {
+      const matches = await fetchFantacalcioLiveMatches(bridge, fetchImpl, { ...options, referer: teams.url });
+      const match = matches.find((m) => String(m.matchId) === String(teams.matchId) || m.matchId === bridge.matchId);
+      if (!match) return { players: parsed, source: 'html' };
+      return { players: mergeLiveNoGradeFlags(parsed, liveMatchToVotePlayers(match, teams.homeTeam, teams.awayTeam)), source: 'html' };
+    } catch {
+      return { players: parsed, source: 'html' };
+    }
+  }
   const bridge = parseFantacalcioBridge(html);
   if (!bridge) return { players: parsed, source: 'html' };
   const matches = await fetchFantacalcioLiveMatches(bridge, fetchImpl, { ...options, referer: teams.url });
@@ -271,4 +285,27 @@ export async function resolveMatchVotes(
   if (!match) return { players: parsed, source: 'html' };
   const live = liveMatchToVotePlayers(match, teams.homeTeam, teams.awayTeam);
   return live.some((p) => p.vote != null) ? { players: live, source: 'live' } : { players: parsed, source: 'html' };
+}
+
+const playerKey = (p: FantacalcioVotePlayer) => `${p.team.toLowerCase()}|${p.name.toLowerCase()}`;
+
+/** Ai giocatori senza voto dell'HTML aggiunge s.v. (55) e minuto d'ingresso del file live. */
+export function mergeLiveNoGradeFlags(
+  htmlPlayers: readonly FantacalcioVotePlayer[],
+  livePlayers: readonly FantacalcioVotePlayer[]
+): FantacalcioVotePlayer[] {
+  const byId = new Map(livePlayers.filter((p) => p.sourcePlayerId).map((p) => [p.sourcePlayerId as string, p]));
+  const byName = new Map(livePlayers.map((p) => [playerKey(p), p]));
+  return htmlPlayers.map((p) => {
+    if (p.vote != null) return p;
+    const live = (p.sourcePlayerId ? byId.get(p.sourcePlayerId) : undefined) ?? byName.get(playerKey(p));
+    if (!live || live.vote != null) return p;
+    const enteredAt = live.substitution?.in;
+    if (!live.noGrade && enteredAt == null) return p;
+    return {
+      ...p,
+      ...(live.noGrade ? { noGrade: true } : {}),
+      ...(enteredAt !== undefined ? { substitution: { ...p.substitution, in: enteredAt } } : {}),
+    };
+  });
 }
