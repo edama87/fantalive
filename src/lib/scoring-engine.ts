@@ -376,9 +376,11 @@ export function processSubstitutions(
   riservaUfficio: string | null;
   /** Titolari senza voto la cui partita non è ancora finita: né sostituiti né contati. */
   pendingStarters: string[];
+  /** Cambi automatici fatti: titolare senza voto -> panchinaro entrato. */
+  replacements: Array<{ starterId: string; benchId: string }>;
 } {
   const team = getTeamById(lineup.teamId);
-  if (!team) return { finalStarters: [], subsUsed: 0, riservaUfficio: null, pendingStarters: [] };
+  if (!team) return { finalStarters: [], subsUsed: 0, riservaUfficio: null, pendingStarters: [], replacements: [] };
 
   const formation = parseFormation(lineup.formation);
   const roleSlots: Record<PlayerRole, number> = {
@@ -390,6 +392,7 @@ export function processSubstitutions(
 
   const finalStarters: string[] = [];
   const pendingStarters: string[] = [];
+  const replacements: Array<{ starterId: string; benchId: string }> = [];
   const rolesFilled: Record<PlayerRole, number> = { P: 0, D: 0, C: 0, A: 0 };
   let subsUsed = 0;
   let riservaUfficio: string | null = null;
@@ -422,6 +425,7 @@ export function processSubstitutions(
         const benchData = playerDataMap.get(benchPlayerId);
         if (benchData && benchData.estimatedVote !== null) {
           finalStarters.push(benchPlayerId);
+          replacements.push({ starterId: slot.playerId, benchId: benchPlayerId });
           benchForRole.splice(benchForRole.indexOf(benchPlayerId), 1);
           rolesFilled[player.role]++;
           subsUsed++;
@@ -445,7 +449,7 @@ export function processSubstitutions(
     }
   }
 
-  return { finalStarters, subsUsed, riservaUfficio, pendingStarters };
+  return { finalStarters, subsUsed, riservaUfficio, pendingStarters, replacements };
 }
 
 export const MAX_SUBSTITUTIONS = 5;
@@ -536,7 +540,7 @@ export function calculateTeamScore(
     return { total: 0, playerScores: [], attackModifier: 0, attackExplanation: { entries: [], modifier: 0 } };
   }
 
-  const { finalStarters, pendingStarters } = processSubstitutions(
+  const { finalStarters, pendingStarters, replacements } = processSubstitutions(
     lineup,
     playerDataMap,
     5,
@@ -640,6 +644,32 @@ export function calculateTeamScore(
       }
     }
     playerScores.push(...scoredInOrder.slice(next), ...pendingScores.values());
+  }
+
+  // Titolari sostituiti in automatico (non entrati o s.v.): restano in elenco al
+  // loro posto, in grigio e fuori dal totale, subito prima di chi è entrato.
+  for (const { starterId, benchId } of replacements) {
+    const starter = findPlayer(starterId, playersById);
+    const subIndex = playerScores.findIndex((ps) => ps.player.id === benchId);
+    if (!starter || subIndex < 0) continue;
+    const sub = playerScores[subIndex];
+    sub.substitutedFor = starter;
+    const data = playerDataMap.get(starterId);
+    playerScores.splice(subIndex, 0, {
+      player: starter,
+      baseVote: 0,
+      bonuses: data
+        ? calculateBonuses(data, starter)
+        : {
+            goals: 0, penaltyGoals: 0, penaltyMissed: 0, penaltySaved: 0,
+            assists: 0, ownGoals: 0, yellowCards: 0, redCards: 0, goalsConceded: 0,
+          },
+      fantavoto: 0,
+      status: 'sv',
+      minutesPlayed: data?.minutesPlayed,
+      isStarter: true,
+      substitutedBy: sub.player,
+    });
   }
 
   const attackExplanation = explainAttackModifier(forwardData);

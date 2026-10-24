@@ -195,10 +195,30 @@ describe('early substitutions wait for the Serie A match', () => {
     const votes = new Map([['d1', vote('d1', 6)], ['a1', vote('a1', 7)], ['bd', vote('bd', 6.5)]]);
     const away: Lineup = { ...deployed, teamId: 'ap', starters: [], bench: [] };
     const match = calculateMatch(deployed, away, votes, 'live', ordered, teamStatuses);
-    expect(match.homePlayerScores.map((s) => s.player.id)).toEqual(['p', 'd1', 'bd', 'c1', 'a1', 'bp', 'bc']);
+    expect(match.homePlayerScores.map((s) => s.player.id)).toEqual(['p', 'd1', 'd2', 'bd', 'c1', 'a1', 'bp', 'bc']);
+    // d2 resta tra i titolari, in grigio e fuori dal totale; bd entra al suo posto.
+    const d2 = match.homePlayerScores.find((s) => s.player.id === 'd2')!;
+    expect(d2).toMatchObject({ isStarter: true, status: 'sv', fantavoto: 0 });
+    expect(d2.substitutedBy?.id).toBe('bd');
+    expect(match.homePlayerScores.find((s) => s.player.id === 'bd')?.substitutedFor?.id).toBe('d2');
     expect(match.homePlayerScores.find((s) => s.player.id === 'bd')).toMatchObject({ isStarter: false });
     expect(match.homePlayerScores.find((s) => s.player.id === 'bd')?.isUnusedBench).toBeFalsy();
     expect(match.homePlayerScores.filter((s) => s.isUnusedBench).map((s) => s.player.id)).toEqual(['bp', 'bc']);
+  });
+
+  it('il titolare s.v. sostituito non cambia il totale', () => {
+    const ordered: Record<string, Player> = {
+      d1: { id: 'd1', name: 'D1', role: 'D', teamId: 'dc', realTeam: 'SAS' },
+      bd: { id: 'bd', name: 'Bench D', role: 'D', teamId: 'dc', realTeam: 'FRO' },
+    };
+    const lu: Lineup = { teamId: 'dc', roundNumber: 1, formation: '4-4-2', starters: [{ playerId: 'd1', position: 0 }], bench: [{ playerId: 'bd', position: 0 }] };
+    const away: Lineup = { ...lu, teamId: 'ap', starters: [], bench: [] };
+    const sv = new Map([['d1', { ...vote('d1', 6), estimatedVote: null }], ['bd', vote('bd', 6.5)]]);
+    const withSv = calculateMatch(lu, away, sv, 'live', ordered, teamStatuses);
+    const noRow = calculateMatch(lu, away, new Map([['bd', vote('bd', 6.5)]]), 'live', ordered, teamStatuses);
+    expect(withSv.homeTotal).toBe(noRow.homeTotal);
+    expect(withSv.homePlayerScores.map((s) => s.player.id)).toEqual(['d1', 'bd']);
+    expect(withSv.homePlayerScores[0]).toMatchObject({ status: 'sv', fantavoto: 0 });
   });
 
   it('marks a fantasy matchup finished only when all its Serie A matches are finished', () => {

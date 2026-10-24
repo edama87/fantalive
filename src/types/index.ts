@@ -180,7 +180,10 @@ export interface PlayerScore {
   status: 'playing' | 'played' | 'to_play' | 'sv' | 'substituted';
   minutesPlayed?: number;
   isStarter: boolean;
+  /** Titolare sostituito in automatico: chi è entrato al suo posto (non conta nel totale). */
   substitutedBy?: Player;
+  /** Panchinaro entrato in automatico: il titolare che sostituisce. */
+  substitutedFor?: Player;
   /** Panchinaro non entrato: mostrato per info, escluso dal totale. */
   isUnusedBench?: boolean;
   /**

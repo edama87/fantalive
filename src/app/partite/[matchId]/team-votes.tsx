@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowDown, ArrowUp, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Sheet } from '@/components/ui/sheet';
+import { SubMarker } from '@/components/match/sub-marker';
 import { EVENT_EMOJI, EventEmojis, EventIcon } from '@/components/match/event-emoji';
 import { ConsolidatedMark, CONSOLIDATED_TITLE, ESTIMATED_TITLE } from '@/components/match/vote-source';
 import { cn, formatSignedPoints, formatVote } from '@/lib/utils';
@@ -191,21 +192,5 @@ function PlayerVoteDetail({ row }: { row: SerieAVoteRow }) {
         <p className="text-xs text-gray-400">Voto fantacalcio.it (stima precedente): {formatVote(row.fantacalcioVote)}</p>
       )}
     </div>
-  );
-}
-
-function SubMarker({ kind, minute, partner }: { kind: 'in' | 'out'; minute: number | null; partner?: string }) {
-  const base = `${kind === 'in' ? 'entrato' : 'uscito'}${minute != null ? ` ${minute}′` : ''}`;
-  const label = partner ? `${base} ${kind === 'in' ? 'al posto di' : 'per'} ${partner}` : base;
-  return kind === 'in' ? (
-    <span className="inline-flex items-center gap-0.5 font-medium text-emerald-600">
-      <ArrowUp aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
-      {label}
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-0.5 font-medium text-red-600">
-      <ArrowDown aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
-      {label}
-    </span>
   );
 }

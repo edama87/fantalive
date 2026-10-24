@@ -7,6 +7,7 @@ import { PlayerScore } from '@/types';
 import { RoleBadge } from '@/components/ui/icons';
 import { LiveDot } from '@/components/ui/live-dot';
 import { EventEmojis } from '@/components/match/event-emoji';
+import { SubMarker } from '@/components/match/sub-marker';
 import { isPlayerMuted } from '@/lib/bonus-summary';
 import { fixtureLabel, type RoundFixture } from '@/lib/serie-a-fixtures';
 
@@ -66,6 +67,7 @@ export function PlayerRow({ playerScore, isSubstitute, fixture }: PlayerRowProps
     <div className={cn(
       'flex items-center justify-between py-2 px-3',
       isSubstitute && 'bg-gray-50/50',
+      playerScore.substitutedFor && 'border-l-2 border-emerald-200',
       muted && 'opacity-60'
     )}>
       <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -80,6 +82,12 @@ export function PlayerRow({ playerScore, isSubstitute, fixture }: PlayerRowProps
             </span>
             <EventEmojis bonuses={bonuses} parenthesized={muted} />
           </div>
+          {(playerScore.substitutedBy || playerScore.substitutedFor) && (
+            <div className="flex flex-wrap gap-x-3 text-xs">
+              {playerScore.substitutedFor && <SubMarker kind="in" minute={null} partner={playerScore.substitutedFor.name} />}
+              {playerScore.substitutedBy && <SubMarker kind="out" minute={null} partner={playerScore.substitutedBy.name} />}
+            </div>
+          )}
           {(player.realTeam || fixture) && (
             <div className={cn(
               'text-[11px] truncate',

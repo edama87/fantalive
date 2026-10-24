@@ -5,7 +5,7 @@ import type { BonusBreakdown, PlayerScore } from '@/types';
  * panchinari che di sicuro non possono più entrare. "Da giocare" resta normale.
  */
 export function isPlayerMuted(playerScore: PlayerScore): boolean {
-  return playerScore.status === 'sv' || playerScore.isCertainlyOut === true;
+  return playerScore.status === 'sv' || playerScore.isCertainlyOut === true || playerScore.substitutedBy != null;
 }
 
 export function emptyBonuses(): BonusBreakdown {

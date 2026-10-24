@@ -26,11 +26,13 @@ export function TeamLineupCard({
   const onField = playerScores.filter(
     (ps) => !ps.isUnusedBench && (ps.isStarter || ps.status !== 'to_play')
   );
-  // Remaining bench: unused substitutes
+  // Panchina completa: non entrati più chi è entrato al posto di un titolare
+  // (mostrato anche qui, segnato come entrato, in ordine di panchina).
   const bench = playerScores.filter(
-    (ps) => ps.isUnusedBench || (!ps.isStarter && ps.status === 'to_play')
+    (ps) => ps.isUnusedBench || (!ps.isStarter && (ps.status === 'to_play' || ps.substitutedFor != null))
   );
-  const total = onField.reduce((sum, ps) => sum + ps.fantavoto, 0);
+  // Il titolare sostituito ha fantavoto 0: la somma resta quella dei soli che contano.
+  const total = onField.reduce((sum, ps) => sum + (ps.substitutedBy ? 0 : ps.fantavoto), 0);
 
   return (
     <Card className={cn(isUserTeam && 'ring-1 ring-emerald-200')}>
@@ -72,7 +74,7 @@ export function TeamLineupCard({
             <div className="divide-y divide-gray-100">
               {bench.map(ps => (
                 <PlayerRow
-                  key={ps.player.id}
+                  key={`bench-${ps.player.id}`}
                   playerScore={ps}
                   isSubstitute
                   fixture={fixtureForTeam(fixtures, ps.player.realTeam)}
