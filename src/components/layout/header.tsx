@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { LiveDot } from '@/components/ui/live-dot';
+import Link from 'next/link';
+import { Bell } from 'lucide-react';
 import { MyTeamLink } from '@/components/layout/my-team-link';
 
 interface HeaderProps {
@@ -41,6 +43,9 @@ export function Header({ title = 'FANTALIVE BUNDLESLIGA', subtitle, isLive = tru
             </div>
           )}
           <MyTeamLink />
+          <Link href="/impostazioni" aria-label="Impostazioni e notifiche" title="Impostazioni e notifiche" className="rounded-full p-1 text-gray-500 hover:bg-gray-100 hover:text-emerald-700">
+            <Bell size={16} aria-hidden />
+          </Link>
           {time && (
             <span className="hidden sm:inline text-sm text-gray-400">{time}</span>
           )}

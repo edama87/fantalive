@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { TeamLineupCard } from '@/components/match/team-lineup-card';
 import { EventLegend } from '@/components/match/event-emoji';
 import { VoteSourceLegend } from '@/components/match/vote-source';
+import { MatchRecap } from '@/components/match/match-recap';
 import { RouteSkeleton } from '@/components/ui/route-skeleton';
 import { GoalsPill, TeamBadge } from '@/components/match/team-badge';
 import { cn, formatSignedPoints, formatVote } from '@/lib/utils';
@@ -172,6 +173,14 @@ export function SfidaContent() {
             isHome={false}
           />
         </div>
+
+        <MatchRecap
+          fixtures={fixtures}
+          homeName={homeTeam.name}
+          awayName={awayTeam.name}
+          home={match.homePlayerScores}
+          away={match.awayPlayerScores}
+        />
 
         <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:items-start md:space-y-0">
           <TeamLineupCard

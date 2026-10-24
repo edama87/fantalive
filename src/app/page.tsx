@@ -9,6 +9,8 @@ import { MatchCard } from '@/components/match/match-card';
 import { EventLegend } from '@/components/match/event-emoji';
 import { VoteSourceLegend } from '@/components/match/vote-source';
 import { MatchSkeleton, Spinner } from '@/components/ui/spinner';
+import { getTeamById } from '@/data/teams';
+import { MatchRecap } from '@/components/match/match-recap';
 import { SerieAFixturesCard } from '@/components/match/serie-a-fixtures-card';
 import { LiveStandings } from '@/components/match/live-standings';
 import { Badge } from '@/components/ui/badge';
@@ -192,6 +194,16 @@ function GiornataLive() {
                   match={userMatch} 
                   roundNumber={currentRound.number}
                   showBonusSummary
+                />
+              )}
+              {userMatch && (
+                <MatchRecap
+                  collapsible
+                  fixtures={fixtures}
+                  homeName={getTeamById(userMatch.homeTeamId)?.name ?? userMatch.homeTeamId}
+                  awayName={getTeamById(userMatch.awayTeamId)?.name ?? userMatch.awayTeamId}
+                  home={userMatch.homePlayerScores}
+                  away={userMatch.awayPlayerScores}
                 />
               )}
 

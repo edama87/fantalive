@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { BottomNav, SideNav } from "@/components/layout/bottom-nav";
+import { KickoffReminders } from "@/components/notify/kickoff-reminders";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           {children}
         </main>
         <BottomNav />
+        <KickoffReminders />
       </body>
     </html>
   );
