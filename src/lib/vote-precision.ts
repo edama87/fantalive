@@ -1,7 +1,6 @@
 /**
  * Precisione dei calcoli come FMS Revo: medie voto e totali a 3 decimali
- * (7,5 + 7 + 7,5 = 22 / 3 = 7,333). La visualizzazione resta a 2 decimali
- * (formatVote); soglie gol e modificatori usano questi valori pieni.
+ * (7,5 + 7 + 7,5 = 22 / 3 = 7,333), mostrati così da formatVote; soglie gol e modificatori usano questi valori pieni.
  */
 
 export const VOTE_DECIMALS = 3;

@@ -111,7 +111,7 @@ export function PlayerRow({ playerScore, isSubstitute, fixture }: PlayerRowProps
           <StatusBadge status={status} minutesPlayed={minutesPlayed} />
         )}
         
-        <div className="flex items-center gap-2 w-24 justify-end">
+        <div className="flex items-center gap-2 w-28 justify-end">
           {consolidated && <ConsolidatedMark />}
           {baseVote > 0 && (
             <span className={cn('text-sm text-gray-500', estimated && 'italic')}>

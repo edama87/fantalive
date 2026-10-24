@@ -15,7 +15,8 @@ export function formatNumber(num: number, decimals: number = 1): string {
  * visualizzazione: i calcoli usano sempre il valore pieno.
  */
 export function formatVote(num: number, options: { integerWithoutDecimals?: boolean } = {}): string {
-  const fixed = num.toFixed(2).replace(/0$/, '');
+  // Fino a 3 decimali come FMS Revo (70,333), senza zeri finali ma con almeno un decimale (6,0; 70,5).
+  const fixed = num.toFixed(3).replace(/0{1,2}$/, '');
   const out = fixed.replace('.', ',');
   // Modificatori e bonus: "+1" invece di "+1,0".
   return options.integerWithoutDecimals ? out.replace(/,0$/, '') : out;
