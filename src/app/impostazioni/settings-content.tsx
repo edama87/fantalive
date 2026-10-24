@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Bell, BellOff, Smartphone } from 'lucide-react';
+import { Bell, BellOff, Radio, Smartphone } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Card, CardContent } from '@/components/ui/card';
 import { teams } from '@/data/teams';
@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { saveMyTeamChoice } from '@/lib/my-team';
 import { useMyTeamId } from '@/lib/hooks/use-my-team';
 import { DEFAULT_NOTIFY_SETTINGS, isIos, loadNotifySettings, REMINDER_OPTIONS, saveNotifySettings, type NotifySettings } from '@/lib/notify-settings';
+import { LIVE_EVENT_LABELS, LIVE_EVENT_TYPES, type LiveEventType, type LiveSide } from '@/lib/live-event-notify';
 import { getNotifyRegistration, notificationsSupported, showAppNotification } from '@/lib/notify-client';
 
 type Perm = NotificationPermission | 'unsupported';
@@ -19,6 +20,7 @@ export function SettingsContent() {
   const [perm, setPerm] = useState<Perm>('default');
   const [ios, setIos] = useState({ device: false, standalone: false });
   const [message, setMessage] = useState<string | null>(null);
+  const [liveMessage, setLiveMessage] = useState<string | null>(null);
 
   useEffect(() => {
     // Lettura iniziale di localStorage/API del browser, disponibili solo dopo il montaggio.
@@ -44,16 +46,40 @@ export function SettingsContent() {
     update({ teamId: id || null });
   };
 
-  const toggle = async () => {
+  /** Chiede il permesso (se serve) e restituisce true se le notifiche sono consentite. */
+  const ensurePermission = async (): Promise<boolean> => {
     setMessage(null);
-    if (settings.enabled) return update({ enabled: false });
-    if (perm === 'unsupported') return setMessage(ios.device && !ios.standalone ? 'Su iPhone/iPad aggiungi prima l’app alla schermata Home.' : 'Questo browser non supporta le notifiche.');
+    if (perm === 'unsupported') {
+      setMessage(ios.device && !ios.standalone ? 'Su iPhone/iPad aggiungi prima l’app alla schermata Home.' : 'Questo browser non supporta le notifiche.');
+      return false;
+    }
     let p: NotificationPermission = Notification.permission;
     if (p === 'default') p = await Notification.requestPermission();
     setPerm(p);
-    if (p !== 'granted') return setMessage('Permesso negato: riattiva le notifiche per questo sito nelle impostazioni del browser.');
+    if (p !== 'granted') {
+      setMessage('Permesso negato: riattiva le notifiche per questo sito nelle impostazioni del browser.');
+      return false;
+    }
     await getNotifyRegistration();
-    update({ enabled: true });
+    return true;
+  };
+
+  const toggle = async () => {
+    if (settings.enabled) return update({ enabled: false });
+    if (await ensurePermission()) update({ enabled: true });
+  };
+
+  const toggleLive = async () => {
+    if (settings.liveEnabled) return update({ liveEnabled: false });
+    if (await ensurePermission()) update({ liveEnabled: true });
+  };
+
+  const setLivePref = (type: LiveEventType, side: LiveSide, value: boolean) =>
+    update({ live: { ...settings.live, [type]: { ...settings.live[type], [side]: value } } });
+
+  const testLive = async () => {
+    const ok = await showAppNotification('⚽ Gol di MCTOMINAY (Napoli) 23′', { body: 'Amatori ProSecco', tag: 'test-live' });
+    setLiveMessage(ok ? 'Notifica live di prova inviata.' : 'Notifica non inviata: controlla il permesso.');
   };
 
   const test = async () => {
@@ -129,9 +155,69 @@ export function SettingsContent() {
         </Card>
 
         <Card>
+          <CardContent className="space-y-4 p-4">
+            <div className="flex items-center gap-3">
+              <Radio size={18} className={settings.liveEnabled ? 'text-red-500' : 'text-gray-400'} aria-hidden />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-gray-900">Eventi live della sfida</p>
+                <p className="text-xs text-gray-500">Gol, rigori ed espulsioni dei giocatori in formazione tuoi e dell’avversario.</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={settings.liveEnabled}
+                aria-label="Attiva notifiche eventi live"
+                disabled={!teamId}
+                onClick={toggleLive}
+                className={cn('relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-40', settings.liveEnabled ? 'bg-emerald-500' : 'bg-gray-200')}
+              >
+                <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all', settings.liveEnabled ? 'left-[1.375rem]' : 'left-0.5')} />
+              </button>
+            </div>
+
+            <fieldset disabled={!settings.liveEnabled} className="disabled:opacity-50">
+              <legend className="sr-only">Tipi di evento</legend>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[11px] uppercase tracking-wide text-gray-400">
+                    <th className="pb-1 text-left font-medium">Evento</th>
+                    <th className="w-16 pb-1 text-center font-medium">Noi</th>
+                    <th className="w-20 pb-1 text-center font-medium">Avversari</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {LIVE_EVENT_TYPES.map((type) => (
+                    <tr key={type}>
+                      <td className="py-2 text-gray-800">{LIVE_EVENT_LABELS[type].label}</td>
+                      {(['ours', 'opp'] as const).map((side) => (
+                        <td key={side} className="py-2 text-center">
+                          <input
+                            type="checkbox"
+                            checked={settings.live[type][side]}
+                            onChange={(e) => setLivePref(type, side, e.target.checked)}
+                            aria-label={`${LIVE_EVENT_LABELS[type].label} ${LIVE_EVENT_LABELS[type][side]}`}
+                            className="h-4 w-4 accent-emerald-600"
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="mt-2 text-[11px] text-gray-500">“Gol · Avversari” sono i gol subiti. Rigore parato: dal portiere di quella squadra. Panchinari solo se entrati.</p>
+            </fieldset>
+
+            {settings.liveEnabled && perm === 'granted' && (
+              <button type="button" onClick={testLive} className="text-xs font-medium text-emerald-700 underline-offset-2 hover:underline">Invia una notifica live di prova</button>
+            )}
+            {liveMessage && <p role="status" className="text-xs text-gray-700">{liveMessage}</p>}
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardContent className="space-y-2 p-4 text-xs text-gray-600">
             <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-900"><Smartphone size={16} aria-hidden /> Come funzionano</p>
-            <p>I promemoria partono solo mentre FantaLive è aperta (anche in un’altra scheda): con l’app chiusa non arrivano.</p>
+            <p>Promemoria ed eventi live arrivano solo mentre FantaLive è aperta (anche in un’altra scheda): con l’app chiusa non arrivano. Durante le partite l’app controlla ogni 90 secondi, quindi un evento può arrivare con 1-3 minuti di ritardo.</p>
             {ios.device && !ios.standalone && (
               <p className="rounded-lg bg-amber-50 p-2 text-amber-800">Su iPhone/iPad: tocca Condividi → “Aggiungi alla schermata Home” e apri FantaLive da lì (iOS 16.4 o successivo), poi attiva i promemoria.</p>
             )}

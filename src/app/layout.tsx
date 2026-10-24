@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { BottomNav, SideNav } from "@/components/layout/bottom-nav";
 import { KickoffReminders } from "@/components/notify/kickoff-reminders";
+import { LiveEventNotifier } from "@/components/notify/live-event-notifier";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </main>
         <BottomNav />
         <KickoffReminders />
+        <LiveEventNotifier />
       </body>
     </html>
   );

@@ -1,4 +1,6 @@
 /** Preferenze notifiche, salvate nel localStorage del dispositivo. */
+import { DEFAULT_LIVE_EVENT_PREFS, parseLiveEventPrefs, type LiveEventPrefs } from '@/lib/live-event-notify';
+
 export const NOTIFY_SETTINGS_KEY = 'fantalive_notify';
 export const NOTIFY_SETTINGS_EVENT = 'fantalive-notify-change';
 export const REMINDER_OPTIONS = [15, 30, 60] as const;
@@ -9,19 +11,22 @@ export interface NotifySettings {
   minutesBefore: ReminderMinutes;
   /** Squadra per cui ricordare le partite (rispecchia il cookie della squadra). */
   teamId: string | null;
+  /** Notifiche degli eventi live della sfida (gol, rigori, espulsioni). */
+  liveEnabled: boolean;
+  live: LiveEventPrefs;
 }
 
-export const DEFAULT_NOTIFY_SETTINGS: NotifySettings = { enabled: false, minutesBefore: 30, teamId: null };
+export const DEFAULT_NOTIFY_SETTINGS: NotifySettings = { enabled: false, minutesBefore: 30, teamId: null, liveEnabled: false, live: DEFAULT_LIVE_EVENT_PREFS };
 
 export function parseNotifySettings(raw: string | null | undefined): NotifySettings {
-  if (!raw) return { ...DEFAULT_NOTIFY_SETTINGS };
+  if (!raw) return { ...DEFAULT_NOTIFY_SETTINGS, live: parseLiveEventPrefs(null) };
   try {
     const v = JSON.parse(raw) as Partial<NotifySettings>;
     const minutes = REMINDER_OPTIONS.includes(v.minutesBefore as ReminderMinutes) ? (v.minutesBefore as ReminderMinutes) : 30;
     const teamId = typeof v.teamId === 'string' && /^[a-z0-9_-]{1,20}$/i.test(v.teamId) ? v.teamId : null;
-    return { enabled: v.enabled === true, minutesBefore: minutes, teamId };
+    return { enabled: v.enabled === true, minutesBefore: minutes, teamId, liveEnabled: v.liveEnabled === true, live: parseLiveEventPrefs(v.live) };
   } catch {
-    return { ...DEFAULT_NOTIFY_SETTINGS };
+    return { ...DEFAULT_NOTIFY_SETTINGS, live: parseLiveEventPrefs(null) };
   }
 }
 

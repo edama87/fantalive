@@ -20,8 +20,9 @@ describe('buildMatchRecap', () => {
 
 describe('notifiche', () => {
   it('parses settings defensively', () => {
-    expect(parseNotifySettings('{"enabled":true,"minutesBefore":60,"teamId":"am"}')).toEqual({ enabled: true, minutesBefore: 60, teamId: 'am' });
-    expect(parseNotifySettings('{"minutesBefore":7}')).toEqual({ enabled: false, minutesBefore: 30, teamId: null });
+    expect(parseNotifySettings('{"enabled":true,"minutesBefore":60,"teamId":"am"}')).toMatchObject({ enabled: true, minutesBefore: 60, teamId: 'am', liveEnabled: false });
+    expect(parseNotifySettings('{"minutesBefore":7}')).toMatchObject({ enabled: false, minutesBefore: 30, teamId: null });
+    expect(parseNotifySettings('{"liveEnabled":true,"live":{"red_card":{"opp":false}}}')).toMatchObject({ liveEnabled: true, live: { red_card: { ours: true, opp: false }, goal: { ours: true, opp: true } } });
     expect(parseNotifySettings('nope').enabled).toBe(false);
   });
   it('plans only future reminders for scheduled matches with my players', () => {
