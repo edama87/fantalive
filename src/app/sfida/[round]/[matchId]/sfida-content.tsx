@@ -175,6 +175,7 @@ export function SfidaContent() {
         </div>
 
         <MatchRecap
+          collapsible
           fixtures={fixtures}
           homeName={homeTeam.name}
           awayName={awayTeam.name}
