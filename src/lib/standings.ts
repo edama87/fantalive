@@ -1,3 +1,4 @@
+import { roundScore } from '@/lib/vote-precision';
 /**
  * Classifica cumulata: somma i risultati delle giornate 1..N.
  * Conta le sfide finite (e, per la giornata in corso, quelle live/intervallo,
@@ -57,7 +58,7 @@ export function accumulateStandings(rounds: RoundMatches[]): CumulativeStandings
         e.played += 1;
         e.goalsFor += gf;
         e.goalsAgainst += ga;
-        e.fantaTotal = Math.round((e.fantaTotal + total) * 100) / 100;
+        e.fantaTotal = roundScore(e.fantaTotal + total);
         if (gf > ga) { e.won += 1; e.points += 3; }
         else if (gf === ga) { e.drawn += 1; e.points += 1; }
         else e.lost += 1;

@@ -123,13 +123,12 @@ export function bonusMalusToEvents(playerId: string, bonusMalus: unknown): Playe
 }
 
 /**
- * Media consolidata a 3 decimali (come FMS) dai voti di testata; vote_average
- * nel DB è NUMERIC(4,2) e resta solo come ripiego per righe senza i tre voti.
+ * Media consolidata a 3 decimali (come FMS) dai soli voti di testata.
  */
-function consolidatedVote(row: OfficialVoteRow): number | null {
-  const votes = [row.vote_gazzetta, row.vote_corriere, row.vote_tuttosport].map((v) => finiteNumber(v ?? null));
-  if (votes.some((v) => v != null)) return averageOfVotes(votes);
-  return finiteNumber(row.vote_average ?? null);
+export function consolidatedVote(row: Pick<OfficialVoteRow, 'vote_gazzetta' | 'vote_corriere' | 'vote_tuttosport'>): number | null {
+  // Solo voti di testata: senza nessuno è s.v. Mai vote_average, che nel DB
+  // ripiega sul voto fantacalcio.it rimasto dalla riga live.
+  return averageOfVotes([row.vote_gazzetta, row.vote_corriere, row.vote_tuttosport].map((v) => finiteNumber(v ?? null)));
 }
 
 function officialVoteToPlayerMatchData(row: OfficialVoteRow): PlayerMatchData | null {

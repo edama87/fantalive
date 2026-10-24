@@ -115,6 +115,7 @@ describe('righe official_votes e priorità', () => {
       vote_tuttosport: 7.5,
       minutes_played: 80,
     });
+    expect(row.vote_fantacalcio).toBeNull(); // il voto live non sopravvive al consolidato
     expect(row.fanta_vote).toBe(11.333); // 3 decimali nel calcolo (la colonna NUMERIC(4,2) salva 11,33, solo informativa)
     expect(row.bonus_malus.map((b) => b.type)).toEqual(['goal', 'assist', 'substitution_out']);
   });
@@ -122,9 +123,11 @@ describe('righe official_votes e priorità', () => {
   it('il consolidato vince su fantacalcio.it e live, anche se s.v.', () => {
     const data = assembleRoundPlayerData(
       [
-        { player_id: 'a', source: 'pianetafanta', vote_fantacalcio: 7.5, vote_average: 7.33, minutes_played: 80,
+        { player_id: 'a', source: 'pianetafanta', vote_fantacalcio: 7.5, vote_average: 7.33, vote_gazzetta: 7.5, vote_corriere: 7, vote_tuttosport: 7.5, minutes_played: 80,
           bonus_malus: [{ type: 'goal', count: 1 }] },
         { player_id: 'b', source: 'pianetafanta', vote_fantacalcio: null, vote_average: null, minutes_played: 10, bonus_malus: [] },
+        // s.v. per tutte le testate con il 6 live rimasto nella riga (Calhanoglu, 11'): resta s.v.
+        { player_id: 'e', source: 'pianetafanta', vote_fantacalcio: 6, vote_average: 6, vote_gazzetta: null, vote_corriere: null, vote_tuttosport: null, minutes_played: 11, bonus_malus: [] },
         { player_id: 'c', source: 'fantacalcio', vote_fantacalcio: 6, vote_average: 6, minutes_played: null, bonus_malus: [] },
       ],
       [
@@ -134,9 +137,10 @@ describe('righe official_votes e priorità', () => {
       ],
       []
     );
-    expect(data.get('a')).toMatchObject({ estimatedVote: 7.33, minutesPlayed: 80, voteSource: 'consolidated' });
+    expect(data.get('a')).toMatchObject({ estimatedVote: 7.333, minutesPlayed: 80, voteSource: 'consolidated' });
     expect(data.get('a')?.events).toHaveLength(1);
     expect(data.get('b')).toMatchObject({ estimatedVote: null, voteSource: 'consolidated' });
+    expect(data.get('e')).toMatchObject({ estimatedVote: null, voteSource: 'consolidated' });
     expect(data.get('c')).toMatchObject({ estimatedVote: 6, voteSource: 'official' });
     expect(data.get('d')).toMatchObject({ estimatedVote: 6.5, voteSource: 'live' });
   });

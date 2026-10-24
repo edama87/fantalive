@@ -84,6 +84,9 @@ export function pianetafantaVoteRow(roundNumber: number, player: PianetafantaMat
     vote_gazzetta: player.votes.gazzetta,
     vote_corriere: player.votes.corriere,
     vote_tuttosport: player.votes.tuttosport,
+    // Il consolidato sostituisce lo scraping: un s.v. (nessun voto di testata) non
+    // deve ereditare il voto fantacalcio.it della riga live (es. 6 per 11').
+    vote_fantacalcio: null,
     minutes_played: player.minutesPlayed,
     fanta_vote: player.average == null ? null : fantavotoFromVote(player.average, player.bonuses),
     bonus_malus: pianetafantaBonusMalus(player),
