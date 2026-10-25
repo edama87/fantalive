@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Sheet } from '@/components/ui/sheet';
 import { SubMarker } from '@/components/match/sub-marker';
 import { EVENT_EMOJI, EventEmojis, EventIcon } from '@/components/match/event-emoji';
-import { ConsolidatedMark, CONSOLIDATED_TITLE, ESTIMATED_TITLE, paperCountOf } from '@/components/match/vote-source';
+import { ConsolidatedMark, CONSOLIDATED_TITLE, ESTIMATED_TITLE } from '@/components/match/vote-source';
 import { cn, formatSignedPoints, formatVote } from '@/lib/utils';
 import type { SerieAVoteRow } from '@/lib/serie-a-vote-rows';
 
@@ -14,7 +14,8 @@ const ROLE_LABELS: Record<string, string> = { P: 'Portiere', D: 'Difensore', C: 
 const fmtVote = (value: number | null) => (value == null ? 's.v.' : formatVote(value));
 const signed = formatSignedPoints;
 
-export function TeamVotes({ title, rows }: { title: string; rows: SerieAVoteRow[] }) {
+/** `matchPapers`: testate uscite per la partita (3 = consolidato completo). */
+export function TeamVotes({ title, rows, matchPapers }: { title: string; rows: SerieAVoteRow[]; matchPapers?: number }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const open = rows.find((row) => row.key === openKey) ?? null;
 
@@ -57,7 +58,7 @@ export function TeamVotes({ title, rows }: { title: string; rows: SerieAVoteRow[
                   className="flex shrink-0 items-center gap-2 text-right"
                   title={row.consolidated ? CONSOLIDATED_TITLE : row.estimated ? ESTIMATED_TITLE : undefined}
                 >
-                  <div className="w-4">{row.consolidated && row.vote != null && <ConsolidatedMark papers={paperCountOf(row.consolidated)} />}</div>
+                  <div className="w-4">{row.consolidated && row.vote != null && <ConsolidatedMark papers={matchPapers} />}</div>
                   <div className="w-11">
                     <div className="text-[10px] uppercase tracking-wide text-gray-400">Voto</div>
                     <div className={cn('font-semibold text-gray-700 tabular-nums', row.estimated && 'italic')}>
@@ -78,13 +79,13 @@ export function TeamVotes({ title, rows }: { title: string; rows: SerieAVoteRow[
         </ul>
       </CardContent>
       <Sheet open={open !== null} onClose={() => setOpenKey(null)} title={open ? open.name : ''}>
-        {open && <PlayerVoteDetail row={open} />}
+        {open && <PlayerVoteDetail row={open} matchPapers={matchPapers} />}
       </Sheet>
     </Card>
   );
 }
 
-function PlayerVoteDetail({ row }: { row: SerieAVoteRow }) {
+function PlayerVoteDetail({ row, matchPapers }: { row: SerieAVoteRow; matchPapers?: number }) {
   const events = EVENT_EMOJI.filter((entry) => (row.bonuses[entry.key] ?? 0) > 0);
   const eventPoints = (entry: (typeof EVENT_EMOJI)[number]) =>
     Number(entry.points.replace(',', '.')) * (row.bonuses[entry.key] ?? 0);
@@ -99,7 +100,7 @@ function PlayerVoteDetail({ row }: { row: SerieAVoteRow }) {
         </span>
         {row.consolidated ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">
-            <ConsolidatedMark papers={paperCountOf(row.consolidated)} /> Voto consolidato · {paperCountOf(row.consolidated)}/3 testate
+            <ConsolidatedMark papers={matchPapers} /> Voto consolidato{matchPapers != null ? ` · ${matchPapers}/3 testate` : ''}
           </span>
         ) : (
           <span className="rounded-full bg-gray-100 px-2 py-0.5 italic text-gray-500">

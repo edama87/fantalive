@@ -6,7 +6,8 @@
  */
 
 import { getServerClient } from '@/lib/db/supabase';
-import { averageOfVotes, paperVote } from '@/lib/vote-precision';
+import { averageOfVotes } from '@/lib/vote-precision';
+import { missingOutlets, type PianetafantaOutlet } from '@/lib/pianetafanta';
 import { canonicalTeamCode } from '@/lib/fantacalcio-it';
 import type { EventType, PlayerEvent, PlayerMatchData } from '@/types';
 import { fixtureFromRow, type RoundFixture, type SerieAMatchRow } from '@/lib/serie-a-fixtures';
@@ -145,7 +146,6 @@ function officialVoteToPlayerMatchData(row: OfficialVoteRow): PlayerMatchData | 
       isPlaying: false,
       events,
       voteSource: 'consolidated',
-      paperCount: [row.vote_gazzetta, row.vote_corriere, row.vote_tuttosport].filter((v) => paperVote(finiteNumber(v ?? null)) != null).length,
     };
   }
 
@@ -216,17 +216,48 @@ function coveredByConsolidated(playerId: string, coverage?: ConsolidatedCoverage
   return team != null && coverage.teams.has(team);
 }
 
+export interface ConsolidatedImportRow {
+  home_team: string | null;
+  away_team: string | null;
+  players?: Array<{
+    playerId?: string | null;
+    excluded?: boolean;
+    votes?: Partial<Record<PianetafantaOutlet, number | null>> | null;
+  }> | null;
+}
+
+/**
+ * Testate uscite per ogni partita consolidata (3 - testate mancanti per tutta la
+ * partita), assegnate a ogni giocatore di quella partita. Un s.v. del singolo
+ * (ha giocato poco) non conta: conta solo se la testata manca a tutti.
+ */
+export function matchPaperCounts(imports: readonly ConsolidatedImportRow[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const row of imports) {
+    const players = (row.players ?? []).filter((p) => !p.excluded);
+    const present = 3 - missingOutlets(players).length;
+    for (const p of players) if (p.playerId) counts.set(p.playerId, present);
+  }
+  return counts;
+}
+
 export function assembleRoundPlayerData(
   officialVotes: readonly OfficialVoteRow[],
   liveVotes: readonly LiveVoteRow[],
   liveEvents: readonly LiveEventRow[],
-  coverage?: ConsolidatedCoverage
+  coverage?: ConsolidatedCoverage,
+  matchPapers?: ReadonlyMap<string, number>
 ): Map<string, PlayerMatchData> {
   const playerData = new Map<string, PlayerMatchData>();
 
   for (const row of officialVotes) {
     const data = officialVoteToPlayerMatchData(row);
-    if (data) playerData.set(data.playerId, data);
+    if (!data) continue;
+    if (data.voteSource === 'consolidated') {
+      const papers = matchPapers?.get(data.playerId);
+      if (papers != null) data.paperCount = papers;
+    }
+    playerData.set(data.playerId, data);
   }
 
   const eventsByPlayer = liveEventsByPlayer(liveEvents);
@@ -337,7 +368,7 @@ export async function getRoundPlayerState(roundNumber: number): Promise<RoundPla
       .order('kickoff_time'),
     supabase
       .from('official_vote_imports')
-      .select('home_team, away_team')
+      .select('home_team, away_team, players')
       .eq('round_number', roundNumber)
       .eq('source', 'pianetafanta'),
   ]);
@@ -347,7 +378,7 @@ export async function getRoundPlayerState(roundNumber: number): Promise<RoundPla
   const liveEvents = assertQuery<LiveEventRow>('live_events', liveEventsResult);
   const matches = assertQuery<SerieAMatchRow>('serie_a_matches', matchesResult);
 
-  const imports = assertQuery<{ home_team: string | null; away_team: string | null }>(
+  const imports = assertQuery<ConsolidatedImportRow>(
     'official_vote_imports',
     importsResult
   );
@@ -356,7 +387,7 @@ export async function getRoundPlayerState(roundNumber: number): Promise<RoundPla
   ]);
 
   return {
-    playerData: assembleRoundPlayerData(officialVotes, liveVotes, liveEvents, coverage),
+    playerData: assembleRoundPlayerData(officialVotes, liveVotes, liveEvents, coverage, matchPaperCounts(imports)),
     isLive: isRoundLive(liveVotes, matches),
     fixtures: matches.map(fixtureFromRow),
   };

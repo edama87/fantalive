@@ -327,7 +327,7 @@ export const OUTLET_LABELS: Record<PianetafantaOutlet, string> = {
  * non s.v. veri). Senza nessun voto nel gruppo non segnala nulla.
  */
 export function missingOutlets(
-  players: ReadonlyArray<{ votes: Partial<Record<PianetafantaOutlet, number | null>> | null | undefined }>,
+  players: ReadonlyArray<{ votes?: Partial<Record<PianetafantaOutlet, number | null>> | null }>,
   threshold = 0.9
 ): PianetafantaOutlet[] {
   const voted = players.filter((p) => p.votes && Object.values(p.votes).some((v) => paperVote(v) != null));

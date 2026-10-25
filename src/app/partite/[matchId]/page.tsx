@@ -100,7 +100,7 @@ export default async function PartitaVotiPage({
               <p className="text-sm text-gray-500">Voti · Serie A {giornata}ª</p>
               {consolidated ? (
                 <p className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
-                  <ConsolidatedMark /> Voti consolidati · media {outletList(consolidatedPresent)}
+                  <ConsolidatedMark papers={consolidatedPresent.length} /> Voti consolidati · media {outletList(consolidatedPresent)}
                 </p>
               ) : null}
               {consolidated && consolidatedMissing.length > 0 ? (
@@ -119,8 +119,8 @@ export default async function PartitaVotiPage({
                 </p>
               )}
             </div>
-            <TeamVotes title={match.homeTeam} rows={buildSerieAVoteRows(homePlayers, subs, consolidated)} />
-            <TeamVotes title={match.awayTeam} rows={buildSerieAVoteRows(awayPlayers, subs, consolidated)} />
+            <TeamVotes title={match.homeTeam} rows={buildSerieAVoteRows(homePlayers, subs, consolidated)} matchPapers={consolidated ? consolidatedPresent.length : undefined} />
+            <TeamVotes title={match.awayTeam} rows={buildSerieAVoteRows(awayPlayers, subs, consolidated)} matchPapers={consolidated ? consolidatedPresent.length : undefined} />
             <p className="text-center text-xs text-gray-400">Tocca un giocatore per i dettagli del voto</p>
             <EventLegend className="text-xs text-gray-500 pt-1" />
             <VoteSourceLegend />
