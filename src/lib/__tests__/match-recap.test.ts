@@ -40,3 +40,20 @@ describe('notifiche', () => {
     expect(isIos('Mozilla/5.0 (Linux; Android 14)')).toBe(false);
   });
 });
+
+describe('splitRecapForDisplay', () => {
+  it('in corso prima, poi per calcio d\'inizio; le finite a parte', async () => {
+    const { splitRecapForDisplay } = await import('@/lib/match-recap');
+    const fixtures = [
+      fx('a', 'LEC', 'JUV', '2026-10-25T17:00:00Z'),
+      fx('b', 'TOR', 'MON', '2026-10-24T13:00:00Z', 'finished'),
+      fx('c', 'INT', 'FIO', '2026-10-25T11:30:00Z'),
+      fx('d', 'LAZ', 'PAR', '2026-10-24T18:45:00Z', 'live'),
+      fx('e', 'NAP', 'ROM', '2026-10-24T16:00:00Z', 'finished'),
+    ];
+    const recap = buildMatchRecap(fixtures, ['LEC', 'TOR', 'INT', 'LAZ', 'NAP'].map((t, i) => p(String(i), t, true)), []);
+    const { upcoming, finished } = splitRecapForDisplay(recap);
+    expect(upcoming.map((e) => e.fixture.matchId)).toEqual(['d', 'c', 'a']);
+    expect(finished.map((e) => e.fixture.matchId)).toEqual(['b', 'e']);
+  });
+});

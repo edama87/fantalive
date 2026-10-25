@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { CalendarClock, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { buildMatchRecap, type RecapPlayer, type RecapSideInput } from '@/lib/match-recap';
+import { buildMatchRecap, splitRecapForDisplay, type RecapEntry, type RecapPlayer, type RecapSideInput } from '@/lib/match-recap';
 import { fixtureLabel, romeKickoff, type RoundFixture } from '@/lib/serie-a-fixtures';
 
 interface MatchRecapProps {
@@ -53,8 +53,10 @@ function when(f: RoundFixture): string {
 /** "Partite da seguire": partite di Serie A con giocatori delle due squadre, in ordine di orario. */
 export function MatchRecap({ fixtures, homeName, awayName, home, away, collapsible = false, className }: MatchRecapProps) {
   const [open, setOpen] = useState(!collapsible);
+  const [finishedOpen, setFinishedOpen] = useState(false);
   const entries = buildMatchRecap(fixtures, home, away);
   if (entries.length === 0) return null;
+  const { upcoming, finished } = splitRecapForDisplay(entries);
   const starters = (side: 'home' | 'away') => entries.reduce((n, e) => n + e[side].filter((p) => p.starter).length, 0);
 
   return (
@@ -77,23 +79,43 @@ export function MatchRecap({ fixtures, homeName, awayName, home, away, collapsib
             <span />
             <span className="truncate text-right">{awayName} · {starters('away')} tit.</span>
           </div>
-          <ol className="mt-1 divide-y divide-gray-100">
-            {entries.map(({ fixture, home: h, away: a }) => (
-              <li key={fixture.matchId} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-x-2 py-2.5">
-                <Players list={h} align="left" />
-                <div className="flex min-w-[4.5rem] flex-col items-center text-center">
-                  <span className="text-xs font-bold text-gray-900">{fixture.homeCode}-{fixture.awayCode}</span>
-                  <span className={cn('text-[11px]', fixture.status === 'scheduled' ? 'text-gray-500' : fixture.status === 'finished' ? 'text-gray-400' : 'text-red-500')}>
-                    {when(fixture)}
-                  </span>
-                </div>
-                <Players list={a} align="right" />
-              </li>
-            ))}
-          </ol>
+          {upcoming.length > 0 && <RecapList entries={upcoming} />}
+          {finished.length > 0 && (
+            <div className={cn(upcoming.length > 0 && 'mt-1 border-t border-gray-100 pt-2')}>
+              <button
+                type="button"
+                onClick={() => setFinishedOpen((o) => !o)}
+                aria-expanded={finishedOpen}
+                className="flex w-full items-center gap-2 rounded-md bg-gray-50 px-2 py-1.5 text-left text-xs font-medium text-gray-500"
+              >
+                <span>Partite finite ({finished.length})</span>
+                <ChevronDown size={14} className={cn('ml-auto text-gray-400 transition-transform', finishedOpen && 'rotate-180')} aria-hidden />
+              </button>
+              {finishedOpen && <RecapList entries={finished} />}
+            </div>
+          )}
           <p className="mt-2 text-[11px] text-gray-400">In verde i titolari, in grigio la panchina. Orari di Roma.</p>
         </>
       )}
     </section>
+  );
+}
+
+function RecapList({ entries }: { entries: RecapEntry[] }) {
+  return (
+    <ol className="mt-1 divide-y divide-gray-100">
+      {entries.map(({ fixture, home: h, away: a }) => (
+        <li key={fixture.matchId} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-x-2 py-2.5">
+          <Players list={h} align="left" />
+          <div className="flex min-w-[4.5rem] flex-col items-center text-center">
+            <span className="text-xs font-bold text-gray-900">{fixture.homeCode}-{fixture.awayCode}</span>
+            <span className={cn('text-[11px]', fixture.status === 'scheduled' ? 'text-gray-500' : fixture.status === 'finished' ? 'text-gray-400' : 'text-red-500')}>
+              {when(fixture)}
+            </span>
+          </div>
+          <Players list={a} align="right" />
+        </li>
+      ))}
+    </ol>
   );
 }

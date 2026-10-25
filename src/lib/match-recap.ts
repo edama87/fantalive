@@ -60,3 +60,19 @@ export function buildMatchRecap(
     .map((e) => ({ ...e, home: sortPlayers(e.home), away: sortPlayers(e.away) }))
     .sort((a, b) => time(a.fixture) - time(b.fixture) || a.fixture.homeCode.localeCompare(b.fixture.homeCode));
 }
+
+/**
+ * Ordine di visualizzazione di "Partite da seguire": prima le partite in corso,
+ * poi le prossime per calcio d'inizio (la prima riga è sempre la più vicina);
+ * le finite a parte, in ordine di orario.
+ */
+export function splitRecapForDisplay(entries: readonly RecapEntry[]): { upcoming: RecapEntry[]; finished: RecapEntry[] } {
+  const time = (e: RecapEntry) => (e.fixture.kickoffTime ? Date.parse(e.fixture.kickoffTime) : Number.MAX_SAFE_INTEGER);
+  const isLive = (e: RecapEntry) => e.fixture.status === 'live' || e.fixture.status === 'halftime';
+  const byTime = (a: RecapEntry, b: RecapEntry) => time(a) - time(b) || a.fixture.homeCode.localeCompare(b.fixture.homeCode);
+  const upcoming = entries
+    .filter((e) => e.fixture.status !== 'finished')
+    .sort((a, b) => Number(isLive(b)) - Number(isLive(a)) || byTime(a, b));
+  const finished = entries.filter((e) => e.fixture.status === 'finished').sort(byTime);
+  return { upcoming, finished };
+}

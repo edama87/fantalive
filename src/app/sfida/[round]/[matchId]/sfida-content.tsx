@@ -41,6 +41,9 @@ export function SfidaContent() {
   const [isLive, setIsLive] = useState(false);
   const myTeamId = useMyTeamId();
   const [fixtures, setFixtures] = useState<RoundFixture[]>([]);
+  // Linguetta formazioni: quella della propria squadra se gioca la sfida, altrimenti casa.
+  const [pickedTab, setLineupTab] = useState<'home' | 'away' | null>(null);
+  const lineupTab = pickedTab ?? (myTeamId !== null && myTeamId === awayTeamId ? 'away' : 'home');
 
   const round = getRoundByNumber(roundNumber);
   const homeTeam = getTeamById(homeTeamId);
@@ -162,16 +165,8 @@ export function SfidaContent() {
         </Card>
 
         <div className="grid grid-cols-2 gap-4">
-          <ModifiersCard 
-            title="Modificatori Casa" 
-            modifiers={match.homeModifiers}
-            isHome={true}
-          />
-          <ModifiersCard 
-            title="Modificatori Trasferta" 
-            modifiers={match.awayModifiers}
-            isHome={false}
-          />
+          <ModifiersCard modifiers={match.homeModifiers} isHome={true} />
+          <ModifiersCard modifiers={match.awayModifiers} isHome={false} />
         </div>
 
         <MatchRecap
@@ -183,22 +178,51 @@ export function SfidaContent() {
           away={match.awayPlayerScores}
         />
 
-        <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:items-start md:space-y-0">
-          <TeamLineupCard
-            title={homeTeam.name}
-            isUserTeam={homeTeamId === myTeamId}
-            playerScores={match.homePlayerScores}
-            isHome={true}
-            fixtures={fixtures}
-          />
-
-          <TeamLineupCard
-            title={awayTeam.name}
-            isUserTeam={awayTeamId === myTeamId}
-            playerScores={match.awayPlayerScores}
-            isHome={false}
-            fixtures={fixtures}
-          />
+        <div>
+          {/* Mobile: due linguette allineate ai box modificatori (sinistra casa, destra trasferta). */}
+          <div role="tablist" aria-label="Formazioni" className="mb-2 grid grid-cols-2 gap-4 md:hidden">
+            {([['home', homeTeam.name, Home, match.homeTotal], ['away', awayTeam.name, Plane, match.awayTotal]] as const).map(([side, name, Icon, total]) => {
+              const selected = lineupTab === side;
+              const mine = (side === 'home' ? homeTeamId : awayTeamId) === myTeamId;
+              return (
+                <button
+                  key={side}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => setLineupTab(side)}
+                  className={cn(
+                    'flex min-w-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-left text-sm transition-colors',
+                    selected ? 'border-emerald-300 bg-white font-semibold text-gray-900 shadow-sm' : 'border-gray-100 bg-gray-50 text-gray-500'
+                  )}
+                >
+                  <Icon size={14} className={selected ? 'text-emerald-600' : 'text-gray-400'} aria-hidden />
+                  <span className={cn('truncate', mine && 'text-emerald-700')}>{name}</span>
+                  <span className="ml-auto shrink-0 tabular-nums text-xs text-gray-400">{formatVote(total)}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="md:grid md:grid-cols-2 md:items-start md:gap-4">
+            <div className={cn(lineupTab !== 'home' && 'hidden md:block')} role="tabpanel">
+              <TeamLineupCard
+                title={homeTeam.name}
+                isUserTeam={homeTeamId === myTeamId}
+                playerScores={match.homePlayerScores}
+                isHome={true}
+                fixtures={fixtures}
+              />
+            </div>
+            <div className={cn(lineupTab !== 'away' && 'hidden md:block')} role="tabpanel">
+              <TeamLineupCard
+                title={awayTeam.name}
+                isUserTeam={awayTeamId === myTeamId}
+                playerScores={match.awayPlayerScores}
+                isHome={false}
+                fixtures={fixtures}
+              />
+            </div>
+          </div>
         </div>
 
         <IconLegend />
@@ -207,13 +231,17 @@ export function SfidaContent() {
   );
 }
 
+const MODIFIER_GRID = 'grid grid-cols-[minmax(0,1fr)_0.875rem_2.5rem] items-center gap-x-1.5';
+
 function ModifierRow({
   label,
+  title,
   value,
   onOpen,
   positiveOnly,
 }: {
   label: string;
+  title: string;
   value: number;
   onOpen?: () => void;
   positiveOnly?: boolean;
@@ -222,21 +250,19 @@ function ModifierRow({
     value > 0 ? 'text-green-600' : value < 0 && !positiveOnly ? 'text-red-600' : 'text-gray-600';
   const content = (
     <>
-      <span className="text-gray-500 flex items-center gap-1">
-        {label}
-        {onOpen && <Info size={12} className="text-gray-300" aria-hidden />}
-      </span>
-      <span className={cn('font-medium', color)}>
-        {formatSignedPoints(value)}
-      </span>
+      <span className="truncate text-xs font-medium tracking-wide text-gray-500">{label}</span>
+      <span className="flex justify-center">{onOpen && <Info size={12} className="text-gray-300" aria-hidden />}</span>
+      <span className={cn('text-right font-medium tabular-nums', color)}>{formatSignedPoints(value)}</span>
     </>
   );
-  if (!onOpen) return <div className="flex justify-between">{content}</div>;
+  if (!onOpen) return <div className={cn(MODIFIER_GRID, 'py-0.5')} title={title}>{content}</div>;
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="-mx-2 flex w-[calc(100%+1rem)] justify-between rounded-lg px-2 py-0.5 text-left hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
+      title={title}
+      aria-label={`${title}: ${formatSignedPoints(value)}`}
+      className={cn(MODIFIER_GRID, '-mx-1.5 w-[calc(100%+0.75rem)] rounded-md px-1.5 py-0.5 text-left hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500')}
       aria-haspopup="dialog"
     >
       {content}
@@ -244,35 +270,39 @@ function ModifierRow({
   );
 }
 
-function ModifiersCard({ 
-  title, 
-  modifiers, 
-  isHome 
-}: { 
-  title: string; 
+function ModifiersCard({
+  modifiers,
+  isHome,
+}: {
   modifiers: ModifiersBreakdown;
   isHome: boolean;
 }) {
   const [openKind, setOpenKind] = useState<ModifierKind | null>(null);
   const details = modifiers.details;
   const open = (kind: ModifierKind) => (details ? () => setOpenKind(kind) : undefined);
+  const Icon = isHome ? Home : Plane;
+  const side = isHome ? 'Casa' : 'Trasferta';
   return (
     <Card>
-      <CardHeader className="pb-2">
-        <h4 className="text-sm font-medium text-gray-600">{title}</h4>
+      <CardHeader className="px-3 pb-1.5 pt-3">
+        <h4 className="flex items-center gap-1.5 text-sm font-medium text-gray-600">
+          Modificatori
+          <Icon size={13} className="text-gray-400" aria-label={side} />
+        </h4>
       </CardHeader>
-      <CardContent className="space-y-1 text-sm">
-        <ModifierRow label="Mod. Difesa avv." value={modifiers.defenseModifier} onOpen={open('defense')} />
-        <ModifierRow label="Mod. Centrocampo" value={modifiers.midfieldModifier} onOpen={open('midfield')} />
-        <ModifierRow label="Mod. Attacco" value={modifiers.attackModifier} onOpen={open('attack')} positiveOnly />
+      <CardContent className="space-y-0.5 px-3 pb-3 text-sm">
+        <ModifierRow label="DIF" title="Mod. Difesa avversaria" value={modifiers.defenseModifier} onOpen={open('defense')} />
+        <ModifierRow label="CEN" title="Mod. Centrocampo" value={modifiers.midfieldModifier} onOpen={open('midfield')} />
+        <ModifierRow label="ATT" title="Mod. Attacco" value={modifiers.attackModifier} onOpen={open('attack')} positiveOnly />
         {isHome && (
-          <ModifierRow label="Fattore campo" value={modifiers.homeBonus} onOpen={open('home')} />
+          <ModifierRow label="CAMPO" title="Fattore campo" value={modifiers.homeBonus} onOpen={open('home')} />
         )}
-        <div className="flex justify-between pt-2 border-t border-gray-100">
-          <span className="font-medium">Totale mod.</span>
+        <div className={cn(MODIFIER_GRID, 'mt-1 border-t border-gray-100 pt-1.5')}>
+          <span className="text-xs font-semibold tracking-wide text-gray-900">TOT</span>
+          <span />
           <span className={cn(
-            'font-bold',
-            modifiers.total > 0 ? 'text-green-600' : 
+            'text-right font-bold tabular-nums',
+            modifiers.total > 0 ? 'text-green-600' :
             modifiers.total < 0 ? 'text-red-600' : 'text-gray-900'
           )}>
             {formatSignedPoints(modifiers.total)}
@@ -283,7 +313,7 @@ function ModifiersCard({
         <Sheet
           open={openKind !== null}
           onClose={() => setOpenKind(null)}
-          title={openKind ? `${MODIFIER_TITLES[openKind]} · ${title.replace('Modificatori ', '')}` : ''}
+          title={openKind ? `${MODIFIER_TITLES[openKind]} · ${side}` : ''}
         >
           {openKind && <ModifierExplanation kind={openKind} details={details} />}
         </Sheet>
