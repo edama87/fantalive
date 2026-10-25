@@ -294,8 +294,15 @@ function ModifiersCard({
         <ModifierRow label="DIF" title="Mod. Difesa avversaria" value={modifiers.defenseModifier} onOpen={open('defense')} />
         <ModifierRow label="CEN" title="Mod. Centrocampo" value={modifiers.midfieldModifier} onOpen={open('midfield')} />
         <ModifierRow label="ATT" title="Mod. Attacco" value={modifiers.attackModifier} onOpen={open('attack')} positiveOnly />
-        {isHome && (
+        {isHome ? (
           <ModifierRow label="CAMPO" title="Fattore campo" value={modifiers.homeBonus} onOpen={open('home')} />
+        ) : (
+          // Riga vuota: in trasferta il fattore campo non c'è, ma i due box restano allineati riga per riga.
+          <div className={cn(MODIFIER_GRID, 'py-0.5')} title="Fattore campo: solo per la squadra di casa">
+            <span className="truncate text-xs font-medium tracking-wide text-gray-400">CAMPO</span>
+            <span />
+            <span className="text-right font-medium tabular-nums text-gray-300">—</span>
+          </div>
         )}
         <div className={cn(MODIFIER_GRID, 'mt-1 border-t border-gray-100 pt-1.5')}>
           <span className="text-xs font-semibold tracking-wide text-gray-900">TOT</span>
