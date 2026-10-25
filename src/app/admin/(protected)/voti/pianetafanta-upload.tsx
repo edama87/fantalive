@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { UnmatchedPicker, VoteChips, type RosterOption, type UnmatchedRow } from './unmatched-picker';
 import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, Upload } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { pianetafantaVotesUrl } from '@/lib/pianetafanta-url';
@@ -14,7 +15,8 @@ interface PreviewMatch {
   withVote: number;
   partialVotes: number;
   alreadyConsolidated: number;
-  unmatched: Array<{ name: string; team: string; role: string | null; average: number | null }>;
+  unmatched: UnmatchedRow[];
+  partial: Array<{ name: string; role: string | null; votes: UnmatchedRow['votes']; average: number | null; inRosa: boolean }>;
 }
 
 interface PreviewResponse {
@@ -35,6 +37,39 @@ export function PianetafantaUpload({ roundNumber, serieAMatchday }: { roundNumbe
   const [busy, setBusy] = useState<'preview' | 'import' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [roster, setRoster] = useState<RosterOption[] | null>(null);
+
+  const loadRoster = async () => {
+    if (roster) return;
+    try {
+      const response = await fetch('/api/admin/alias');
+      const data = (await response.json()) as { success: boolean; players?: RosterOption[] };
+      setRoster(data.success ? (data.players ?? []) : []);
+    } catch {
+      setRoster([]);
+    }
+  };
+
+  const saveAlias = async (row: UnmatchedRow, player: RosterOption): Promise<boolean> => {
+    setError(null);
+    try {
+      const response = await fetch('/api/admin/alias', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alias: row.name, playerId: player.id, source: 'pianetafanta', round: roundNumber }),
+      });
+      const data = (await response.json()) as { success: boolean; error?: string };
+      if (!response.ok || !data.success) {
+        setError(data.error || 'Associazione non salvata');
+        return false;
+      }
+      setMessage(`${row.name} = ${player.name}: dai prossimi file verrà abbinato da solo. Rianalizza il file per includerlo.`);
+      return true;
+    } catch {
+      setError('Errore di rete');
+      return false;
+    }
+  };
 
   const reset = () => {
     setPreview(null);
@@ -172,14 +207,43 @@ export function PianetafantaUpload({ roundNumber, serieAMatchday }: { roundNumbe
                         </span>
                       </span>
                     </label>
-                    {match.unmatched.length > 0 && (
+                    {match.partial.length > 0 && (
                       <details className="border-t border-gray-100 px-3 py-2 text-xs text-gray-500">
-                        <summary className="cursor-pointer">Non abbinati (non in nessuna rosa o nome diverso)</summary>
-                        <ul className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5">
-                          {match.unmatched.map((player) => (
-                            <li key={`${player.team}-${player.name}`}>
-                              {player.name} <span className="text-gray-400">{player.role ?? ''} {player.average ?? 's.v.'}</span>
+                        <summary className="cursor-pointer text-amber-800">
+                          Voti parziali ({match.partial.length}): media sulle sole testate che hanno votato
+                        </summary>
+                        <ul className="mt-1 space-y-1">
+                          {match.partial.map((player) => (
+                            <li key={player.name} className="flex flex-wrap items-center justify-between gap-1 rounded-md bg-amber-50 px-2 py-1">
+                              <span className="font-medium text-gray-800">
+                                {player.name} <span className="font-normal text-gray-400">{player.role ?? ''}</span>
+                                {!player.inRosa && <span className="font-normal text-gray-400"> · non in rosa</span>}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <VoteChips votes={player.votes} />
+                                <span>= {player.average == null ? 's.v.' : String(player.average).replace('.', ',')}</span>
+                              </span>
                             </li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                    {match.unmatched.length > 0 && (
+                      <details
+                        className="border-t border-gray-100 px-3 py-2 text-xs text-gray-500"
+                        onToggle={(event) => {
+                          if ((event.currentTarget as HTMLDetailsElement).open) void loadRoster();
+                        }}
+                      >
+                        <summary className="cursor-pointer">
+                          Non abbinati ({match.unmatched.length}): non in nessuna rosa o nome diverso
+                        </summary>
+                        <p className="mt-1 text-gray-500">
+                          Se uno è in una rosa, tocca Associa e scegli il giocatore: l&apos;abbinamento viene ricordato.
+                        </p>
+                        <ul className="mt-1.5 space-y-1.5">
+                          {match.unmatched.map((player) => (
+                            <UnmatchedPicker key={`${player.team}-${player.name}`} row={player} roster={roster} onSave={saveAlias} />
                           ))}
                         </ul>
                       </details>

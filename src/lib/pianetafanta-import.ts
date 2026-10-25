@@ -8,12 +8,27 @@ import {
   groupPianetafantaMatches,
   matchPianetafantaPlayers,
   parsePianetafantaRows,
+  suggestRosterPlayer,
   type PianetafantaMatchGroup,
 } from '@/lib/pianetafanta';
 import { readFirstSheet } from '@/lib/xlsx-reader';
 import type { Round } from '@/types';
 
 export const PIANETAFANTA_MAX_BYTES = 2 * 1024 * 1024;
+
+export type PreviewVotes = { gazzetta: number | null; corriere: number | null; tuttosport: number | null };
+
+export interface PreviewUnmatched {
+  name: string;
+  team: string;
+  teamCode: string | null;
+  role: string | null;
+  average: number | null;
+  votes: PreviewVotes;
+  voteCount: number;
+  /** Candidato in rosa con stesso cognome/iniziale/ruolo in un altro club (da confermare). */
+  suggestion: { id: string; name: string } | null;
+}
 
 export interface PianetafantaPreview {
   roundNumber: number;
@@ -28,7 +43,9 @@ export interface PianetafantaPreview {
     matched: number;
     withVote: number;
     partialVotes: number;
-    unmatched: Array<{ name: string; team: string; role: string | null; average: number | null }>;
+    unmatched: PreviewUnmatched[];
+    /** Giocatori con voto solo da 1 o 2 testate su 3. */
+    partial: Array<{ name: string; role: string | null; votes: PreviewVotes; average: number | null; inRosa: boolean }>;
     /** Giocatori abbinati che hanno già un voto consolidato (verrà riscritto). */
     alreadyConsolidated: number;
   }>;
@@ -83,7 +100,22 @@ export async function analyzePianetafantaFile(
         matched: group.matched,
         withVote: group.players.filter((p) => p.average != null).length,
         partialVotes: group.players.filter((p) => p.voteCount > 0 && p.voteCount < 3).length,
-        unmatched: group.unmatched.map((p) => ({ name: p.name, team: p.team, role: p.role, average: p.average })),
+        unmatched: group.unmatched.map((p) => {
+          const hit = suggestRosterPlayer(p, catalog.players);
+          return {
+            name: p.name,
+            team: p.team,
+            teamCode: p.teamCode,
+            role: p.role,
+            average: p.average,
+            votes: p.votes,
+            voteCount: p.voteCount,
+            suggestion: hit ? { id: hit.playerId, name: hit.playerName } : null,
+          };
+        }),
+        partial: group.players
+          .filter((p) => p.voteCount > 0 && p.voteCount < 3)
+          .map((p) => ({ name: p.name, role: p.role, votes: p.votes, average: p.average, inRosa: p.playerId != null })),
         alreadyConsolidated: group.players.filter((p) => p.playerId && consolidated.has(p.playerId)).length,
       })),
     },

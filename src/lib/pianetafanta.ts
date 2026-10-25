@@ -15,6 +15,7 @@
 import {
   canonicalTeamCode,
   matchFantacalcioPlayer,
+  normalizePlayerName,
   type FantacalcioAlias,
   type FantacalcioBonus,
   type FantacalcioBonusType,
@@ -250,6 +251,33 @@ export function matchPianetafantaPlayers(
     });
     return { ...player, playerId: hit?.playerId ?? null, matchedName: hit?.playerName ?? null };
   });
+}
+
+/**
+ * Suggerimento (non abbinamento automatico) per i non abbinati, utile se il club
+ * in anagrafica non è aggiornato: "COGNOME I." in qualsiasi club solo se il cognome in anagrafica è identico, l'iniziale è quella
+ * del primo nome, il ruolo coincide e il candidato è unico. KOUADIO E. (Monza)
+ * non diventa KONE' Kouadio (Roma), CARLOS D. non diventa CARLOS AUGUSTO.
+ */
+export function suggestRosterPlayer(
+  player: Pick<PianetafantaPlayer, 'name' | 'role'>,
+  players: readonly FantacalcioCatalogPlayer[]
+): { playerId: string; playerName: string } | null {
+  const parts = player.name.trim().match(/^(.+?)\s+([A-Za-zÀ-ÿ]{1,3})\.$/);
+  if (!parts) return null;
+  const surname = normalizePlayerName(parts[1]);
+  const initial = normalizePlayerName(parts[2]);
+  if (surname.length < 3 || !initial) return null;
+  const candidates = players.filter((entry) => {
+    if (player.role && entry.role && entry.role !== player.role) return false;
+    const words = normalizePlayerName(entry.name).split(' ');
+    const surnameWords = surname.split(' ').length;
+    if (words.slice(0, surnameWords).join(' ') !== surname) return false;
+    const given = words[surnameWords];
+    return Boolean(given && given.startsWith(initial));
+  });
+  if (candidates.length !== 1) return null;
+  return { playerId: candidates[0].id, playerName: candidates[0].name };
 }
 
 /** Raggruppa per partita usando il calendario della giornata (casa/trasferta). */
