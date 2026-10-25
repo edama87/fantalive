@@ -12,7 +12,9 @@ import { loadFantacalcioMatchVotes } from '@/lib/fantacalcio-it-client';
 import { calendar, getCurrentRound } from '@/data/calendar';
 import { getServerClient } from '@/lib/db/supabase';
 import { hasAnyVote, liveVotesToMatchPlayers, type LiveVoteRow } from '@/lib/live-vote-fallback';
-import type { FantacalcioVotePlayer } from '@/lib/fantacalcio-it';
+import { canonicalTeamCode, type FantacalcioVotePlayer } from '@/lib/fantacalcio-it';
+import { isAdminAuthenticated } from '@/lib/auth/admin';
+import { ConsolidatedVotesAdmin } from '@/components/admin/consolidated-votes-admin';
 
 /** Voti live stimati (live_votes) della giornata fantacalcio corrispondente. */
 async function loadLiveVoteRows(serieAMatchday: number): Promise<LiveVoteRow[]> {
@@ -68,6 +70,11 @@ export default async function PartitaVotiPage({
     ? await Promise.all([loadEspnSubstitutions(match), loadConsolidatedMatchVotes(giornata, match.homeTeam, match.awayTeam)])
     : [[], null];
   const subs = substitutionsByPlayer(players, espnSubs);
+  const leagueRound = calendar.find((round) => round.serieAMatchday === giornata)?.number;
+  const showAdmin = Boolean(consolidated && match && leagueRound && (await isAdminAuthenticated()));
+  const matchKey = match
+    ? `${canonicalTeamCode(match.homeTeam) ?? match.homeTeam}-${canonicalTeamCode(match.awayTeam) ?? match.awayTeam}`
+    : '';
 
   const homePlayers = players.filter((player) => match && player.team === match.homeTeam);
   const awayPlayers = players.filter((player) => match && player.team === match.awayTeam);
@@ -107,6 +114,12 @@ export default async function PartitaVotiPage({
             <p className="text-center text-xs text-gray-400">Tocca un giocatore per i dettagli del voto</p>
             <EventLegend className="text-xs text-gray-500 pt-1" />
             <VoteSourceLegend />
+            {showAdmin && leagueRound && (
+              <section className="rounded-xl border border-red-200 bg-white p-3">
+                <h3 className="mb-2 text-sm font-semibold text-gray-900">Admin · voti consolidati (giornata {leagueRound})</h3>
+                <ConsolidatedVotesAdmin roundNumber={leagueRound} matchKey={matchKey} />
+              </section>
+            )}
           </>
         )}
       </div>

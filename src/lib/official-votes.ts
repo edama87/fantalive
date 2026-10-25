@@ -8,6 +8,7 @@
 import { getServerClient } from '@/lib/db/supabase';
 import type { FantacalcioScrapedPlayer } from '@/lib/fantacalcio-it-client';
 import { fantavotoFromVote } from '@/lib/fantacalcio-it';
+import { averageOfVotes, paperVote } from '@/lib/vote-precision';
 import {
   PIANETAFANTA_SOURCE,
   type PianetafantaMatchGroup,
@@ -80,20 +81,24 @@ function pianetafantaBonusMalus(player: PianetafantaMatchedPlayer) {
   return items;
 }
 
+function rowAverage(player: PianetafantaMatchedPlayer): number | null {
+  return averageOfVotes([player.votes.gazzetta, player.votes.corriere, player.votes.tuttosport]);
+}
+
 export function pianetafantaVoteRow(roundNumber: number, player: PianetafantaMatchedPlayer, now: string) {
   return {
     round_number: roundNumber,
     player_id: player.playerId,
     source: PIANETAFANTA_SOURCE,
     consolidated_at: now,
-    vote_gazzetta: player.votes.gazzetta,
-    vote_corriere: player.votes.corriere,
-    vote_tuttosport: player.votes.tuttosport,
+    vote_gazzetta: paperVote(player.votes.gazzetta),
+    vote_corriere: paperVote(player.votes.corriere),
+    vote_tuttosport: paperVote(player.votes.tuttosport),
     // Il consolidato sostituisce lo scraping: un s.v. (nessun voto di testata) non
     // deve ereditare il voto fantacalcio.it della riga live (es. 6 per 11').
     vote_fantacalcio: null,
     minutes_played: player.minutesPlayed,
-    fanta_vote: player.average == null ? null : fantavotoFromVote(player.average, player.bonuses),
+    fanta_vote: rowAverage(player) == null ? null : fantavotoFromVote(rowAverage(player) as number, player.bonuses),
     bonus_malus: pianetafantaBonusMalus(player),
   };
 }

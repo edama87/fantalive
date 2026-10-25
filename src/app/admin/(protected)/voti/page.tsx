@@ -8,6 +8,7 @@ import { calendar, getCurrentRound } from '@/data/calendar';
 import { formatVote } from '@/lib/utils';
 import { PianetafantaUpload } from './pianetafanta-upload';
 import { AutoImportStatus } from './auto-import-status';
+import { ConsolidatedVotesAdmin } from '@/components/admin/consolidated-votes-admin';
 import { Download, Loader2 } from 'lucide-react';
 
 interface PreviewPlayer {
@@ -151,6 +152,16 @@ export default function AdminVotiPage() {
           roundNumber={roundNumber}
           serieAMatchday={calendar.find((round) => round.number === roundNumber)?.serieAMatchday ?? roundNumber + 6}
         />
+
+        <Card>
+          <CardContent className="py-4 space-y-3">
+            <div>
+              <h3 className="font-semibold text-gray-900">Voti consolidati della giornata</h3>
+              <p className="text-sm text-gray-500">Cancellali per tornare ai voti di fantacalcio.it (partita intera o singolo giocatore).</p>
+            </div>
+            <ConsolidatedVotesAdmin key={`cons-${roundNumber}`} roundNumber={roundNumber} />
+          </CardContent>
+        </Card>
 
         {error && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">

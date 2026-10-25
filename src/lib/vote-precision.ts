@@ -21,9 +21,17 @@ export function truncateScore(value: number): number {
   return Math.floor(value * factor + 1e-6) / factor;
 }
 
+/**
+ * Voto di testata reale o null: 0, negativo, oltre 10 o non numerico = senza voto
+ * (pianetafanta esporta 0 quando una testata non ha votato).
+ */
+export function paperVote(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= 10 ? value : null;
+}
+
 /** Media dei voti di testata disponibili (Gazzetta, Corriere, Tuttosport), troncata a 3 decimali. */
 export function averageOfVotes(votes: readonly (number | null | undefined)[]): number | null {
-  const present = votes.filter((vote): vote is number => typeof vote === 'number' && Number.isFinite(vote));
+  const present = votes.map(paperVote).filter((vote): vote is number => vote != null);
   if (present.length === 0) return null;
   return truncateScore(present.reduce((sum, vote) => sum + vote, 0) / present.length);
 }

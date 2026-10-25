@@ -23,7 +23,7 @@ import {
 } from '@/lib/fantacalcio-it';
 import type { PlayerRole } from '@/types';
 
-import { averageOfVotes } from '@/lib/vote-precision';
+import { averageOfVotes, paperVote } from '@/lib/vote-precision';
 
 export const PIANETAFANTA_SOURCE = 'pianetafanta';
 
@@ -193,9 +193,9 @@ export function parsePianetafantaRows(rows: string[][]): PianetafantaFile {
     if (/^all\.?$/i.test(sourceId)) continue; // allenatore
 
     const votes = {
-      gazzetta: parseCellNumber(cell(row, map.outlets.gazzetta.vote)),
-      corriere: parseCellNumber(cell(row, map.outlets.corriere.vote)),
-      tuttosport: parseCellNumber(cell(row, map.outlets.tuttosport.vote)),
+      gazzetta: paperVote(parseCellNumber(cell(row, map.outlets.gazzetta.vote))),
+      corriere: paperVote(parseCellNumber(cell(row, map.outlets.corriere.vote))),
+      tuttosport: paperVote(parseCellNumber(cell(row, map.outlets.tuttosport.vote))),
     };
     const starter = parseCellNumber(cell(row, map.starter)) === 1;
     const min = parseCellNumber(cell(row, map.min));
@@ -226,6 +226,8 @@ export function parsePianetafantaRows(rows: string[][]): PianetafantaFile {
 }
 
 export interface PianetafantaMatchedPlayer extends PianetafantaPlayer {
+  /** Voto consolidato cancellato dall'admin: resta nel file ma non viene riapplicato. */
+  excluded?: boolean;
   playerId: string | null;
   matchedName: string | null;
 }

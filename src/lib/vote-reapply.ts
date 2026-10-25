@@ -15,7 +15,7 @@ import { loadFantacalcioCatalog, scrapeFantacalcioMatchday } from '@/lib/fantaca
 import { matchFantacalcioPlayer, type FantacalcioAlias, type FantacalcioCatalogPlayer } from '@/lib/fantacalcio-it';
 import type { PianetafantaMatchGroup, PianetafantaMatchedPlayer } from '@/lib/pianetafanta';
 import { saveFantacalcioOfficialVotes, savePianetafantaVotes } from '@/lib/official-votes';
-import { averageOfVotes } from '@/lib/vote-precision';
+import { averageOfVotes, paperVote } from '@/lib/vote-precision';
 import type { PlayerRole } from '@/types';
 
 interface StoredImport {
@@ -30,7 +30,17 @@ type Catalog = { players: readonly FantacalcioCatalogPlayer[]; aliases: readonly
 
 /** Riabbina i giocatori di un import salvato (puro, testabile). */
 export function rematchStoredImport(stored: StoredImport, catalog: Catalog): PianetafantaMatchGroup {
-  const players = stored.players.map((player) => {
+  const players = stored.players.map((stale) => {
+    // import salvati prima della correzione: 0 = testata senza voto
+    const votes = {
+      gazzetta: paperVote(stale.votes?.gazzetta),
+      corriere: paperVote(stale.votes?.corriere),
+      tuttosport: paperVote(stale.votes?.tuttosport),
+    };
+    const player = { ...stale, votes, voteCount: Object.values(votes).filter((v) => v != null).length };
+    if (player.excluded) {
+      return { ...player, average: averageOfVotes(Object.values(votes)), playerId: null, matchedName: null };
+    }
     const hit = matchFantacalcioPlayer(player.name, catalog.players, catalog.aliases, {
       role: (player.role as PlayerRole | null) ?? undefined,
       realTeam: player.team,
@@ -38,18 +48,18 @@ export function rematchStoredImport(stored: StoredImport, catalog: Catalog): Pia
     return {
       ...player,
       // media ricalcolata a 3 decimali dai voti di testata
-      average: averageOfVotes([player.votes?.gazzetta, player.votes?.corriere, player.votes?.tuttosport]),
+      average: averageOfVotes(Object.values(votes)),
       playerId: hit?.playerId ?? null,
       matchedName: hit?.playerName ?? null,
     };
   });
-  const unmatched = players.filter((player) => !player.playerId);
+  const unmatched = players.filter((player) => !player.playerId && !player.excluded);
   return {
     key: stored.match_key,
     homeTeam: stored.home_team,
     awayTeam: stored.away_team,
     players,
-    matched: players.length - unmatched.length,
+    matched: players.filter((player) => player.playerId).length,
     unmatched,
   };
 }
