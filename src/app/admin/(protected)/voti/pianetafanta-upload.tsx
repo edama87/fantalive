@@ -14,6 +14,7 @@ interface PreviewMatch {
   matched: number;
   withVote: number;
   partialVotes: number;
+  missingOutlets: Array<'gazzetta' | 'corriere' | 'tuttosport'>;
   alreadyConsolidated: number;
   unmatched: UnmatchedRow[];
   partial: Array<{ name: string; role: string | null; votes: UnmatchedRow['votes']; average: number | null; inRosa: boolean }>;
@@ -29,11 +30,18 @@ interface PreviewResponse {
   matches?: PreviewMatch[];
 }
 
+const OUTLET_NAMES = { gazzetta: 'Gazzetta', corriere: 'Corriere', tuttosport: 'Tuttosport' } as const;
+function outletNames(outlets: PreviewMatch['missingOutlets']): string {
+  const names = outlets.map((o) => OUTLET_NAMES[o]);
+  return names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
+}
+
 export function PianetafantaUpload({ roundNumber, serieAMatchday }: { roundNumber: number; serieAMatchday: number }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [confirmed, setConfirmed] = useState(false);
+  const [forced, setForced] = useState<string[]>([]);
   const [busy, setBusy] = useState<'preview' | 'import' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -74,6 +82,7 @@ export function PianetafantaUpload({ roundNumber, serieAMatchday }: { roundNumbe
   const reset = () => {
     setPreview(null);
     setSelected([]);
+    setForced([]);
     setConfirmed(false);
     setMessage(null);
     setError(null);
@@ -92,6 +101,7 @@ export function PianetafantaUpload({ roundNumber, serieAMatchday }: { roundNumbe
       if (mode === 'import') {
         form.set('matches', JSON.stringify(selected));
         form.set('confirm', 'overwrite');
+        form.set('incomplete', JSON.stringify(forced));
       }
       const response = await fetch('/api/admin/voti/pianetafanta', { method: 'POST', body: form });
       const data = (await response.json()) as PreviewResponse;
@@ -101,7 +111,8 @@ export function PianetafantaUpload({ roundNumber, serieAMatchday }: { roundNumbe
       }
       setPreview(data);
       if (mode === 'preview') {
-        setSelected((data.matches ?? []).filter((m) => m.matched > 0).map((m) => m.key));
+        setSelected((data.matches ?? []).filter((m) => m.matched > 0 && m.missingOutlets.length === 0).map((m) => m.key));
+        setForced([]);
         setConfirmed(false);
       } else {
         setMessage(data.message ?? 'Voti consolidati');
@@ -116,6 +127,7 @@ export function PianetafantaUpload({ roundNumber, serieAMatchday }: { roundNumbe
 
   const matches = preview?.matches ?? [];
   const selectedMatches = matches.filter((m) => selected.includes(m.key));
+  const incompleteSelected = selectedMatches.filter((m) => m.missingOutlets.length > 0);
   const toImport = selectedMatches.reduce((sum, m) => sum + m.matched, 0);
 
   return (
@@ -181,14 +193,16 @@ export function PianetafantaUpload({ roundNumber, serieAMatchday }: { roundNumbe
             <ul className="space-y-2">
               {matches.map((match) => {
                 const checked = selected.includes(match.key);
+                const incomplete = match.missingOutlets.length > 0;
+                const allowed = !incomplete || forced.includes(match.key);
                 return (
-                  <li key={match.key} className="rounded-lg border border-gray-200 bg-white">
+                  <li key={match.key} className={`rounded-lg border bg-white ${incomplete ? 'border-amber-300' : 'border-gray-200'}`}>
                     <label className="flex items-start gap-3 px-3 py-2.5 cursor-pointer">
                       <input
                         type="checkbox"
                         className="mt-1 h-4 w-4 accent-emerald-600"
                         checked={checked}
-                        disabled={match.matched === 0}
+                        disabled={match.matched === 0 || !allowed}
                         onChange={(event) =>
                           setSelected((current) =>
                             event.target.checked ? [...current, match.key] : current.filter((key) => key !== match.key)
@@ -207,6 +221,32 @@ export function PianetafantaUpload({ roundNumber, serieAMatchday }: { roundNumbe
                         </span>
                       </span>
                     </label>
+                    {incomplete && (
+                      <div className="mx-3 mb-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                        <p className="flex items-start gap-1 font-medium">
+                          <AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden />
+                          Voti incompleti: mancano {outletNames(match.missingOutlets)}
+                        </p>
+                        <p className="mt-0.5 text-amber-800">
+                          Nessun giocatore delle due squadre ha quei voti: probabilmente non sono ancora pubblicati. Meglio aspettare e
+                          ricaricare il file.
+                        </p>
+                        <label className="mt-1.5 flex items-center gap-2 font-medium">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 accent-amber-600"
+                            checked={forced.includes(match.key)}
+                            onChange={(event) => {
+                              const on = event.target.checked;
+                              setForced((current) => (on ? [...current, match.key] : current.filter((key) => key !== match.key)));
+                              if (!on) setSelected((current) => current.filter((key) => key !== match.key));
+                              setConfirmed(false);
+                            }}
+                          />
+                          Importa comunque con voti incompleti
+                        </label>
+                      </div>
+                    )}
                     {match.partial.length > 0 && (
                       <details className="border-t border-gray-100 px-3 py-2 text-xs text-gray-500">
                         <summary className="cursor-pointer text-amber-800">
@@ -264,6 +304,15 @@ export function PianetafantaUpload({ roundNumber, serieAMatchday }: { roundNumbe
                 <AlertTriangle size={14} className="mr-1 inline -mt-0.5" aria-hidden />
                 Sovrascrive i voti live e fantacalcio.it di {toImport} giocatori ({selectedMatches.map((m) => m.key).join(', ') || 'nessuna partita'}).
                 Diventano voti consolidati: lo scraping non li cambierà più.
+                {incompleteSelected.length > 0 && (
+                  <span className="mt-1 block font-medium">
+                    Con voti incompleti:{' '}
+                    {incompleteSelected
+                      .map((m) => `${m.homeTeam}${m.awayTeam ? ` – ${m.awayTeam}` : ''} (manca ${outletNames(m.missingOutlets)})`)
+                      .join('; ')}
+                    .
+                  </span>
+                )}
               </span>
             </label>
 

@@ -314,3 +314,32 @@ export function groupPianetafantaMatches(
   }
   return [...groups.values()];
 }
+
+export const OUTLET_LABELS: Record<PianetafantaOutlet, string> = {
+  gazzetta: 'Gazzetta',
+  corriere: 'Corriere',
+  tuttosport: 'Tuttosport',
+};
+
+/**
+ * Testate non ancora pubblicate per una partita: tra i giocatori con almeno un
+ * voto, quelle che votano meno del 10% (CS e TS vuoti per tutti = non usciti,
+ * non s.v. veri). Senza nessun voto nel gruppo non segnala nulla.
+ */
+export function missingOutlets(
+  players: ReadonlyArray<{ votes: Partial<Record<PianetafantaOutlet, number | null>> | null | undefined }>,
+  threshold = 0.9
+): PianetafantaOutlet[] {
+  const voted = players.filter((p) => p.votes && Object.values(p.votes).some((v) => paperVote(v) != null));
+  if (voted.length === 0) return [];
+  return (Object.keys(OUTLET_LABELS) as PianetafantaOutlet[]).filter((outlet) => {
+    const missing = voted.filter((p) => paperVote(p.votes?.[outlet]) == null).length;
+    return missing / voted.length >= threshold;
+  });
+}
+
+/** "Corriere e Tuttosport" */
+export function outletList(outlets: readonly PianetafantaOutlet[]): string {
+  const names = outlets.map((o) => OUTLET_LABELS[o]);
+  return names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
+}

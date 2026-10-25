@@ -9,6 +9,8 @@ import {
   matchPianetafantaPlayers,
   parsePianetafantaRows,
   suggestRosterPlayer,
+  missingOutlets,
+  type PianetafantaOutlet,
   type PianetafantaMatchGroup,
 } from '@/lib/pianetafanta';
 import { readFirstSheet } from '@/lib/xlsx-reader';
@@ -43,6 +45,8 @@ export interface PianetafantaPreview {
     matched: number;
     withVote: number;
     partialVotes: number;
+    /** Testate non ancora pubblicate per la partita (voti incompleti). */
+    missingOutlets: PianetafantaOutlet[];
     unmatched: PreviewUnmatched[];
     /** Giocatori con voto solo da 1 o 2 testate su 3. */
     partial: Array<{ name: string; role: string | null; votes: PreviewVotes; average: number | null; inRosa: boolean }>;
@@ -92,14 +96,24 @@ export async function analyzePianetafantaFile(
       serieAMatchday: round.serieAMatchday,
       fileMatchday: file.serieAMatchday,
       matchdayMismatch: file.serieAMatchday != null && file.serieAMatchday !== round.serieAMatchday,
-      matches: groups.map((group) => ({
+      matches: groups.map((group) => {
+        const missing = missingOutlets(group.players);
+        const expected = 3 - missing.length;
+        const isPartial = (p: (typeof group.players)[number]) => {
+          const got = (['gazzetta', 'corriere', 'tuttosport'] as const).filter(
+            (o) => !missing.includes(o) && p.votes[o] != null
+          ).length;
+          return got > 0 && got < expected;
+        };
+        return {
         key: group.key,
         homeTeam: group.homeTeam,
         awayTeam: group.awayTeam,
         players: group.players.length,
         matched: group.matched,
         withVote: group.players.filter((p) => p.average != null).length,
-        partialVotes: group.players.filter((p) => p.voteCount > 0 && p.voteCount < 3).length,
+        missingOutlets: missing,
+        partialVotes: group.players.filter(isPartial).length,
         unmatched: group.unmatched.map((p) => {
           const hit = suggestRosterPlayer(p, catalog.players);
           return {
@@ -114,10 +128,11 @@ export async function analyzePianetafantaFile(
           };
         }),
         partial: group.players
-          .filter((p) => p.voteCount > 0 && p.voteCount < 3)
+          .filter(isPartial)
           .map((p) => ({ name: p.name, role: p.role, votes: p.votes, average: p.average, inRosa: p.playerId != null })),
         alreadyConsolidated: group.players.filter((p) => p.playerId && consolidated.has(p.playerId)).length,
-      })),
+        };
+      }),
     },
   };
 }

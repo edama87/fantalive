@@ -69,6 +69,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Partita non presente nel file' }, { status: 400 });
     }
 
+    // Partite con testate non ancora pubblicate: servono la conferma esplicita.
+    let acknowledged: unknown;
+    try {
+      acknowledged = JSON.parse(String(form.get('incomplete') ?? '[]'));
+    } catch {
+      acknowledged = [];
+    }
+    const ack = Array.isArray(acknowledged) ? acknowledged : [];
+    const unconfirmed = preview.matches.filter(
+      (m) => keys.includes(m.key) && m.missingOutlets.length > 0 && !ack.includes(m.key)
+    );
+    if (unconfirmed.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Voti incompleti in ${unconfirmed.map((m) => m.key).join(', ')}: conferma "Importa comunque" per ciascuna`,
+        },
+        { status: 400 }
+      );
+    }
+
     const result = await savePianetafantaVotes(round.number, round.serieAMatchday, selected);
     return NextResponse.json({
       success: true,

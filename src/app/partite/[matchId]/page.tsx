@@ -7,6 +7,7 @@ import { buildSerieAVoteRows } from '@/lib/serie-a-vote-rows';
 import { TeamVotes } from './team-votes';
 import { loadEspnSubstitutions } from '@/lib/serie-a-subs-loader';
 import { loadConsolidatedMatchVotes } from '@/lib/consolidated-votes-loader';
+import { missingOutlets, outletList, OUTLET_LABELS } from '@/lib/pianetafanta';
 import { ConsolidatedMark, VoteSourceLegend } from '@/components/match/vote-source';
 import { loadFantacalcioMatchVotes } from '@/lib/fantacalcio-it-client';
 import { calendar, getCurrentRound } from '@/data/calendar';
@@ -71,6 +72,8 @@ export default async function PartitaVotiPage({
     : [[], null];
   const subs = substitutionsByPlayer(players, espnSubs);
   const leagueRound = calendar.find((round) => round.serieAMatchday === giornata)?.number;
+  const consolidatedMissing = consolidated ? missingOutlets(consolidated) : [];
+  const consolidatedPresent = (['gazzetta', 'corriere', 'tuttosport'] as const).filter((o) => !consolidatedMissing.includes(o));
   const showAdmin = Boolean(consolidated && match && leagueRound && (await isAdminAuthenticated()));
   const matchKey = match
     ? `${canonicalTeamCode(match.homeTeam) ?? match.homeTeam}-${canonicalTeamCode(match.awayTeam) ?? match.awayTeam}`
@@ -97,9 +100,16 @@ export default async function PartitaVotiPage({
               <p className="text-sm text-gray-500">Voti · Serie A {giornata}ª</p>
               {consolidated ? (
                 <p className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
-                  <ConsolidatedMark /> Voti consolidati · media Gazzetta, Corriere, Tuttosport
+                  <ConsolidatedMark /> Voti consolidati · media {outletList(consolidatedPresent)}
                 </p>
-              ) : liveFallback ? (
+              ) : null}
+              {consolidated && consolidatedMissing.length > 0 ? (
+                <p className="mt-1 block rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
+                  Consolidati con voti incompleti (solo {outletList(consolidatedPresent)}): mancano{' '}
+                  {consolidatedMissing.map((o) => OUTLET_LABELS[o]).join(' e ')}
+                </p>
+              ) : null}
+              {consolidated ? null : liveFallback ? (
                 <p className="mt-1 inline-flex rounded-full bg-red-50 px-2.5 py-0.5 text-xs italic text-red-700">
                   Voti live stimati · solo giocatori della lega · fantacalcio.it pubblica i voti a fine partita
                 </p>
