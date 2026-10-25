@@ -6,7 +6,7 @@
  */
 
 import { getServerClient } from '@/lib/db/supabase';
-import { averageOfVotes } from '@/lib/vote-precision';
+import { averageOfVotes, paperVote } from '@/lib/vote-precision';
 import { canonicalTeamCode } from '@/lib/fantacalcio-it';
 import type { EventType, PlayerEvent, PlayerMatchData } from '@/types';
 import { fixtureFromRow, type RoundFixture, type SerieAMatchRow } from '@/lib/serie-a-fixtures';
@@ -145,6 +145,7 @@ function officialVoteToPlayerMatchData(row: OfficialVoteRow): PlayerMatchData | 
       isPlaying: false,
       events,
       voteSource: 'consolidated',
+      paperCount: [row.vote_gazzetta, row.vote_corriere, row.vote_tuttosport].filter((v) => paperVote(finiteNumber(v ?? null)) != null).length,
     };
   }
 

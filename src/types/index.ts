@@ -75,6 +75,8 @@ export interface PlayerMatchData {
   events: PlayerEvent[];
   finalVote?: number;
   voteSource?: VoteSource;
+  /** Voto consolidato: quante testate (0-3) hanno un voto reale. */
+  paperCount?: number;
 }
 
 export interface SerieAMatch {
@@ -195,6 +197,8 @@ export interface PlayerScore {
   isCertainlyOut?: boolean;
   /** Provenienza del voto (consolidato pianetafanta, fantacalcio.it o stima live). */
   voteSource?: VoteSource;
+  /** Testate (0-3) con un voto reale, per i consolidati. */
+  paperCount?: number;
 }
 
 export interface BonusBreakdown {

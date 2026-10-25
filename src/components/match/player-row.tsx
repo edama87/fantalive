@@ -112,7 +112,7 @@ export function PlayerRow({ playerScore, isSubstitute, fixture }: PlayerRowProps
         )}
         
         <div className="flex items-center gap-2 w-28 justify-end">
-          {consolidated && <ConsolidatedMark />}
+          {consolidated && <ConsolidatedMark papers={playerScore.paperCount} />}
           {baseVote > 0 && (
             <span className={cn('text-sm text-gray-500', estimated && 'italic')}>
               {formatVote(baseVote)}
