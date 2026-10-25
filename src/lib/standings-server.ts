@@ -5,7 +5,7 @@
 import type { FantasyMatchResult } from '@/types';
 import { getCurrentRound } from '@/data/calendar';
 import { computeRoundMatches } from '@/lib/round-matches-server';
-import { accumulateStandings, isCountable, lastPlayedRound, type CumulativeStandingsEntry } from '@/lib/standings';
+import { accumulateStandings, isCountable, lastPlayedRound, withPositionChange, type CumulativeStandingsEntry } from '@/lib/standings';
 
 export interface StandingsAfterRound {
   /** Giornata a cui si riferisce la classifica (0 = nessuna giocata). */
@@ -37,7 +37,11 @@ export async function getStandingsAfterRound(requested?: number | null): Promise
     maxRound,
     partial,
     isLive: Boolean(target?.isLive),
-    standings: accumulateStandings(included),
+    // Variazioni rispetto alla classifica dopo la giornata precedente (anche se N è in corso).
+    standings: withPositionChange(
+      accumulateStandings(included),
+      round > 1 ? accumulateStandings(included.filter((r) => r.round < round)) : null,
+    ),
     matches,
   };
 }

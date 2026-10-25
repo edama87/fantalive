@@ -10,6 +10,7 @@ import { cn, formatVote } from '@/lib/utils';
 import { calendar } from '@/data/calendar';
 import { getTeamById } from '@/data/teams';
 import { useMyTeamId } from '@/lib/hooks/use-my-team';
+import { PositionChange } from '@/components/match/position-change';
 import type { CumulativeStandingsEntry } from '@/lib/standings';
 import type { StandingsAfterRound } from '@/lib/standings-server';
 import type { FantasyMatchResult } from '@/types';
@@ -105,7 +106,7 @@ export function StandingsTable({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 text-gray-500 text-xs">
-                <th className="text-left py-2 w-8">#</th>
+                <th className="text-left py-2 w-12 pl-3.5">#</th>
                 <th className="text-left py-2">Squadra</th>
                 <th className="text-center py-2 w-8" title="Giocate">G</th>
                 <th className="text-center py-2 w-8" title="Vinte">V</th>
@@ -122,7 +123,7 @@ export function StandingsTable({
                 const mine = myTeamId !== null && e.teamId === myTeamId;
                 return (
                   <tr key={e.teamId} className={cn('border-b border-gray-50', mine && 'bg-emerald-50')}>
-                    <td className="py-2 font-medium text-gray-600">{idx + 1}</td>
+                    <td className="py-2 pr-1 font-medium text-gray-600"><span className="flex items-center gap-1 tabular-nums"><PositionChange change={e.positionChange} />{idx + 1}</span></td>
                     <td className={cn('py-2', mine ? 'font-semibold text-emerald-700' : 'text-gray-900')}>
                       <div className="flex items-center gap-2">
                         <span className="truncate">{getTeamById(e.teamId)?.name || e.teamName}</span>

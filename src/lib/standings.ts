@@ -21,6 +21,11 @@ export interface CumulativeStandingsEntry {
   fantaTotal: number;
   /** Risultato della giornata N se è ancora in corso. */
   live?: { opponentId: string; goalsFor: number; goalsAgainst: number };
+  /**
+   * Posizioni guadagnate (>0) o perse (<0) rispetto alla classifica dopo la
+   * giornata precedente; assente dopo la 1ª giornata.
+   */
+  positionChange?: number;
 }
 
 export interface RoundMatches {
@@ -92,4 +97,17 @@ export function parseGiornata(value: string | string[] | null | undefined, max: 
   if (!raw || !/^\d+$/.test(raw)) return null;
   const n = Number(raw);
   return n >= 1 && n <= max ? n : null;
+}
+
+/** Aggiunge a ogni squadra la variazione di posizione rispetto alla classifica precedente. */
+export function withPositionChange(
+  current: CumulativeStandingsEntry[],
+  previous: CumulativeStandingsEntry[] | null,
+): CumulativeStandingsEntry[] {
+  if (!previous || previous.length === 0) return current;
+  const before = new Map(previous.map((e, i) => [e.teamId, i]));
+  return current.map((e, i) => {
+    const prev = before.get(e.teamId);
+    return prev == null ? e : { ...e, positionChange: prev - i };
+  });
 }

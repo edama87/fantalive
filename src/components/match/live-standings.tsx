@@ -8,6 +8,7 @@ import { cn, formatVote } from '@/lib/utils';
 import type { CumulativeStandingsEntry } from '@/lib/standings';
 import { getTeamById } from '@/data/teams';
 import { useMyTeamId } from '@/lib/hooks/use-my-team';
+import { PositionChange } from '@/components/match/position-change';
 
 interface LiveStandingsProps {
   standings: CumulativeStandingsEntry[];
@@ -33,7 +34,7 @@ export function LiveStandings({ standings, round, partial }: LiveStandingsProps)
         </div>
 
         <div className="flex items-center text-xs text-gray-500 pb-2 border-b border-gray-100">
-          <span className="w-8">Pos</span>
+          <span className="w-10 pl-3.5">Pos</span>
           <span className="flex-1">Squadra</span>
           <span className="w-8 text-center">G</span>
           <span className="w-10 text-center">Pt</span>
@@ -44,7 +45,7 @@ export function LiveStandings({ standings, round, partial }: LiveStandingsProps)
           const isUserTeam = myTeamId !== null && entry.teamId === myTeamId;
           return (
             <div key={entry.teamId} className={cn('flex items-center py-2 text-sm', isUserTeam && 'bg-emerald-50 -mx-4 px-4 rounded-lg')}>
-              <span className="w-8 font-medium text-gray-600">{index + 1}</span>
+              <span className="flex w-10 items-center gap-1 font-medium text-gray-600"><PositionChange change={entry.positionChange} />{index + 1}</span>
               <span className={cn('flex-1 flex min-w-0 items-center gap-2', isUserTeam && 'font-semibold text-emerald-700')}>
                 <span className="truncate">{getTeamById(entry.teamId)?.name || entry.teamName}</span>
                 {isUserTeam && <Badge variant="userTeam" className="text-[10px]">Tu</Badge>}

@@ -48,3 +48,16 @@ describe('parseGiornata', () => {
     expect(parseGiornata('99', 27)).toBeNull();
   });
 });
+
+describe('withPositionChange', () => {
+  const e = (teamId: string) => ({ teamId, teamName: teamId, played: 1, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0, fantaTotal: 0 });
+  it('posizioni guadagnate, perse e invariate rispetto alla giornata precedente', async () => {
+    const { withPositionChange } = await import('@/lib/standings');
+    const out = withPositionChange([e('b'), e('a'), e('c')], [e('a'), e('b'), e('c')]);
+    expect(out.map((x) => x.positionChange)).toEqual([1, -1, 0]);
+  });
+  it('giornata 1: nessun confronto', async () => {
+    const { withPositionChange } = await import('@/lib/standings');
+    expect(withPositionChange([e('a')], null)[0].positionChange).toBeUndefined();
+  });
+});
