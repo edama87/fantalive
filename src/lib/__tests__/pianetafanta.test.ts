@@ -170,6 +170,6 @@ describe('pagina Serie A e conteggi', () => {
       { ...base, baseVote: 0, status: 'sv', voteSource: 'consolidated' },
       { ...base, baseVote: 6, status: 'played', voteSource: 'consolidated', isUnusedBench: true },
     ] as PlayerScore[];
-    expect(voteSourceCounts(scores)).toEqual({ consolidated: 1, estimated: 2 });
+    expect(voteSourceCounts(scores)).toEqual({ consolidated: 1, consolidatedFull: 0, estimated: 2 });
   });
 });

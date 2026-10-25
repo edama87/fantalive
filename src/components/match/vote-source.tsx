@@ -55,13 +55,19 @@ export function VoteSourceLegend({ className }: { className?: string }) {
 
 /** "✓ 8 · 3 stimati" sotto il totale di una squadra (card Live). */
 export function VoteSourceSummary({ scores, align = 'left' }: { scores: PlayerScore[]; align?: 'left' | 'right' | 'center' }) {
-  const { consolidated, estimated } = voteSourceCounts(scores);
+  const { consolidated, consolidatedFull, estimated } = voteSourceCounts(scores);
+  const partial = consolidated - consolidatedFull;
   if (consolidated === 0 && estimated === 0) return null;
   return (
     <div className={cn('mt-1 flex items-center gap-2 text-[11px] text-gray-500', align === 'right' && 'justify-end', align === 'center' && 'justify-center')}>
-      {consolidated > 0 && (
-        <span className="inline-flex items-center gap-1 text-emerald-700" title={CONSOLIDATED_TITLE}>
-          <ConsolidatedMark /> {consolidated}
+      {consolidatedFull > 0 && (
+        <span className="inline-flex items-center gap-1 text-emerald-700" title={CONSOLIDATED_FULL_TITLE}>
+          <ConsolidatedMark papers={3} /> {consolidatedFull}
+        </span>
+      )}
+      {partial > 0 && (
+        <span className="inline-flex items-center gap-1 text-emerald-700" title={CONSOLIDATED_PARTIAL_TITLE}>
+          <ConsolidatedMark papers={2} /> {partial}
         </span>
       )}
       {estimated > 0 && (

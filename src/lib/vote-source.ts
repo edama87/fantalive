@@ -12,13 +12,22 @@ export function isEstimatedVote(score: Pick<PlayerScore, 'voteSource' | 'baseVot
 }
 
 /** Voti che contano nel totale, divisi tra consolidati e stimati. */
-export function voteSourceCounts(scores: readonly PlayerScore[]): { consolidated: number; estimated: number } {
+export function voteSourceCounts(scores: readonly PlayerScore[]): {
+  consolidated: number;
+  /** Consolidati con tutte e 3 le testate. */
+  consolidatedFull: number;
+  estimated: number;
+} {
   let consolidated = 0;
+  let consolidatedFull = 0;
   let estimated = 0;
   for (const score of scores) {
     if (score.isUnusedBench || isPlayerMuted(score) || score.status === 'to_play') continue;
-    if (isConsolidatedVote(score)) consolidated += 1;
+    if (isConsolidatedVote(score)) {
+      consolidated += 1;
+      if (score.paperCount === 3) consolidatedFull += 1;
+    }
     else if (score.baseVote > 0) estimated += 1;
   }
-  return { consolidated, estimated };
+  return { consolidated, consolidatedFull, estimated };
 }
