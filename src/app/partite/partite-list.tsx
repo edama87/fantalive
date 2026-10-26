@@ -12,6 +12,8 @@ import { LiveDot } from '@/components/ui/live-dot';
 import { LinkPendingSpinner } from '@/components/ui/link-pending';
 import { matchClockText } from '@/lib/match-clock';
 import type { FantacalcioCalendarMatch } from '@/lib/fantacalcio-it';
+import { kickoffLabel } from '@/lib/kickoff-label';
+
 
 export function PartiteList({
   giornata,
@@ -85,7 +87,12 @@ export function PartiteList({
                   <div className="flex-1 font-medium text-gray-900">{match.homeTeam}</div>
                   <div className="px-4 text-center">
                     {match.status === 'scheduled' ? (
-                      <span className="text-gray-400 text-sm">vs</span>
+                      <div className="flex flex-col items-center">
+                        <span className="text-gray-400 text-sm">vs</span>
+                        {kickoffLabel(match.kickoffTime) && (
+                          <span className="text-xs text-gray-500 whitespace-nowrap">{kickoffLabel(match.kickoffTime)}</span>
+                        )}
+                      </div>
                     ) : (
                       <div className="flex flex-col items-center">
                         <span className="font-bold text-lg">
