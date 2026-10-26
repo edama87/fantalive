@@ -280,3 +280,9 @@ export async function deleteSuggestion(sb: SupabaseClient, id: string): Promise<
   if (error) throw new Error(error.message);
   return (data ?? []).length > 0;
 }
+
+export async function getSuggestion(sb: SupabaseClient, id: string): Promise<LineupSuggestion | null> {
+  const { data, error } = await sb.from('lineup_suggestions').select('*').eq('id', id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? fromRow(data) : null;
+}

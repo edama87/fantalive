@@ -12,6 +12,10 @@ import { SimpleMarkdown } from '@/components/admin/simple-markdown';
 import { getServerClient, isSupabaseServerConfigured } from '@/lib/db/supabase';
 import { listSuggestions, type LineupSuggestion, type SuggestionPlayer } from '@/lib/lineup-suggestions';
 import { cn } from '@/lib/utils';
+import { shortName } from '@/lib/player-name';
+import { loadDebriefs } from '@/lib/lineup-debrief-server';
+import type { LineupDebrief } from '@/lib/lineup-debrief';
+import { LineupDebriefPanel } from '@/components/admin/lineup-debrief-panel';
 
 const ROLE_LABEL = { A: 'Attaccanti', C: 'Centrocampisti', D: 'Difensori', P: 'Portiere' } as const;
 const ROLE_STYLE = {
@@ -33,17 +37,6 @@ function formatRome(iso: string) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(iso));
-}
-
-function shortName(name: string) {
-  // "BERNARDESCHI Federico" -> "Bernardeschi"; "N'DRI Konan" -> "N'Dri"
-  const surname = name.split(' ').filter((w) => w === w.toUpperCase() && /[A-Z]/.test(w)).join(' ') || name;
-  const ACCENT: Record<string, string> = { a: 'à', e: 'é', i: 'ì', o: 'ò', u: 'ù' };
-  return surname
-    .toLowerCase()
-    .replace(/(^|[\s'-])\p{L}/gu, (m) => m.toUpperCase())
-    .replace(/\bMc(\p{L})/gu, (_, c: string) => `Mc${c.toUpperCase()}`)
-    .replace(/([aeiou])'(?=\s|$)/g, (_, v: string) => ACCENT[v]);
 }
 
 function StartPct({ value }: { value: number | null }) {
@@ -107,7 +100,7 @@ function Pitch({ s }: { s: LineupSuggestion }) {
   );
 }
 
-function SuggestionCard({ s, teams }: { s: LineupSuggestion; teams: Map<string, string> }) {
+function SuggestionCard({ s, teams, debrief }: { s: LineupSuggestion; teams: Map<string, string>; debrief: LineupDebrief | null }) {
   return (
     <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -187,6 +180,8 @@ function SuggestionCard({ s, teams }: { s: LineupSuggestion; teams: Map<string, 
           </ul>
         </div>
       )}
+
+      <LineupDebriefPanel suggestionId={s.id} initial={debrief} />
     </section>
   );
 }
@@ -216,8 +211,11 @@ export default async function ConsigliPage({ searchParams }: { searchParams: Pro
     current = round;
     rounds = [...new Set((roundRows ?? []).map((r) => r.round_number as number))].sort((a, b) => b - a);
     const teams = new Map((teamRows ?? []).map((t) => [t.id as string, t.name as string]));
+    const debriefs = await loadDebriefs(sb, suggestions.map((s) => s.id)).catch(() => new Map<string, LineupDebrief>());
     content = suggestions.length ? (
-      <div className="space-y-4">{suggestions.map((s) => <SuggestionCard key={s.id} s={s} teams={teams} />)}</div>
+      <div className="space-y-4">
+        {suggestions.map((s) => <SuggestionCard key={s.id} s={s} teams={teams} debrief={debriefs.get(s.id) ?? null} />)}
+      </div>
     ) : (
       <p className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-500">
         Nessuna formazione consigliata{current ? ` per la giornata ${current}` : ''}.
