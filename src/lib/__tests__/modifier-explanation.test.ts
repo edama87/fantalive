@@ -48,10 +48,14 @@ describe('modifier explanations (same math as the modifiers)', () => {
     expect(calculateMidfieldModifier([7, 7, 7, 6], [6, 6, 6, 5], 4, 4)).toEqual({ homeModifier: 2, awayModifier: -2 });
     // DC-AP giornata 1: 32 vs 27,333 (4,667) -> +2,5 / -2,5.
     expect(calculateMidfieldModifier([4.667, 7.333, 6.667, 6.833, 6.5], [5.833, 4.833, 5, 6.667], 5, 4)).toEqual({ homeModifier: 2.5, awayModifier: -2.5 });
-    // Difesa: 6,699 resta -3, 6,7 passa a -4; 5,1995 è ancora +4.
+    // Difesa: 6,699 resta -3, 6,7 passa a -4; la media è arrotondata a 3 decimali (FMS):
+    // 5,1995 -> 5,200 (+3), 5,19925 -> 5,199 (+4).
     expect(explainDefenseModifier([6.699, 6.699, 6.699, 6.699], 4).band?.modifier).toBe(-3);
     expect(explainDefenseModifier([6.7, 6.7, 6.7, 6.7], 4).band?.modifier).toBe(-4);
-    expect(explainDefenseModifier([5.199, 5.2, 5.199, 5.2], 4).band?.modifier).toBe(4);
+    expect(explainDefenseModifier([5.199, 5.2, 5.199, 5.2], 4).band?.modifier).toBe(3);
+    expect(explainDefenseModifier([5.199, 5.199, 5.199, 5.2], 4).band?.modifier).toBe(4);
+    // Tabellino FMS Little Eagles – Salen, giornata 1: media 5,9995 => -1.
+    expect(explainDefenseModifier([7.166, 6.666, 5, 5.166], 4).modifier).toBe(-1);
   });
 
   it('attack: only forwards who did not score, by vote band', () => {

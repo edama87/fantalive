@@ -764,6 +764,43 @@ function extractSanitizedDebugSnippet(html: string): string {
   return lines.join('\n');
 }
 
+/**
+ * Quadratura (solo lettura): login e lettura del tabellino di una sfida dalla
+ * modale TABELLINI. Nessun altro form viene inviato.
+ */
+export async function loginFMSRevoReadOnly(): Promise<{ success: boolean; cookies: string; error?: string }> {
+  const username = process.env.FMSREVO_USERNAME;
+  const password = process.env.FMSREVO_PASSWORD;
+  if (!username || !password) return { success: false, cookies: '', error: 'Credenziali FMS Revo non configurate sul server' };
+  const initial = await getInitialSession();
+  if (initial.error) return { success: false, cookies: '', error: initial.error };
+  return performLogin(username, password, initial.cookies);
+}
+
+export async function fetchFMSRevoTabellino(sessionCookies: string, idIncontro: number): Promise<string | null> {
+  const body = new URLSearchParams({ azione: 'TABELLINI', idIncontro: String(idIncontro), Storico: '' });
+  const res = await fetch(`${FMSREVO_BASE_URL}/template/controller/ctrlModal.php`, {
+    method: 'POST',
+    headers: {
+      'User-Agent': USER_AGENT,
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      'Accept': 'application/json, text/javascript, */*; q=0.01',
+      'X-Requested-With': 'XMLHttpRequest',
+      'Referer': `${FMSREVO_BASE_URL}/`,
+      'Cookie': sessionCookies,
+    },
+    body: body.toString(),
+    cache: 'no-store',
+  });
+  if (!res.ok) return null;
+  try {
+    const json = (await res.json()) as { esito?: string; tabellino?: string };
+    return typeof json.tabellino === 'string' && json.tabellino.length > 0 ? json.tabellino : null;
+  } catch {
+    return null;
+  }
+}
+
 export const _testExports = {
   parseCookies,
   mergeCookieMaps,

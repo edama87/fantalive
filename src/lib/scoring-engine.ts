@@ -208,8 +208,11 @@ export function explainDefenseModifier(
   if (inputs.length === 0) {
     return { teamId, inputs, average: null, band: null, numDefenders: numDefendersInFormation, formationAdjustment, modifier: 0 };
   }
-  // Media a piena precisione (solo il rumore dei float viene eliminato): 5,1995 resta sotto 5,20.
-  const average = Math.round((inputs.reduce((sum, i) => sum + i.usedVote, 0) / inputs.length) * 1e6) / 1e6;
+  // Media arrotondata a 3 decimali (half-up), come FMS Revo: LE giornata 1
+  // (7,166 + 6,666 + 5 + 5,166) / 4 = 5,9995 -> 6,000 -> fascia 6,00-6,199 (-1 per l'avversario).
+  // Il passaggio a 1e6 elimina prima il rumore dei float.
+  const raw = Math.round((inputs.reduce((sum, i) => sum + i.usedVote, 0) / inputs.length) * 1e6) / 1e6;
+  const average = Math.round(raw * 1000 + 1e-9) / 1000;
   let band: DefenseModifierExplanation['band'] = null;
   for (const entry of DEFENSE_MODIFIER_TABLE) {
     if (average >= entry.minAvg) band = { ...entry };

@@ -16,6 +16,7 @@ import {
   Loader2,
   Link2,
   Lightbulb,
+  Scale,
 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -41,6 +42,13 @@ export default function AdminPage() {
           icon={Lightbulb}
           title="Formazione consigliata"
           description="Formazione suggerita per la prossima giornata"
+        />
+
+        <AdminMenuItem
+          href="/admin/quadratura"
+          icon={Scale}
+          title="Quadratura FMS"
+          description="Confronto totali, modificatori e voti con il sito FMS Revo"
         />
 
         <AdminMenuItem
