@@ -154,7 +154,7 @@ function GiornataLive() {
         </div>
 
         <div className="text-sm text-gray-500">
-          Fasce gol: <span className="font-medium">66 · 72 · 77 · 82</span>
+          Fasce gol: <span className="font-medium">66 · 72 · 77 · 81</span>
           {refreshing && loaded && (
             <span className="ml-3 inline-flex align-middle" role="status" aria-label="Aggiornamento in corso">
               <Spinner size="sm" />

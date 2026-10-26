@@ -35,7 +35,7 @@ describe('precisione voti (come FMS Revo)', () => {
   it('regola a/d al limite: differenza calcolata a 3 decimali', () => {
     // 75,668 - 72,668 = 3 esatto (con i float sarebbe 2,99999...): niente pareggio.
     expect(applyGoalConversionRules(75.668, 72.668, 2, 2)).toEqual({ homeGoals: 2, awayGoals: 2 });
-    expect(applyGoalConversionRules(72.001, 69.002, 2, 1)).toEqual({ homeGoals: 1, awayGoals: 1 });
+    expect(applyGoalConversionRules(72.001, 69.002, 2, 1)).toEqual({ homeGoals: 2, awayGoals: 2 });
     expect(applyGoalConversionRules(70, 66, 1, 1)).toEqual({ homeGoals: 2, awayGoals: 1 });
   });
 });

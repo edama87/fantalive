@@ -331,9 +331,13 @@ describe('Goal Calculation', () => {
 });
 
 describe('Goal Conversion Rules', () => {
-  it('equalizes goals when difference <3 points above 66', () => {
+  it('rule a: trailing team gets a gift goal when difference <3 (72,5 vs 70 = 2-2)', () => {
     const result = applyGoalConversionRules(72.5, 70, 2, 1);
-    expect(result).toEqual({ homeGoals: 1, awayGoals: 1 });
+    expect(result).toEqual({ homeGoals: 2, awayGoals: 2 });
+  });
+
+  it('rule a with real round 2 totals: PSG 71,166 vs AM 73,497 = 2-2', () => {
+    expect(applyGoalConversionRules(71.166, 73.497, 1, 2)).toEqual({ homeGoals: 2, awayGoals: 2 });
   });
 
   it('makes it 0-0 when difference <3 and below 66', () => {

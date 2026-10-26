@@ -341,7 +341,9 @@ export function applyGoalConversionRules(
     if (minPoints < 66) {
       return { homeGoals: 0, awayGoals: 0 };
     }
-    const equalGoals = Math.min(homeGoals, awayGoals);
+    // Regola a: la squadra in svantaggio ottiene un gol omaggio e pareggia
+    // (72,5 vs 70 = 2-2, non 1-1).
+    const equalGoals = Math.max(homeGoals, awayGoals);
     return { homeGoals: equalGoals, awayGoals: equalGoals };
   }
 
