@@ -10,7 +10,8 @@ import { loadConsolidatedMatchVotes } from '@/lib/consolidated-votes-loader';
 import { missingOutlets, outletList, OUTLET_LABELS } from '@/lib/pianetafanta';
 import { ConsolidatedMark, VoteSourceLegend } from '@/components/match/vote-source';
 import { loadFantacalcioMatchVotes } from '@/lib/fantacalcio-it-client';
-import { calendar, getCurrentRound } from '@/data/calendar';
+import { calendar } from '@/data/calendar';
+import { getActiveRound } from '@/lib/active-round-server';
 import { getServerClient } from '@/lib/db/supabase';
 import { hasAnyVote, liveVotesToMatchPlayers, type LiveVoteRow } from '@/lib/live-vote-fallback';
 import { canonicalTeamCode, type FantacalcioVotePlayer } from '@/lib/fantacalcio-it';
@@ -53,7 +54,7 @@ export default async function PartitaVotiPage({
   await connection();
   const { matchId } = await params;
   const query = await searchParams;
-  const giornata = Number(query.giornata) || getCurrentRound().serieAMatchday;
+  const giornata = Number(query.giornata) || (await getActiveRound()).serieAMatchday;
   const loaded = await loadFantacalcioMatchVotes(giornata, matchId);
   const { match } = loaded;
   let players: FantacalcioVotePlayer[] = loaded.players;

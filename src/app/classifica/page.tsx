@@ -1,7 +1,8 @@
 import { Suspense } from 'react';
 import { connection } from 'next/server';
 import { Header } from '@/components/layout/header';
-import { calendar, getCurrentRound } from '@/data/calendar';
+import { calendar } from '@/data/calendar';
+import { getActiveRound, getClosedRounds } from '@/lib/active-round-server';
 import { parseGiornata } from '@/lib/standings';
 import { getStandingsAfterRound } from '@/lib/standings-server';
 import { ClassificaClient } from './classifica-client';
@@ -17,7 +18,8 @@ export default async function ClassificaPage({
   const params = await searchParams;
   const view = params.vista === 'calendario' ? 'calendario' : 'classifica';
   const giornata = parseGiornata(params.giornata, calendar.length);
-  const currentRound = getCurrentRound().number;
+  const [active, closedRounds] = await Promise.all([getActiveRound(), getClosedRounds()]);
+  const currentRound = active.number;
 
   // Calendario: tutte le giornate; classifica: fino a quella in corso.
   const data = await getStandingsAfterRound(view === 'classifica' ? giornata : null);
@@ -32,6 +34,7 @@ export default async function ClassificaPage({
             view={view}
             data={data}
             currentRound={currentRound}
+            currentClosed={closedRounds.includes(currentRound)}
             calendarRound={calendarRound}
             totalRounds={calendar.length}
           />

@@ -16,6 +16,7 @@ import { LiveStandings } from '@/components/match/live-standings';
 import { Badge } from '@/components/ui/badge';
 import { FantasyMatchResult, PlayerMatchData } from '@/types';
 import { calendar, getCurrentRound, getRoundByNumber } from '@/data/calendar';
+import { useActiveRound } from '@/lib/use-active-round';
 import { useMyTeamId } from '@/lib/hooks/use-my-team';
 import { 
   calculateAllMatches, 
@@ -49,7 +50,9 @@ function GiornataLive() {
   const myTeamId = useMyTeamId();
   const [fixtures, setFixtures] = useState<RoundFixture[]>([]);
 
-  const liveRound = getCurrentRound();
+  const active = useActiveRound();
+  const liveRound = getRoundByNumber(active.round) ?? getCurrentRound();
+  const [closed, setClosed] = useState(false);
   const searchParams = useSearchParams();
   const giornata = parseGiornata(searchParams.get('giornata'), calendar.length);
   const currentRound = (giornata ? getRoundByNumber(giornata) : undefined) ?? liveRound;
@@ -80,6 +83,7 @@ function GiornataLive() {
         const roundData = await fetchRoundPlayerData(currentRound.number);
         playerDataMap = roundData.playerData;
         live = roundData.isLive;
+        setClosed(roundData.closed);
         updatedAt = roundData.lastUpdated;
         roundFixtures = roundData.fixtures;
       }
@@ -141,7 +145,7 @@ function GiornataLive() {
       <Header isLive={isLive} />
       
       <div className="px-4 py-4 space-y-4">
-        <RoundNav selected={currentRound.number} max={calendar.length} current={liveRound.number} />
+        <RoundNav selected={currentRound.number} max={calendar.length} current={liveRound.number} currentClosed={active.closed} />
 
         <div className="flex items-center justify-between">
           <div>
@@ -150,7 +154,8 @@ function GiornataLive() {
               {currentRound.number}ª giornata · Serie A {currentRound.serieAMatchday}ª · {currentRound.date}
             </p>
           </div>
-          {currentRound.number === liveRound.number && <Badge variant="live">stima live</Badge>}
+          {currentRound.number === liveRound.number && !closed && <Badge variant="live">stima live</Badge>}
+          {closed && <Badge variant="default">definitiva</Badge>}
         </div>
 
         <div className="text-sm text-gray-500">
@@ -174,7 +179,7 @@ function GiornataLive() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                {currentRound.number === liveRound.number ? 'Scontri diretti in corso' : currentRound.number < liveRound.number ? 'Risultati' : 'Scontri diretti'}
+                {currentRound.number === liveRound.number && !closed ? 'Scontri diretti in corso' : currentRound.number < liveRound.number ? 'Risultati' : 'Scontri diretti'}
               </h3>
               <span className="text-xs text-gray-400">{loaded ? `${matches.length} partite` : ''}</span>
             </div>

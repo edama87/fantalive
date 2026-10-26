@@ -14,9 +14,10 @@ import { createMockProvider } from '@/providers/mock-provider';
 export async function computeRoundMatches(
   roundNumber: number,
   opts: { transformPlayerData?: (data: Map<string, PlayerMatchData>) => Map<string, PlayerMatchData> } = {}
-): Promise<{ matches: FantasyMatchResult[]; isLive: boolean }> {
+): Promise<{ matches: FantasyMatchResult[]; isLive: boolean; closed: boolean }> {
   const round = getRoundByNumber(roundNumber);
-  if (!round) return { matches: [], isLive: false };
+  if (!round) return { matches: [], isLive: false, closed: false };
+  let closed = false;
   const lineupsPromise = fetchLineupsForRound(roundNumber).catch(() => ({}));
 
   let playerDataMap: Map<string, PlayerMatchData>;
@@ -33,6 +34,7 @@ export async function computeRoundMatches(
     const state = await getRoundPlayerState(roundNumber);
     playerDataMap = state.playerData;
     isLive = state.isLive;
+    closed = state.closed;
     fixtures = state.fixtures;
   }
 
@@ -53,5 +55,6 @@ export async function computeRoundMatches(
     players,
     fixtures.length > 0 ? teamStatusesFromFixtures(fixtures) : undefined,
   );
-  return { matches, isLive };
+  // Giornata chiusa (import FMS): tutte le sfide sono definitive.
+  return { matches: closed ? matches.map((m) => ({ ...m, status: 'finished' as const })) : matches, isLive, closed };
 }

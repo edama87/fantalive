@@ -39,6 +39,7 @@ export function SfidaContent() {
   
   const [match, setMatch] = useState<FantasyMatchResult | null>(null);
   const [isLive, setIsLive] = useState(false);
+  const [closed, setClosed] = useState(false);
   const myTeamId = useMyTeamId();
   const [fixtures, setFixtures] = useState<RoundFixture[]>([]);
   // Linguetta formazioni: quella della propria squadra se gioca la sfida, altrimenti casa.
@@ -73,6 +74,7 @@ export function SfidaContent() {
         const roundData = await fetchRoundPlayerData(roundNumber);
         playerDataMap = roundData.playerData;
         live = roundData.isLive;
+        setClosed(roundData.closed);
         roundFixtures = roundData.fixtures;
       }
 
@@ -132,6 +134,7 @@ export function SfidaContent() {
               <Badge variant="default">
                 {roundNumber}ª giornata
               </Badge>
+              {closed && <Badge variant="default">Definitivo · voti FMS</Badge>}
               {isLive && (
                 <Badge variant="live">
                   {match.status === 'halftime' ? 'Intervallo' : 'Live'}

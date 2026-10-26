@@ -2,14 +2,17 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { getCurrentRound } from '@/data/calendar';
+import { getCurrentRound, getRoundByNumber } from '@/data/calendar';
+import { useActiveRound } from '@/lib/use-active-round';
 import { MY_TEAM_COOKIE, parseMyTeam, readCookie } from '@/lib/my-team';
 
 export default function SfidaPage() {
   const router = useRouter();
-  const currentRound = getCurrentRound();
-  
+  const active = useActiveRound();
+  const currentRound = getRoundByNumber(active.round) ?? getCurrentRound();
+
   useEffect(() => {
+    if (!active.ready) return;
     const myTeamId = parseMyTeam(readCookie(document.cookie, MY_TEAM_COOKIE));
     const userMatch = myTeamId
       ? currentRound.pairings.find(p => p.homeTeamId === myTeamId || p.awayTeamId === myTeamId)
@@ -20,7 +23,7 @@ export default function SfidaPage() {
     } else {
       router.replace('/');
     }
-  }, [router, currentRound]);
+  }, [router, currentRound, active.ready]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">

@@ -6,6 +6,7 @@ import type { RoundFixture } from '@/lib/serie-a-fixtures';
 export interface RoundPlayerResponse {
   roundNumber: number;
   isLive: boolean;
+  closed?: boolean;
   players: PlayerMatchData[];
   fixtures?: RoundFixture[];
 }
@@ -13,6 +14,7 @@ export interface RoundPlayerResponse {
 export async function fetchRoundPlayerData(roundNumber: number): Promise<{
   playerData: Map<string, PlayerMatchData>;
   isLive: boolean;
+  closed: boolean;
   lastUpdated: Date;
   fixtures: RoundFixture[];
 }> {
@@ -35,6 +37,7 @@ export async function fetchRoundPlayerData(roundNumber: number): Promise<{
   return {
     playerData,
     isLive: body.isLive === true,
+    closed: body.closed === true,
     lastUpdated: new Date(),
     fixtures: Array.isArray(body.fixtures) ? body.fixtures : [],
   };

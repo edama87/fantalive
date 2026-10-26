@@ -19,6 +19,7 @@ export function RoundNav({
   selected,
   max,
   current,
+  currentClosed = false,
   label = (n) => `${n}ª giornata`,
   className,
 }: {
@@ -26,6 +27,8 @@ export function RoundNav({
   max: number;
   /** Giornata in corso (evidenziata nel selettore). */
   current?: number;
+  /** La giornata in corso è chiusa (import FMS): niente " · in corso". */
+  currentClosed?: boolean;
   label?: (n: number) => string;
   className?: string;
 }) {
@@ -50,7 +53,7 @@ export function RoundNav({
       >
         {Array.from({ length: max }, (_, i) => i + 1).map((n) => (
           <option key={n} value={n}>
-            {label(n)}{n === current ? ' · in corso' : ''}
+            {label(n)}{n === current && !currentClosed ? ' · in corso' : ''}
           </option>
         ))}
       </select>

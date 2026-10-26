@@ -68,6 +68,8 @@ export interface RoundPlayerState {
   isLive: boolean;
   /** Partite di Serie A della giornata (serie_a_matches). */
   fixtures: RoundFixture[];
+  /** Giornata chiusa: import voti FMS confermato (risultati definitivi). */
+  closed: boolean;
 }
 
 function finiteNumber(value: unknown): number | null {
@@ -381,7 +383,7 @@ async function consolidatedCoverage(
 
 export async function getRoundPlayerState(roundNumber: number): Promise<RoundPlayerState> {
   const supabase = getServerClient();
-  const [officialResult, liveVotesResult, liveEventsResult, matchesResult, importsResult] = await Promise.all([
+  const [officialResult, liveVotesResult, liveEventsResult, matchesResult, importsResult, fmsImportsResult] = await Promise.all([
     supabase
       .from('official_votes')
       .select('*')
@@ -405,7 +407,13 @@ export async function getRoundPlayerState(roundNumber: number): Promise<RoundPla
       .select('home_team, away_team, players')
       .eq('round_number', roundNumber)
       .eq('source', 'pianetafanta'),
+    supabase
+      .from('official_vote_imports')
+      .select('round_number', { count: 'exact', head: true })
+      .eq('round_number', roundNumber)
+      .eq('source', 'fms'),
   ]);
+  const closed = !fmsImportsResult.error && (fmsImportsResult.count ?? 0) > 0;
 
   const officialVotes = assertQuery<OfficialVoteRow>('official_votes', officialResult);
   const liveVotes = assertQuery<LiveVoteRow>('live_votes', liveVotesResult);
@@ -422,8 +430,10 @@ export async function getRoundPlayerState(roundNumber: number): Promise<RoundPla
 
   return {
     playerData: assembleRoundPlayerData(officialVotes, liveVotes, liveEvents, coverage, matchPaperCounts(imports)),
-    isLive: isRoundLive(liveVotes, matches),
-    fixtures: matches.map(fixtureFromRow),
+    // Chiusa: niente più live, partite tutte finite.
+    isLive: closed ? false : isRoundLive(liveVotes, matches),
+    fixtures: matches.map(fixtureFromRow).map((f) => (closed ? { ...f, status: 'finished' as const } : f)),
+    closed,
   };
 }
 

@@ -22,12 +22,14 @@ export function ClassificaClient({
   view,
   data,
   currentRound,
+  currentClosed = false,
   calendarRound,
   totalRounds,
 }: {
   view: View;
   data: StandingsAfterRound;
   currentRound: number;
+  currentClosed?: boolean;
   calendarRound: number;
   totalRounds: number;
 }) {
@@ -67,14 +69,14 @@ export function ClassificaClient({
           </p>
         ) : (
           <>
-            <RoundNav selected={data.round} max={data.maxRound} current={currentRound} label={(n) => `Dopo la ${n}ª giornata`} />
-            <StandingsTable standings={data.standings} round={data.round} partial={data.partial} myTeamId={myTeamId} />
+            <RoundNav selected={data.round} max={data.maxRound} current={currentRound} currentClosed={currentClosed} label={(n) => `Dopo la ${n}ª giornata`} />
+            <StandingsTable standings={data.standings} round={data.round} partial={data.partial} closed={data.closed} myTeamId={myTeamId} />
             <RoundResults round={data.round} matches={data.matches} myTeamId={myTeamId} />
           </>
         )
       ) : (
         <>
-          <RoundNav selected={calendarRound} max={totalRounds} current={currentRound} />
+          <RoundNav selected={calendarRound} max={totalRounds} current={currentRound} currentClosed={currentClosed} />
           <CalendarView round={calendarRound} myTeamId={myTeamId} />
         </>
       )}
@@ -86,11 +88,13 @@ export function StandingsTable({
   standings,
   round,
   partial,
+  closed = false,
   myTeamId = null,
 }: {
   standings: CumulativeStandingsEntry[];
   round: number;
   partial: boolean;
+  closed?: boolean;
   myTeamId?: string | null;
 }) {
   return (
@@ -99,6 +103,7 @@ export function StandingsTable({
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-semibold text-gray-900">Classifica dopo la {round}ª giornata</h3>
           {partial && <Badge variant="live" className="text-[10px]">Parziale · in corso</Badge>}
+          {closed && <Badge variant="default" className="text-[10px]">Definitiva · voti FMS</Badge>}
         </div>
       </CardHeader>
       <CardContent>

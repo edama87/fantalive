@@ -13,10 +13,11 @@ export async function GET(
   }
 
   try {
-    const { playerData, isLive, fixtures } = await getRoundPlayerState(roundNumber);
+    const { playerData, isLive, fixtures, closed } = await getRoundPlayerState(roundNumber);
     return NextResponse.json({
       roundNumber,
       isLive,
+      closed,
       players: [...playerData.values()],
       fixtures,
     });

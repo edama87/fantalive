@@ -6,13 +6,14 @@ import Link from 'next/link';
 import { connection } from 'next/server';
 import { ArrowLeft, Scale } from 'lucide-react';
 import { Header } from '@/components/layout/header';
-import { calendar, getCurrentRound } from '@/data/calendar';
+import { calendar } from '@/data/calendar';
+import { getActiveRound } from '@/lib/active-round-server';
 import { cn } from '@/lib/utils';
 import { QuadraturaView } from '@/components/admin/quadratura-view';
 
 export default async function QuadraturaPage({ searchParams }: { searchParams: Promise<{ round?: string }> }) {
   await connection();
-  const current = getCurrentRound().number;
+  const current = (await getActiveRound()).number;
   const rounds = calendar.map((r) => r.number).filter((n) => n <= current);
   const requested = Number((await searchParams).round);
   const round = rounds.includes(requested) ? requested : Math.max(1, current - 1);
