@@ -77,6 +77,8 @@ export interface PlayerMatchData {
   voteSource?: VoteSource;
   /** Voto consolidato: testate (0-3) uscite per la partita del giocatore. */
   paperCount?: number;
+  /** Voto FMS importato: totale bonus/malus FMS (fantavoto = voto + bonusOverride). */
+  bonusOverride?: number;
 }
 
 export interface SerieAMatch {

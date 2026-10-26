@@ -6,7 +6,7 @@
  * La parte di calcolo è pura (buildDebrief); il caricamento dati è in lineup-debrief-server.
  */
 import type { FantasyMatchResult, Lineup, Player, PlayerMatchData, PlayerRole, PlayerScore } from '@/types';
-import { calculateBonuses, calculateFantavoto, calculateMatch, parseFormation, type PlayerDirectory, type TeamMatchStatuses } from '@/lib/scoring-engine';
+import { calculateBonuses, calculateMatch, fantavotoFromData, parseFormation, type PlayerDirectory, type TeamMatchStatuses } from '@/lib/scoring-engine';
 import { roundScore } from '@/lib/vote-precision';
 import type { LineupSuggestion } from '@/lib/lineup-suggestions';
 import { buildNarrative, type DebriefNarrative } from '@/lib/lineup-debrief-narrative';
@@ -98,7 +98,7 @@ export interface DebriefInput {
 export function playerFantavoto(player: Player, data: PlayerMatchData | undefined): number | null {
   if (!data || data.estimatedVote == null) return null;
   const bonuses = calculateBonuses(data, player);
-  return roundScore(calculateFantavoto(data.estimatedVote, bonuses, player.role === 'P'));
+  return roundScore(fantavotoFromData(data.estimatedVote, bonuses, player.role === 'P', data));
 }
 
 export function suggestionToLineup(s: LineupSuggestion, round: number): Lineup {

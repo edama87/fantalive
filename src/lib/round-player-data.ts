@@ -37,6 +37,9 @@ export interface OfficialVoteRow {
   source?: string | null;
   minutes_played: number | string | null;
   bonus_malus: unknown;
+  /** Solo righe source 'fms' (import FMS Revo, vedi migrazione fms_official_votes). */
+  vote_fms?: number | string | null;
+  fms_bonus?: number | string | null;
 }
 
 export interface LiveVoteRow {
@@ -146,6 +149,19 @@ export function consolidatedVote(
 function officialVoteToPlayerMatchData(row: OfficialVoteRow, info?: MatchPaperInfo): PlayerMatchData | null {
   const minutes = finiteNumber(row.minutes_played);
   const events = bonusMalusToEvents(row.player_id, row.bonus_malus);
+
+  if (row.source === 'fms') {
+    // Voto FMS Revo importato: voto (null = s.v.) e totale bonus/malus FMS.
+    return {
+      playerId: row.player_id,
+      estimatedVote: finiteNumber(row.vote_fms ?? null),
+      minutesPlayed: minutes ?? 0,
+      isPlaying: false,
+      events,
+      voteSource: 'consolidated',
+      bonusOverride: finiteNumber(row.fms_bonus ?? null) ?? 0,
+    };
+  }
 
   if (row.source === 'pianetafanta') {
     // Consolidato: media dei voti di testata presenti. Senza nessun voto è un
@@ -368,7 +384,7 @@ export async function getRoundPlayerState(roundNumber: number): Promise<RoundPla
   const [officialResult, liveVotesResult, liveEventsResult, matchesResult, importsResult] = await Promise.all([
     supabase
       .from('official_votes')
-      .select('player_id, vote_fantacalcio, vote_average, vote_gazzetta, vote_corriere, vote_tuttosport, source, minutes_played, bonus_malus')
+      .select('*')
       .eq('round_number', roundNumber),
     supabase
       .from('live_votes')

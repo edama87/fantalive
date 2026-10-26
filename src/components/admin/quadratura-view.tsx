@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Loader2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { FmsImportPanel } from '@/components/admin/fms-import-panel';
 import type { QuadMatch, QuadNumbers, QuadPlayerRow, QuadPlayerSide, QuadTeam, Quadratura } from '@/lib/quadratura-server';
 
 const fmt = (n: number | null | undefined) => (n === null || n === undefined || Number.isNaN(n) ? '–' : n.toLocaleString('it-IT', { maximumFractionDigits: 3 }));
@@ -56,6 +57,7 @@ export function QuadraturaView({ round }: { round: number }) {
           {loading ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />} Ricarica da FMS
         </button>
       </div>
+      <FmsImportPanel round={round} onChanged={() => { setLoading(true); void load(false); }} />
       {error && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">{error}</div>}
       {loading && !data && <div className="p-6 text-center text-sm text-gray-500">Lettura dei tabellini FMS…</div>}
       {data?.matches.map((m) => <MatchCard key={`${m.home.team}-${m.away.team}`} m={m} />)}

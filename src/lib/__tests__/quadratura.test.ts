@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('@/lib/round-matches-server', () => ({ computeRoundMatches: vi.fn() }));
+vi.mock('@/lib/db/supabase', () => ({ getServerClient: vi.fn() }));
 vi.mock('@/lib/fmsrevo-client', () => ({ loginFMSRevoReadOnly: vi.fn(), fetchFMSRevoTabellino: vi.fn() }));
 
 import { buildPlayerRows } from '@/lib/quadratura-server';
@@ -37,5 +38,15 @@ describe('buildPlayerRows', () => {
     expect(by['COUTO Yan']).toEqual([]);
     expect(by['DOIG Josh']).toEqual(['sostituzione']);
     expect(by['Nuovo N.']).toEqual(['presenza']);
+  });
+
+  it('riconosce i giocatori in tribuna FMS che sono nella nostra rosa', () => {
+    const tribSide = { ...(side([]) as object), tribuna: [
+      { role: 'P', name: 'Svilar M.', vote: null, bonus: null, fantavoto: null, enteredFromBench: false },
+      { role: 'C', name: 'Sconosciuto S.', vote: null, bonus: null, fantavoto: null, enteredFromBench: false },
+    ] } as never;
+    const rows = buildPlayerRows([], tribSide, ['SVILAR Mile', 'ALTRO Tizio']);
+    expect(rows[0]).toMatchObject({ name: 'SVILAR Mile', ours: { state: 'tribuna' }, fms: { state: 'tribuna' }, diff: [] });
+    expect(rows[1]).toMatchObject({ name: 'Sconosciuto S.', ours: null, diff: ['presenza'] });
   });
 });

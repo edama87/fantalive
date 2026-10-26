@@ -11,7 +11,10 @@ import { teamStatusesFromFixtures, type RoundFixture } from '@/lib/serie-a-fixtu
 import { createLineupProviderFromMap, fetchLineupsForRound, fetchPlayersByIds, playerIdsFromLineups } from '@/lib/lineups-db';
 import { createMockProvider } from '@/providers/mock-provider';
 
-export async function computeRoundMatches(roundNumber: number): Promise<{ matches: FantasyMatchResult[]; isLive: boolean }> {
+export async function computeRoundMatches(
+  roundNumber: number,
+  opts: { transformPlayerData?: (data: Map<string, PlayerMatchData>) => Map<string, PlayerMatchData> } = {}
+): Promise<{ matches: FantasyMatchResult[]; isLive: boolean }> {
   const round = getRoundByNumber(roundNumber);
   if (!round) return { matches: [], isLive: false };
   const lineupsPromise = fetchLineupsForRound(roundNumber).catch(() => ({}));
@@ -33,6 +36,7 @@ export async function computeRoundMatches(roundNumber: number): Promise<{ matche
     fixtures = state.fixtures;
   }
 
+  if (opts.transformPlayerData) playerDataMap = opts.transformPlayerData(playerDataMap);
   const lineups = await lineupsPromise;
   const players = await fetchPlayersByIds(playerIdsFromLineups(lineups)).catch(() => ({}));
   const matchStatuses = shouldUseMockLiveData()

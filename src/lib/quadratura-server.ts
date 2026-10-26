@@ -4,6 +4,7 @@
  */
 import { teams } from '@/data/teams';
 import { computeRoundMatches } from '@/lib/round-matches-server';
+import { getServerClient } from '@/lib/db/supabase';
 import { fetchFMSRevoTabellino, loginFMSRevoReadOnly } from '@/lib/fmsrevo-client';
 import {
   matchesFmsName, parseTabellino, reconcileTabellino,
@@ -83,7 +84,7 @@ function fmsState(fp: FmsTabellinoPlayer, where: 'starters' | 'bench' | 'tribuna
 }
 
 /** Righe giocatore unite (nostre + FMS), con le differenze evidenziate. */
-export function buildPlayerRows(ours: PlayerScore[], fms: FmsTabellino['home']): QuadPlayerRow[] {
+export function buildPlayerRows(ours: PlayerScore[], fms: FmsTabellino['home'], rosterNames: readonly string[] = []): QuadPlayerRow[] {
   const fmsAll = [
     ...fms.starters.map((p) => ({ p, where: 'starters' as const })),
     ...fms.bench.map((p) => ({ p, where: 'bench' as const })),
@@ -108,6 +109,13 @@ export function buildPlayerRows(ours: PlayerScore[], fms: FmsTabellino['home']):
   fmsAll.forEach((f, i) => {
     if (used.has(i)) return;
     const fs = { vote: f.p.vote, fantavoto: f.p.fantavoto, bonus: f.p.bonus, state: fmsState(f.p, f.where) };
+    // In rosa ma non in formazione: per FantaLive è in tribuna come per FMS.
+    const rosterName = rosterNames.find((n) => matchesFmsName(f.p.name, n));
+    if (rosterName) {
+      const o: QuadPlayerSide = { vote: null, fantavoto: null, bonus: null, state: 'tribuna' };
+      rows.push({ name: rosterName, role: f.p.role, ours: o, fms: fs, diff: fs.state === 'tribuna' ? [] : ['presenza'] });
+      return;
+    }
     rows.push({ name: f.p.name, role: f.p.role, ours: null, fms: fs, diff: diffFields(null, fs) });
   });
   return rows;
@@ -136,7 +144,7 @@ function fmsNumbers(s: FmsTabellino['home']): QuadNumbers {
   return { total: s.total, goals: s.goals, partial: s.partial, home: s.homeFactor, def: s.modDef, mid: s.modMid, att: s.modAtt };
 }
 
-async function fetchRoundTabellini(round: number): Promise<{ tabellini: FmsTabellino[]; error: string | null }> {
+export async function fetchRoundTabellini(round: number): Promise<{ tabellini: FmsTabellino[]; error: string | null }> {
   const login = await loginFMSRevoReadOnly();
   if (!login.success) return { tabellini: [], error: login.error ?? 'Login FMS fallito' };
   const read = async (id: number) => {
@@ -153,6 +161,32 @@ async function fetchRoundTabellini(round: number): Promise<{ tabellini: FmsTabel
   return { tabellini: tabs, error: tabs.length ? null : 'Nessun tabellino FMS per questa giornata (non ancora disponibile?)' };
 }
 
+/** Tabellini FMS della giornata (cache 10 min, refresh forza la lettura). */
+export async function getRoundTabellini(round: number, refresh = false): Promise<{ tabellini: (FmsTabellino & { idIncontro?: number })[]; error: string | null }> {
+  const entry = cache.get(round);
+  if (!refresh && entry && Date.now() - entry.fetchedAt <= CACHE_TTL_MS) return { tabellini: entry.tabellini, error: null };
+  const res = await fetchRoundTabellini(round);
+  if (res.tabellini.length) cache.set(round, { fetchedAt: Date.now(), tabellini: res.tabellini });
+  return res;
+}
+
+/** Nomi della rosa attuale per squadra (per riconoscere i giocatori in tribuna). */
+async function fetchRosterNames(): Promise<Map<string, string[]>> {
+  const sb = getServerClient();
+  const { data: versions, error } = await sb.from('roster_versions').select('id, team_id').is('effective_until', null);
+  if (error) throw new Error(error.message);
+  const teamOf = new Map((versions ?? []).map((v) => [v.id as string, v.team_id as string]));
+  const { data: rp, error: rpError } = await sb.from('roster_players').select('roster_version_id, players(name)').in('roster_version_id', [...teamOf.keys()]);
+  if (rpError) throw new Error(rpError.message);
+  const out = new Map<string, string[]>();
+  for (const r of (rp ?? []) as unknown as Array<{ roster_version_id: string; players: { name: string } | null }>) {
+    const team = teamOf.get(r.roster_version_id);
+    if (!team || !r.players?.name) continue;
+    out.set(team, [...(out.get(team) ?? []), r.players.name]);
+  }
+  return out;
+}
+
 export async function getQuadratura(round: number, opts: { refresh?: boolean; fetchFms?: boolean } = {}): Promise<Quadratura> {
   let entry = cache.get(round);
   let cached = true;
@@ -167,7 +201,7 @@ export async function getQuadratura(round: number, opts: { refresh?: boolean; fe
     }
     cached = false;
   }
-  const { matches } = await computeRoundMatches(round);
+  const [{ matches }, rosters] = await Promise.all([computeRoundMatches(round), fetchRosterNames().catch(() => new Map<string, string[]>())]);
   const tabs = entry?.tabellini ?? [];
   const out: QuadMatch[] = [];
   for (const t of tabs) {
@@ -176,8 +210,8 @@ export async function getQuadratura(round: number, opts: { refresh?: boolean; fe
     const h = ourSide(m, 'home');
     const a = ourSide(m, 'away');
     const discrepancies = reconcileTabellino(round, t, { home: h, away: a });
-    const home: QuadTeam = { team: h.team, ours: numbers(h), fms: fmsNumbers(t.home), players: buildPlayerRows(h.all, t.home) };
-    const away: QuadTeam = { team: a.team, ours: numbers(a), fms: fmsNumbers(t.away), players: buildPlayerRows(a.all, t.away) };
+    const home: QuadTeam = { team: h.team, ours: numbers(h), fms: fmsNumbers(t.home), players: buildPlayerRows(h.all, t.home, rosters.get(m.homeTeamId)) };
+    const away: QuadTeam = { team: a.team, ours: numbers(a), fms: fmsNumbers(t.away), players: buildPlayerRows(a.all, t.away, rosters.get(m.awayTeamId)) };
     const sameResult = h.goals === t.home.goals && a.goals === t.away.goals;
     const ok = sameResult && Math.abs(h.total - t.home.total) < EPS && Math.abs(a.total - t.away.total) < EPS;
     out.push({ idIncontro: (t as { idIncontro?: number }).idIncontro ?? null, home, away, ok, sameResult, discrepancies });

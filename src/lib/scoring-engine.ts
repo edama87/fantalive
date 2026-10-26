@@ -174,6 +174,22 @@ export function calculateFantavoto(
   return fantavoto;
 }
 
+/**
+ * Fantavoto con i dati del giocatore: con un voto FMS importato (bonusOverride)
+ * vale voto + bonus/malus FMS, altrimenti il calcolo dai singoli eventi.
+ */
+export function fantavotoFromData(
+  baseVote: number,
+  bonuses: BonusBreakdown,
+  isGoalkeeper: boolean,
+  data: PlayerMatchData | undefined
+): number {
+  if (data?.bonusOverride != null && data.estimatedVote != null && baseVote === data.estimatedVote) {
+    return baseVote + data.bonusOverride;
+  }
+  return calculateFantavoto(baseVote, bonuses, isGoalkeeper);
+}
+
 export const HOME_BONUS = 2;
 
 type VoteLike = number | { playerId?: string; name?: string; vote: number; riserva?: boolean };
@@ -590,7 +606,7 @@ export function calculateTeamScore(
       bonuses.goalsConceded = data.events.filter(e => e.type === 'goal' && e.relatedPlayerId === 'opponent').length;
     }
 
-    const fantavoto = calculateFantavoto(baseVote, bonuses, player.role === 'P');
+    const fantavoto = fantavotoFromData(baseVote, bonuses, player.role === 'P', data);
     total += fantavoto;
 
     if (player.role === 'A') {
@@ -716,7 +732,7 @@ export function calculateTeamScore(
       bonuses: benchBonuses,
       // Solo visualizzazione: il fantavoto di un panchinaro non entrato non va nel totale.
       fantavoto:
-        benchVote != null ? calculateFantavoto(benchVote, benchBonuses, player.role === 'P') : 0,
+        benchVote != null ? fantavotoFromData(benchVote, benchBonuses, player.role === 'P', data) : 0,
       status: data?.isPlaying
         ? 'playing'
         : data && data.minutesPlayed > 0
