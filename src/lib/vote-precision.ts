@@ -29,6 +29,21 @@ export function paperVote(value: number | null | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= 10 ? value : null;
 }
 
+/**
+ * Voto consolidato con Gazzetta master (regola di lega, come FMS): se la
+ * Gazzetta ha pubblicato i voti della partita ma il giocatore è s.v. per la
+ * Gazzetta, è senza voto (non ha giocato: scatta la sostituzione), anche se
+ * Corriere/Tuttosport lo votano. Se la Gazzetta manca per tutta la partita si
+ * usa la media delle testate disponibili.
+ */
+export function masterVote(
+  votes: { gazzetta?: number | null; corriere?: number | null; tuttosport?: number | null },
+  gazzettaPublished: boolean
+): number | null {
+  if (gazzettaPublished && paperVote(votes.gazzetta) == null) return null;
+  return averageOfVotes([votes.gazzetta, votes.corriere, votes.tuttosport]);
+}
+
 /** Media dei voti di testata disponibili (Gazzetta, Corriere, Tuttosport), troncata a 3 decimali. */
 export function averageOfVotes(votes: readonly (number | null | undefined)[]): number | null {
   const present = votes.map(paperVote).filter((vote): vote is number => vote != null);

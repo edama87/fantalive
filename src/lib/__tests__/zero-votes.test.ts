@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { averageOfVotes, paperVote } from '@/lib/vote-precision';
+import { averageOfVotes, masterVote, paperVote } from '@/lib/vote-precision';
 import { parsePianetafantaRows, type PianetafantaMatchedPlayer } from '@/lib/pianetafanta';
 import { consolidatedVote } from '@/lib/round-player-data';
 import { rematchStoredImport } from '@/lib/vote-reapply';
@@ -69,5 +69,13 @@ describe('0 / s.v. non sono voti', () => {
       { players: [{ id: 'a', name: 'A', role: 'C', realTeam: 'JUV' }, { id: 'b', name: 'B', role: 'C', realTeam: 'JUV' }], aliases: [] }
     );
     expect(group.players.map((x) => x.playerId)).toEqual([null, 'b']);
+  });
+});
+
+describe('masterVote', () => {
+  it('Gazzetta master when Gazzetta published, average otherwise', () => {
+    expect(masterVote({ gazzetta: null, corriere: 6, tuttosport: 6 }, true)).toBeNull();
+    expect(masterVote({ gazzetta: 6, corriere: 7, tuttosport: null }, true)).toBe(6.5);
+    expect(masterVote({ gazzetta: null, corriere: 6, tuttosport: 7 }, false)).toBe(6.5);
   });
 });

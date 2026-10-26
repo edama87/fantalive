@@ -6,7 +6,7 @@
  */
 
 import { getServerClient } from '@/lib/db/supabase';
-import { averageOfVotes } from '@/lib/vote-precision';
+import { masterVote } from '@/lib/vote-precision';
 import { missingOutlets, type PianetafantaOutlet } from '@/lib/pianetafanta';
 import { canonicalTeamCode } from '@/lib/fantacalcio-it';
 import type { EventType, PlayerEvent, PlayerMatchData } from '@/types';
@@ -126,13 +126,24 @@ export function bonusMalusToEvents(playerId: string, bonusMalus: unknown): Playe
 /**
  * Media consolidata a 3 decimali (come FMS) dai soli voti di testata.
  */
-export function consolidatedVote(row: Pick<OfficialVoteRow, 'vote_gazzetta' | 'vote_corriere' | 'vote_tuttosport'>): number | null {
+export function consolidatedVote(
+  row: Pick<OfficialVoteRow, 'vote_gazzetta' | 'vote_corriere' | 'vote_tuttosport'>,
+  gazzettaPublished = true
+): number | null {
   // Solo voti di testata: senza nessuno è s.v. Mai vote_average, che nel DB
-  // ripiega sul voto fantacalcio.it rimasto dalla riga live.
-  return averageOfVotes([row.vote_gazzetta, row.vote_corriere, row.vote_tuttosport].map((v) => finiteNumber(v ?? null)));
+  // ripiega sul voto fantacalcio.it rimasto dalla riga live. Gazzetta master:
+  // s.v. Gazzetta in una partita votata dalla Gazzetta = senza voto.
+  return masterVote(
+    {
+      gazzetta: finiteNumber(row.vote_gazzetta ?? null),
+      corriere: finiteNumber(row.vote_corriere ?? null),
+      tuttosport: finiteNumber(row.vote_tuttosport ?? null),
+    },
+    gazzettaPublished
+  );
 }
 
-function officialVoteToPlayerMatchData(row: OfficialVoteRow): PlayerMatchData | null {
+function officialVoteToPlayerMatchData(row: OfficialVoteRow, info?: MatchPaperInfo): PlayerMatchData | null {
   const minutes = finiteNumber(row.minutes_played);
   const events = bonusMalusToEvents(row.player_id, row.bonus_malus);
 
@@ -141,7 +152,8 @@ function officialVoteToPlayerMatchData(row: OfficialVoteRow): PlayerMatchData | 
     // s.v. definitivo (nessuna stima live lo sostituisce).
     return {
       playerId: row.player_id,
-      estimatedVote: consolidatedVote(row),
+      // Senza info sulla partita (import mancante) vale la Gazzetta master.
+      estimatedVote: consolidatedVote(row, info ? info.gazzetta : true),
       minutesPlayed: minutes ?? 0,
       isPlaying: false,
       events,
@@ -231,12 +243,20 @@ export interface ConsolidatedImportRow {
  * partita), assegnate a ogni giocatore di quella partita. Un s.v. del singolo
  * (ha giocato poco) non conta: conta solo se la testata manca a tutti.
  */
-export function matchPaperCounts(imports: readonly ConsolidatedImportRow[]): Map<string, number> {
-  const counts = new Map<string, number>();
+export interface MatchPaperInfo {
+  /** Testate (0-3) uscite per la partita. */
+  papers: number;
+  /** La Gazzetta ha pubblicato i voti della partita (Gazzetta master). */
+  gazzetta: boolean;
+}
+
+export function matchPaperCounts(imports: readonly ConsolidatedImportRow[]): Map<string, MatchPaperInfo> {
+  const counts = new Map<string, MatchPaperInfo>();
   for (const row of imports) {
     const players = (row.players ?? []).filter((p) => !p.excluded);
-    const present = 3 - missingOutlets(players).length;
-    for (const p of players) if (p.playerId) counts.set(p.playerId, present);
+    const missing = missingOutlets(players);
+    const info = { papers: 3 - missing.length, gazzetta: !missing.includes('gazzetta') };
+    for (const p of players) if (p.playerId) counts.set(p.playerId, info);
   }
   return counts;
 }
@@ -246,17 +266,15 @@ export function assembleRoundPlayerData(
   liveVotes: readonly LiveVoteRow[],
   liveEvents: readonly LiveEventRow[],
   coverage?: ConsolidatedCoverage,
-  matchPapers?: ReadonlyMap<string, number>
+  matchPapers?: ReadonlyMap<string, MatchPaperInfo>
 ): Map<string, PlayerMatchData> {
   const playerData = new Map<string, PlayerMatchData>();
 
   for (const row of officialVotes) {
-    const data = officialVoteToPlayerMatchData(row);
+    const info = matchPapers?.get(row.player_id);
+    const data = officialVoteToPlayerMatchData(row, info);
     if (!data) continue;
-    if (data.voteSource === 'consolidated') {
-      const papers = matchPapers?.get(data.playerId);
-      if (papers != null) data.paperCount = papers;
-    }
+    if (data.voteSource === 'consolidated' && info) data.paperCount = info.papers;
     playerData.set(data.playerId, data);
   }
 

@@ -1,7 +1,8 @@
 import { canonicalTeamCode } from "@/lib/fantacalcio-it";
 import { getPublicClient, isSupabaseConfigured } from "@/lib/db/supabase";
 import type { ConsolidatedVoteEntry } from "@/lib/pianetafanta-url";
-import { averageOfVotes, paperVote } from "@/lib/vote-precision";
+import { masterVote, paperVote } from "@/lib/vote-precision";
+import { missingOutlets } from "@/lib/pianetafanta";
 
 /**
  * Voti consolidati (import pianetafanta) di una partita di Serie A, o null se
@@ -25,10 +26,11 @@ export async function loadConsolidatedMatchVotes(
       .limit(1)
       .maybeSingle();
     if (error || !data || !Array.isArray(data.players)) return null;
-    return (
+    const players = (
       data.players as Array<ConsolidatedVoteEntry & { excluded?: boolean }>
-    )
-      .filter((p) => !p.excluded)
+    ).filter((p) => !p.excluded);
+    const gazzettaPublished = !missingOutlets(players).includes("gazzetta");
+    return players
       .map((p) => {
         const votes = {
           gazzetta: paperVote(p.votes?.gazzetta),
@@ -39,7 +41,7 @@ export async function loadConsolidatedMatchVotes(
           name: p.name,
           team: p.team,
           votes,
-          average: averageOfVotes(Object.values(votes)),
+          average: masterVote(votes, gazzettaPublished),
           minutesPlayed:
             typeof p.minutesPlayed === "number" ? p.minutesPlayed : null,
         };
