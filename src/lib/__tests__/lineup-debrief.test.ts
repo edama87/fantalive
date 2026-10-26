@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Lineup, Player, PlayerMatchData, PlayerRole } from '@/types';
 import { bestLineup, buildDebrief, suggestionToLineup, withOptimalBench, type DebriefInput } from '@/lib/lineup-debrief';
-import { isMissingTableError } from '@/lib/lineup-debrief-server';
+import { isMissingTableError, saveDebrief, saveDebriefNotes } from '@/lib/lineup-debrief-server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { LineupSuggestion, SuggestionPlayer } from '@/lib/lineup-suggestions';
 
 function mk(team: string, role: PlayerRole, n: number): Player {
@@ -105,5 +106,38 @@ describe('lineup debrief', () => {
   it('riconosce la tabella mancante', () => {
     expect(isMissingTableError({ code: 'PGRST205', message: "Could not find the table 'public.lineup_debriefs'" })).toBe(true);
     expect(isMissingTableError({ code: '23505', message: 'duplicate' })).toBe(false);
+  });
+
+  it('nota qualitativa: 4-8 frasi, verdetto e deterministica', () => {
+    const a = buildDebrief(input());
+    const b = buildDebrief(input());
+    const n = a.narrative!;
+    expect(n.sentences.length).toBeGreaterThanOrEqual(4);
+    expect(n.sentences.length).toBeLessThanOrEqual(8);
+    expect(['giusta', 'da rivedere']).toContain(n.verdict);
+    expect(n.sentences).toEqual(b.narrative!.sentences);
+    const text = n.sentences.join(' ');
+    expect(text).toMatch(/senza voto|Sorpresa/);
+    expect(text).toMatch(/panchina/);
+    expect(text).toMatch(/Lezione|prossima/);
+  });
+
+  it('rigenera conservando le note e aggiorna solo le note', async () => {
+    let stored: Record<string, unknown> | null = { payload: { notes: { text: 'Mia nota', updatedAt: '2026-10-20T10:00:00.000Z' } } };
+    const fake = {
+      from: () => ({
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: stored, error: null }) }) }),
+        upsert: async (row: Record<string, unknown>) => { stored = row; return { error: null }; },
+        update: (row: Record<string, unknown>) => ({ eq: async () => { stored = { ...stored, ...row }; return { error: null }; } }),
+      }),
+    } as unknown as SupabaseClient;
+    const d = buildDebrief(input());
+    await saveDebrief(fake, d);
+    expect((stored!.payload as { notes: { text: string } }).notes.text).toBe('Mia nota');
+    const updated = await saveDebriefNotes(fake, d.suggestionId, '  Nuova nota  ', new Date('2026-10-21T10:00:00Z'));
+    expect(updated?.notes?.text).toBe('Nuova nota');
+    expect(updated?.scenarios.suggested).toBeTruthy();
+    const cleared = await saveDebriefNotes(fake, d.suggestionId, '   ');
+    expect(cleared?.notes).toBeNull();
   });
 });

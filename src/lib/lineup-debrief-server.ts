@@ -80,7 +80,18 @@ export async function computeDebrief(sb: SupabaseClient, suggestion: LineupSugge
   });
 }
 
+export const MAX_NOTES_LENGTH = 4000;
+
+/** Note dell'admin già salvate per il suggerimento (null se assenti o tabella mancante). */
+async function existingNotes(sb: SupabaseClient, suggestionId: string): Promise<LineupDebrief['notes']> {
+  const { data, error } = await sb.from(TABLE).select('payload').eq('suggestion_id', suggestionId).maybeSingle();
+  if (error) return null;
+  return (data?.payload as LineupDebrief | undefined)?.notes ?? null;
+}
+
 export async function saveDebrief(sb: SupabaseClient, debrief: LineupDebrief): Promise<{ saved: boolean; reason?: string }> {
+  // Rigenera: le note dell'admin restano.
+  debrief.notes = debrief.notes ?? (await existingNotes(sb, debrief.suggestionId));
   const { error } = await sb.from(TABLE).upsert(
     {
       suggestion_id: debrief.suggestionId,
@@ -108,4 +119,24 @@ export async function loadDebriefs(sb: SupabaseClient, suggestionIds: string[]):
   }
   for (const row of data ?? []) map.set(row.suggestion_id as string, row.payload as LineupDebrief);
   return map;
+}
+
+/** Aggiorna solo le note dell'admin dentro il payload del debrief salvato. */
+export async function saveDebriefNotes(
+  sb: SupabaseClient,
+  suggestionId: string,
+  text: string,
+  now: Date = new Date(),
+): Promise<LineupDebrief | null> {
+  const { data, error } = await sb.from(TABLE).select('payload').eq('suggestion_id', suggestionId).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  const trimmed = text.trim().slice(0, MAX_NOTES_LENGTH);
+  const payload: LineupDebrief = {
+    ...(data.payload as LineupDebrief),
+    notes: trimmed ? { text: trimmed, updatedAt: now.toISOString() } : null,
+  };
+  const { error: upError } = await sb.from(TABLE).update({ payload }).eq('suggestion_id', suggestionId);
+  if (upError) throw new Error(upError.message);
+  return payload;
 }

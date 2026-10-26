@@ -9,6 +9,7 @@ import type { FantasyMatchResult, Lineup, Player, PlayerMatchData, PlayerRole, P
 import { calculateBonuses, calculateFantavoto, calculateMatch, parseFormation, type PlayerDirectory, type TeamMatchStatuses } from '@/lib/scoring-engine';
 import { roundScore } from '@/lib/vote-precision';
 import type { LineupSuggestion } from '@/lib/lineup-suggestions';
+import { buildNarrative, type DebriefNarrative } from '@/lib/lineup-debrief-narrative';
 
 export const DEBRIEF_FORMATIONS = ['6-3-1', '5-3-2', '5-4-1', '4-5-1', '4-4-2', '4-3-3', '3-6-1', '3-5-2', '3-4-3'] as const;
 const ROLES: PlayerRole[] = ['P', 'D', 'C', 'A'];
@@ -69,6 +70,10 @@ export interface LineupDebrief {
   consolidated: boolean;
   scenarios: Partial<Record<ScenarioKey, DebriefScenario>>;
   findings: DebriefFinding[];
+  /** Nota qualitativa automatica. */
+  narrative?: DebriefNarrative | null;
+  /** Note libere dell'admin, conservate quando si rigenera. */
+  notes?: { text: string; updatedAt: string } | null;
 }
 
 export interface DebriefInput {
@@ -393,7 +398,7 @@ export function buildDebrief(input: DebriefInput): LineupDebrief {
     ...input.opponentLineup.bench.map((x) => x.playerId),
   ];
   const warnings = consolidationWarnings(input, ids);
-  return {
+  const debrief: LineupDebrief = {
     version: 1,
     suggestionId: input.suggestion.id,
     teamId: input.suggestion.teamId,
@@ -406,4 +411,6 @@ export function buildDebrief(input: DebriefInput): LineupDebrief {
     scenarios,
     findings,
   };
+  debrief.narrative = buildNarrative(debrief, input.suggestion);
+  return debrief;
 }

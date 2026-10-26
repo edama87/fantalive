@@ -97,6 +97,18 @@ export function DebriefView({ debrief }: { debrief: LineupDebrief }) {
           </div>
         </div>
       )}
+      {debrief.narrative && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <div className="mb-1 flex items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Nota qualitativa</span>
+            <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium ring-1',
+              debrief.narrative.verdict === 'giusta' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-amber-50 text-amber-800 ring-amber-200')}>
+              {debrief.narrative.verdict === 'giusta' ? 'Giusta' : 'Da rivedere'}
+            </span>
+          </div>
+          <p className="text-sm leading-relaxed text-gray-800">{debrief.narrative.sentences.join(' ')}</p>
+        </div>
+      )}
       <div className="grid gap-2 sm:grid-cols-3">
         {scenarios.map((sc) => <ScenarioCard key={sc.key} sc={sc} best={debrief.scenarios.best} />)}
       </div>
@@ -113,6 +125,51 @@ export function DebriefView({ debrief }: { debrief: LineupDebrief }) {
       <p className="text-xs text-gray-400">
         {debrief.isHome ? 'In casa' : 'In trasferta'} · generato {formatRome(debrief.generatedAt)}. Migliore possibile: ricerca su tutti i moduli ammessi col motore completo.
       </p>
+    </div>
+  );
+}
+
+function NotesEditor({ suggestionId, debrief, onSaved }: { suggestionId: string; debrief: LineupDebrief; onSaved: (d: LineupDebrief) => void }) {
+  const [text, setText] = useState(debrief.notes?.text ?? '');
+  const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [error, setError] = useState<string | null>(null);
+  const dirty = text.trim() !== (debrief.notes?.text ?? '');
+
+  async function save() {
+    setState('saving');
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/lineup-debrief', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ suggestionId, notes: text }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error ?? `Errore ${res.status}`);
+      onSaved(json.debrief);
+      setState('saved');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Errore');
+      setState('error');
+    }
+  }
+
+  return (
+    <div className="mt-3">
+      <label htmlFor={`notes-${suggestionId}`} className="text-xs font-semibold uppercase tracking-wide text-gray-500">Note di Daniele</label>
+      <textarea id={`notes-${suggestionId}`} value={text} onChange={(e) => { setText(e.target.value); setState('idle'); }}
+        rows={3} maxLength={4000} placeholder="Le tue considerazioni sulla giornata…"
+        className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-sm text-gray-800 focus:border-gray-400 focus:outline-none" />
+      <div className="mt-1 flex items-center justify-between gap-2 text-xs text-gray-500">
+        <span>
+          {state === 'saved' ? 'Salvate' : error ? <span className="text-rose-600">{error}</span>
+            : debrief.notes ? `Aggiornate ${formatRome(debrief.notes.updatedAt)} · restano se rigeneri` : 'Restano anche se rigeneri il debrief'}
+        </span>
+        <button type="button" onClick={save} disabled={!dirty || state === 'saving'}
+          className="rounded-lg border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50">
+          {state === 'saving' ? 'Salvo…' : 'Salva note'}
+        </button>
+      </div>
     </div>
   );
 }
@@ -157,7 +214,9 @@ export function LineupDebriefPanel({ suggestionId, initial }: { suggestionId: st
       </div>
       {error && <p className="mb-2 text-sm text-rose-600">{error}</p>}
       {notice && <p className="mb-2 text-xs text-gray-500">{notice}</p>}
-      {debrief ? <DebriefView debrief={debrief} /> : !busy && <p className="text-xs text-gray-500">Calcola, a giornata giocata, consigliata vs schierata vs migliore possibile.</p>}
+      {debrief && <DebriefView debrief={debrief} />}
+      {debrief && notice === null && <NotesEditor key={debrief.generatedAt} suggestionId={suggestionId} debrief={debrief} onSaved={setDebrief} />}
+      {!debrief && !busy && <p className="text-xs text-gray-500">Calcola, a giornata giocata, consigliata vs schierata vs migliore possibile.</p>}
     </div>
   );
 }
