@@ -19,6 +19,7 @@ export function PartiteList({
   giornata,
   roundNumber,
   currentRound,
+  currentClosed = false,
   date,
   initialMatches,
   initialError,
@@ -27,6 +28,7 @@ export function PartiteList({
   /** Giornata del fantacalcio (per la navigazione ?giornata=N). */
   roundNumber: number;
   currentRound: number;
+  currentClosed?: boolean;
   date: string;
   initialMatches: FantacalcioCalendarMatch[];
   initialError: string | null;
@@ -57,7 +59,7 @@ export function PartiteList({
       <Header isLive={isLive} />
       <div className="px-4 py-4 space-y-4">
       <Suspense>
-        <RoundNav selected={roundNumber} max={calendar.length} current={currentRound} />
+        <RoundNav selected={roundNumber} max={calendar.length} current={currentRound} currentClosed={currentClosed} />
       </Suspense>
       <div className="flex items-center justify-between">
         <div>

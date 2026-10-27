@@ -53,6 +53,9 @@ export interface ActiveRoundInfo {
   /** La giornata attiva è chiusa (import FMS confermato). */
   closed: boolean;
   closedRounds: number[];
+  /** Giornata successiva e quando diventa attiva (ISO, 3h prima del primo calcio d'inizio). */
+  nextRound?: number | null;
+  nextSwitchAt?: string | null;
 }
 
 export function isValidRound(n: number): boolean {

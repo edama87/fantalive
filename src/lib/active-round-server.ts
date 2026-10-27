@@ -1,9 +1,9 @@
 /** Server: giornata attiva (primo calcio d'inizio) e giornate chiuse (import FMS). */
-import { getCurrentRound } from '@/data/calendar';
+import { getCurrentRound, getRoundByNumber } from '@/data/calendar';
 import { getServerClient } from '@/lib/db/supabase';
 import { fantacalcioCalendarUrl, parseFantacalcioCalendar } from '@/lib/fantacalcio-it';
 import { fetchFantacalcioHtml } from '@/lib/fantacalcio-it-client';
-import { pickActiveRound, romeLocalToDate, type ActiveRoundInfo } from '@/lib/active-round';
+import { pickActiveRound, romeLocalToDate, ROUND_SWITCH_LEAD_MS, type ActiveRoundInfo } from '@/lib/active-round';
 import type { Round } from '@/types';
 
 const calendarCache = new Map<number, { at: number; kickoff: Date | null }>();
@@ -67,6 +67,14 @@ export async function isRoundClosed(round: number): Promise<boolean> {
 
 export async function getActiveRoundInfo(now: Date = new Date()): Promise<ActiveRoundInfo> {
   const [round, closedRounds] = await Promise.all([getActiveRound(now), getClosedRounds()]);
-  return { round: round.number, closed: closedRounds.includes(round.number), closedRounds };
+  const next = getRoundByNumber(round.number + 1);
+  const nextKickoff = next ? await firstKickoff(next).catch(() => null) : null;
+  return {
+    round: round.number,
+    closed: closedRounds.includes(round.number),
+    closedRounds,
+    nextRound: next?.number ?? null,
+    nextSwitchAt: nextKickoff ? new Date(nextKickoff.getTime() - ROUND_SWITCH_LEAD_MS).toISOString() : null,
+  };
 }
 
