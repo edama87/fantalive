@@ -370,7 +370,9 @@ export function parseEspnSummary(
   fallback?: { status?: MatchStatus; minute?: number }
 ): ParsedEspnSummary {
   const headerStatus = summary.header?.competitions?.[0]?.status;
-  const status = headerStatus?.type ? parseEspnMatchStatus(headerStatus.type) : fallback?.status ?? 'scheduled';
+  const headerParsed = headerStatus?.type ? parseEspnMatchStatus(headerStatus.type) : null;
+  // Lo scoreboard può dare "finita" prima del summary: vale la finita.
+  const status: MatchStatus = fallback?.status === 'finished' ? 'finished' : headerParsed ?? fallback?.status ?? 'scheduled';
   const liveMinute = parseClockMinute(headerStatus?.displayClock, headerStatus?.clock) || fallback?.minute || 0;
   const endMinute = status === 'finished' ? 90 : Math.max(1, Math.min(liveMinute, 90));
 

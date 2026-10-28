@@ -10,7 +10,7 @@ import { masterVote } from '@/lib/vote-precision';
 import { missingOutlets, type PianetafantaOutlet } from '@/lib/pianetafanta';
 import { canonicalTeamCode } from '@/lib/fantacalcio-it';
 import type { EventType, PlayerEvent, PlayerMatchData } from '@/types';
-import { fixtureFromRow, type RoundFixture, type SerieAMatchRow } from '@/lib/serie-a-fixtures';
+import { fixtureFromRow, teamStatusesFromFixtures, type RoundFixture, type SerieAMatchRow } from '@/lib/serie-a-fixtures';
 
 const PLAYER_EVENT_TYPES = new Set<EventType>([
   'goal',
@@ -343,6 +343,23 @@ export function assembleRoundPlayerData(
   return playerData;
 }
 
+/**
+ * "In campo" rimasto a true dopo il fischio finale (summary ESPN in ritardo
+ * sullo scoreboard nell'ultimo giro del cron): se la partita della squadra del
+ * giocatore è finita, non è più in campo.
+ */
+export function clearFinishedIsPlaying<T extends { player_id: string; is_playing: boolean | null }>(
+  liveVotes: readonly T[],
+  playerTeams: ReadonlyMap<string, string | null>,
+  teamStatuses: ReadonlyMap<string, string>
+): T[] {
+  return liveVotes.map((row) => {
+    if (row.is_playing !== true) return row;
+    const team = canonicalTeamCode(playerTeams.get(row.player_id) ?? null);
+    return team && teamStatuses.get(team) === 'finished' ? { ...row, is_playing: false } : row;
+  });
+}
+
 export function isRoundLive(
   liveVotes: readonly { is_playing: boolean | null }[],
   matches: readonly { status: string }[]
@@ -416,9 +433,18 @@ export async function getRoundPlayerState(roundNumber: number): Promise<RoundPla
   const closed = !fmsImportsResult.error && (fmsImportsResult.count ?? 0) > 0;
 
   const officialVotes = assertQuery<OfficialVoteRow>('official_votes', officialResult);
-  const liveVotes = assertQuery<LiveVoteRow>('live_votes', liveVotesResult);
   const liveEvents = assertQuery<LiveEventRow>('live_events', liveEventsResult);
   const matches = assertQuery<SerieAMatchRow>('serie_a_matches', matchesResult);
+  let liveVotes = assertQuery<LiveVoteRow>('live_votes', liveVotesResult);
+  const playingIds = liveVotes.filter((row) => row.is_playing === true).map((row) => row.player_id);
+  if (playingIds.length > 0 && matches.some((m) => m.status === 'finished')) {
+    const { data: teams } = await supabase.from('players').select('id, real_team').in('id', playingIds);
+    liveVotes = clearFinishedIsPlaying(
+      liveVotes,
+      new Map((teams ?? []).map((row) => [row.id as string, (row.real_team as string | null) ?? null])),
+      teamStatusesFromFixtures(matches.map(fixtureFromRow))
+    );
+  }
 
   const imports = assertQuery<ConsolidatedImportRow>(
     'official_vote_imports',
