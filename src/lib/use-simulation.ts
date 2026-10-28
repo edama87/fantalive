@@ -1,7 +1,7 @@
 'use client';
 
 /** Toggle globale "Simula risultato" (localStorage + cookie per le pagine server). Default: spento. */
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { SIMULATION_COOKIE, SIMULATION_STORAGE_KEY } from '@/lib/simulation';
 
 const EVENT = 'fantalive-sim-change';
@@ -33,8 +33,44 @@ export function setSimulation(on: boolean): void {
   window.dispatchEvent(new Event(EVENT));
 }
 
+/**
+ * Giornata visualizzata chiusa/definitiva: la simulazione non si applica e il toggle
+ * è disabilitato. La preferenza salvata resta intatta e torna attiva sulle giornate aperte.
+ */
+let viewedRoundClosed = false;
+export function setViewedRoundClosed(closed: boolean): void {
+  if (viewedRoundClosed === closed) return;
+  viewedRoundClosed = closed;
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(EVENT));
+}
+export function isViewedRoundClosed(): boolean {
+  return viewedRoundClosed;
+}
+
+/** Preferenza salvata + stato della giornata visualizzata. */
+export function useSimulationState(): { saved: boolean; locked: boolean } {
+  const saved = useSyncExternalStore(subscribe, read, () => false);
+  const locked = useSyncExternalStore(subscribe, isViewedRoundClosed, () => false);
+  return { saved, locked };
+}
+
+/** Simulazione effettiva: preferenza attiva e giornata non definitiva. */
+export function effectiveSimulation(saved: boolean, locked: boolean): boolean {
+  return saved && !locked;
+}
+
 export function useSimulation(): [boolean, (on: boolean) => void] {
-  const simulated = useSyncExternalStore(subscribe, read, () => false);
-  const set = useCallback((on: boolean) => setSimulation(on), []);
-  return [simulated, set];
+  const { saved, locked } = useSimulationState();
+  const set = useCallback((on: boolean) => {
+    if (!isViewedRoundClosed()) setSimulation(on);
+  }, []);
+  return [effectiveSimulation(saved, locked), set];
+}
+
+/** Le pagine dichiarano se la giornata che mostrano è definitiva (reset all'uscita). */
+export function useDeclareViewedRoundClosed(closed: boolean): void {
+  useEffect(() => {
+    setViewedRoundClosed(closed);
+  }, [closed]);
+  useEffect(() => () => setViewedRoundClosed(false), []);
 }

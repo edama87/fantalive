@@ -23,7 +23,7 @@ import {
 } from '@/lib/live-data';
 import { shouldUseMockLiveData } from '@/lib/live-source';
 import { fetchRoundPlayerData } from '@/lib/round-player-data-client';
-import { useSimulation } from '@/lib/use-simulation';
+import { useDeclareViewedRoundClosed, useSimulationState } from '@/lib/use-simulation';
 import { SIMULATION_LEGEND } from '@/lib/simulation';
 import { teamStatusesFromFixtures, type RoundFixture } from '@/lib/serie-a-fixtures';
 import { createLineupProvider, fetchLineupBundle } from '@/lib/lineup-store';
@@ -52,7 +52,9 @@ export function SfidaContent() {
   const homeTeam = getTeamById(homeTeamId);
   const awayTeam = getTeamById(awayTeamId);
 
-  const [simulated] = useSimulation();
+  // Preferenza salvata: il blocco su giornata definitiva non provoca un nuovo fetch.
+  const { saved: simulated } = useSimulationState();
+  useDeclareViewedRoundClosed(closed);
   const fetchData = useCallback(async () => {
     if (!round) return;
 

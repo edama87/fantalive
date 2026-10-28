@@ -25,7 +25,7 @@ import {
 } from '@/lib/live-data';
 import { shouldUseMockLiveData } from '@/lib/live-source';
 import { fetchRoundPlayerData } from '@/lib/round-player-data-client';
-import { useSimulation } from '@/lib/use-simulation';
+import { useDeclareViewedRoundClosed, useSimulationState } from '@/lib/use-simulation';
 import { SIMULATION_LEGEND } from '@/lib/simulation';
 import { teamStatusesFromFixtures, type RoundFixture } from '@/lib/serie-a-fixtures';
 import { createLineupProvider, fetchLineupBundle } from '@/lib/lineup-store';
@@ -60,7 +60,9 @@ function GiornataLive() {
   const currentRound = (giornata ? getRoundByNumber(giornata) : undefined) ?? liveRound;
   const [standingsMeta, setStandingsMeta] = useState<{ round: number; partial: boolean }>({ round: 0, partial: false });
 
-  const [simulated] = useSimulation();
+  // Preferenza salvata: il blocco su giornata definitiva non provoca un nuovo fetch.
+  const { saved: simulated } = useSimulationState();
+  useDeclareViewedRoundClosed(closed);
   const fetchData = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -109,7 +111,7 @@ function GiornataLive() {
       setFixtures(roundFixtures);
 
       // Classifica cumulata dopo questa giornata (giornate precedenti incluse).
-      const standingsRes = await fetch(`/api/standings?giornata=${Math.min(currentRound.number, liveRound.number)}${simulated ? '&sim=1' : ''}`, { cache: 'no-store' })
+      const standingsRes = await fetch(`/api/standings?giornata=${Math.min(currentRound.number, liveRound.number)}${simulated && !roundClosed ? '&sim=1' : ''}`, { cache: 'no-store' })
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null);
       if (standingsRes?.standings) {

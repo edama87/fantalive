@@ -12,6 +12,7 @@ import { cn, formatVote } from '@/lib/utils';
 import { calendar } from '@/data/calendar';
 import { getTeamById } from '@/data/teams';
 import { useMyTeamId } from '@/lib/hooks/use-my-team';
+import { useDeclareViewedRoundClosed } from '@/lib/use-simulation';
 import { PositionChange } from '@/components/match/position-change';
 import type { CumulativeStandingsEntry } from '@/lib/standings';
 import type { StandingsAfterRound } from '@/lib/standings-server';
@@ -39,6 +40,7 @@ export function ClassificaClient({
 }) {
   const router = useRouter();
   const myTeamId = useMyTeamId();
+  useDeclareViewedRoundClosed(view === 'classifica' && data.round > 0 && data.closed);
 
   // Giornata in corso: aggiorna i dati del server ogni minuto.
   useEffect(() => {
