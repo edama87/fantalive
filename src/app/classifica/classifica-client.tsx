@@ -1,5 +1,7 @@
 'use client';
 
+import { SIMULATION_LEGEND } from '@/lib/simulation';
+
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -25,6 +27,7 @@ export function ClassificaClient({
   currentClosed = false,
   calendarRound,
   totalRounds,
+  simulated = false,
 }: {
   view: View;
   data: StandingsAfterRound;
@@ -32,6 +35,7 @@ export function ClassificaClient({
   currentClosed?: boolean;
   calendarRound: number;
   totalRounds: number;
+  simulated?: boolean;
 }) {
   const router = useRouter();
   const myTeamId = useMyTeamId();
@@ -70,7 +74,7 @@ export function ClassificaClient({
         ) : (
           <>
             <RoundNav selected={data.round} max={data.maxRound} current={currentRound} currentClosed={currentClosed} label={(n) => `Dopo la ${n}ª giornata`} />
-            <StandingsTable standings={data.standings} round={data.round} partial={data.partial} closed={data.closed} myTeamId={myTeamId} />
+            <StandingsTable standings={data.standings} round={data.round} partial={data.partial} closed={data.closed} simulated={simulated && !data.closed} myTeamId={myTeamId} />
             <RoundResults round={data.round} matches={data.matches} myTeamId={myTeamId} />
           </>
         )
@@ -89,12 +93,14 @@ export function StandingsTable({
   round,
   partial,
   closed = false,
+  simulated = false,
   myTeamId = null,
 }: {
   standings: CumulativeStandingsEntry[];
   round: number;
   partial: boolean;
   closed?: boolean;
+  simulated?: boolean;
   myTeamId?: string | null;
 }) {
   return (
@@ -104,7 +110,9 @@ export function StandingsTable({
           <h3 className="font-semibold text-gray-900">Classifica dopo la {round}ª giornata</h3>
           {partial && <Badge variant="live" className="text-[10px]">Parziale · in corso</Badge>}
           {closed && <Badge variant="default" className="text-[10px]">Definitiva · voti FMS</Badge>}
+          {simulated && <Badge variant="default" className="text-[10px]">Simulata</Badge>}
         </div>
+        {simulated && <p className="text-xs text-amber-700">{SIMULATION_LEGEND}</p>}
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">

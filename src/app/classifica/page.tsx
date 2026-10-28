@@ -1,5 +1,7 @@
 import { Suspense } from 'react';
 import { connection } from 'next/server';
+import { cookies } from 'next/headers';
+import { SIMULATION_COOKIE } from '@/lib/simulation';
 import { Header } from '@/components/layout/header';
 import { calendar } from '@/data/calendar';
 import { getActiveRound, getClosedRounds } from '@/lib/active-round-server';
@@ -22,7 +24,8 @@ export default async function ClassificaPage({
   const currentRound = active.number;
 
   // Calendario: tutte le giornate; classifica: fino a quella in corso.
-  const data = await getStandingsAfterRound(view === 'classifica' ? giornata : null);
+  const simulate = (await cookies()).get(SIMULATION_COOKIE)?.value === '1';
+  const data = await getStandingsAfterRound(view === 'classifica' ? giornata : null, { simulate });
   const calendarRound = giornata ?? currentRound;
 
   return (
@@ -37,6 +40,7 @@ export default async function ClassificaPage({
             currentClosed={closedRounds.includes(currentRound)}
             calendarRound={calendarRound}
             totalRounds={calendar.length}
+            simulated={simulate}
           />
         </Suspense>
       </div>

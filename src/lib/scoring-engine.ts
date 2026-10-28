@@ -752,6 +752,7 @@ export function calculateTeamScore(
     const data = playerDataMap.get(score.player.id);
     if (data?.voteSource) score.voteSource = data.voteSource;
     if (data?.paperCount != null) score.paperCount = data.paperCount;
+    if (data?.simulated) score.simulated = true;
   }
 
   // Totale a 3 decimali come FMS: le soglie gol (66, 72, ...) e le regole a-d

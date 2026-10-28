@@ -5,9 +5,11 @@ import { getStandingsAfterRound } from '@/lib/standings-server';
 
 /** GET /api/standings?giornata=N -> classifica dopo la giornata N (default: ultima giocata). */
 export async function GET(request: Request) {
-  const giornata = parseGiornata(new URL(request.url).searchParams.get('giornata'), calendar.length);
+  const params = new URL(request.url).searchParams;
+  const giornata = parseGiornata(params.get('giornata'), calendar.length);
+  const simulate = params.get('sim') === '1';
   try {
-    const data = await getStandingsAfterRound(giornata);
+    const data = await getStandingsAfterRound(giornata, { simulate });
     return NextResponse.json(
       { round: data.round, maxRound: data.maxRound, partial: data.partial, isLive: data.isLive, standings: data.standings },
       { headers: { 'Cache-Control': 'no-store' } },

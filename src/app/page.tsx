@@ -25,6 +25,8 @@ import {
 } from '@/lib/live-data';
 import { shouldUseMockLiveData } from '@/lib/live-source';
 import { fetchRoundPlayerData } from '@/lib/round-player-data-client';
+import { useSimulation } from '@/lib/use-simulation';
+import { SIMULATION_LEGEND } from '@/lib/simulation';
 import { teamStatusesFromFixtures, type RoundFixture } from '@/lib/serie-a-fixtures';
 import { createLineupProvider, fetchLineupBundle } from '@/lib/lineup-store';
 import { createMockProvider } from '@/providers/mock-provider';
@@ -58,6 +60,7 @@ function GiornataLive() {
   const currentRound = (giornata ? getRoundByNumber(giornata) : undefined) ?? liveRound;
   const [standingsMeta, setStandingsMeta] = useState<{ round: number; partial: boolean }>({ round: 0, partial: false });
 
+  const [simulated] = useSimulation();
   const fetchData = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -68,6 +71,7 @@ function GiornataLive() {
 
       let playerDataMap: Map<string, PlayerMatchData>;
       let live: boolean;
+      let roundClosed = false;
       let updatedAt: Date;
       let roundFixtures: RoundFixture[] = [];
 
@@ -84,6 +88,7 @@ function GiornataLive() {
         playerDataMap = roundData.playerData;
         live = roundData.isLive;
         setClosed(roundData.closed);
+        roundClosed = roundData.closed;
         updatedAt = roundData.lastUpdated;
         roundFixtures = roundData.fixtures;
       }
@@ -97,13 +102,14 @@ function GiornataLive() {
           : inferMatchStatuses(currentRound.pairings, live, playerDataMap),
         createLineupProvider(lineups),
         players,
-        roundFixtures.length > 0 ? teamStatusesFromFixtures(roundFixtures) : undefined
+        roundFixtures.length > 0 ? teamStatusesFromFixtures(roundFixtures) : undefined,
+        { simulate: simulated && !roundClosed }
       );
       setMatches(calculatedMatches);
       setFixtures(roundFixtures);
 
       // Classifica cumulata dopo questa giornata (giornate precedenti incluse).
-      const standingsRes = await fetch(`/api/standings?giornata=${Math.min(currentRound.number, liveRound.number)}`, { cache: 'no-store' })
+      const standingsRes = await fetch(`/api/standings?giornata=${Math.min(currentRound.number, liveRound.number)}${simulated ? '&sim=1' : ''}`, { cache: 'no-store' })
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null);
       if (standingsRes?.standings) {
@@ -119,7 +125,7 @@ function GiornataLive() {
       setRefreshing(false);
       setLoaded(true);
     }
-  }, [currentRound, liveRound.number]);
+  }, [currentRound, liveRound.number, simulated]);
 
   useEffect(() => {
     fetchData();
@@ -156,8 +162,10 @@ function GiornataLive() {
           </div>
           {currentRound.number === liveRound.number && !closed && <Badge variant="live">stima live</Badge>}
           {closed && <Badge variant="default">definitiva</Badge>}
+          {simulated && !closed && <Badge variant="default">simulata</Badge>}
         </div>
 
+        {simulated && !closed && <p className="text-xs text-amber-700">{SIMULATION_LEGEND}</p>}
         <div className="text-sm text-gray-500">
           Fasce gol: <span className="font-medium">66 · 72 · 77 · 81</span>
           {refreshing && loaded && (

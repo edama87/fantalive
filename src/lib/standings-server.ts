@@ -22,11 +22,11 @@ export interface StandingsAfterRound {
   matches: FantasyMatchResult[];
 }
 
-export async function getStandingsAfterRound(requested?: number | null): Promise<StandingsAfterRound> {
+export async function getStandingsAfterRound(requested?: number | null, opts: { simulate?: boolean } = {}): Promise<StandingsAfterRound> {
   const maxRound = (await getActiveRound()).number;
   const numbers = Array.from({ length: maxRound }, (_, i) => i + 1);
   const computed = await Promise.all(
-    numbers.map(async (round) => ({ round, ...(await computeRoundMatches(round).catch(() => ({ matches: [], isLive: false, closed: false }))) })),
+    numbers.map(async (round) => ({ round, ...(await computeRoundMatches(round, { simulate: opts.simulate }).catch(() => ({ matches: [], isLive: false, closed: false }))) })),
   );
   const played = lastPlayedRound(computed);
   const round = requested && requested <= maxRound ? requested : played;

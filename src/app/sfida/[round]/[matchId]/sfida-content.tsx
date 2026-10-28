@@ -23,6 +23,8 @@ import {
 } from '@/lib/live-data';
 import { shouldUseMockLiveData } from '@/lib/live-source';
 import { fetchRoundPlayerData } from '@/lib/round-player-data-client';
+import { useSimulation } from '@/lib/use-simulation';
+import { SIMULATION_LEGEND } from '@/lib/simulation';
 import { teamStatusesFromFixtures, type RoundFixture } from '@/lib/serie-a-fixtures';
 import { createLineupProvider, fetchLineupBundle } from '@/lib/lineup-store';
 import { createMockProvider } from '@/providers/mock-provider';
@@ -50,6 +52,7 @@ export function SfidaContent() {
   const homeTeam = getTeamById(homeTeamId);
   const awayTeam = getTeamById(awayTeamId);
 
+  const [simulated] = useSimulation();
   const fetchData = useCallback(async () => {
     if (!round) return;
 
@@ -61,6 +64,7 @@ export function SfidaContent() {
 
       let playerDataMap: Map<string, PlayerMatchData>;
       let live: boolean;
+      let roundClosed = false;
       let roundFixtures: RoundFixture[] = [];
 
       if (shouldUseMockLiveData()) {
@@ -75,6 +79,7 @@ export function SfidaContent() {
         playerDataMap = roundData.playerData;
         live = roundData.isLive;
         setClosed(roundData.closed);
+        roundClosed = roundData.closed;
         roundFixtures = roundData.fixtures;
       }
 
@@ -87,7 +92,8 @@ export function SfidaContent() {
           : inferMatchStatuses(round.pairings, live, playerDataMap),
         createLineupProvider(lineups),
         players,
-        roundFixtures.length > 0 ? teamStatusesFromFixtures(roundFixtures) : undefined
+        roundFixtures.length > 0 ? teamStatusesFromFixtures(roundFixtures) : undefined,
+        { simulate: simulated && !roundClosed }
       );
       const thisMatch = matches.find(
         m => m.homeTeamId === homeTeamId && m.awayTeamId === awayTeamId
@@ -99,7 +105,7 @@ export function SfidaContent() {
     } catch (error) {
       console.error('[sfida] voti non disponibili', error);
     }
-  }, [roundNumber, homeTeamId, awayTeamId, round]);
+  }, [roundNumber, homeTeamId, awayTeamId, round, simulated]);
 
   useEffect(() => {
     fetchData();
@@ -135,12 +141,14 @@ export function SfidaContent() {
                 {roundNumber}ª giornata
               </Badge>
               {closed && <Badge variant="default">Definitivo · voti FMS</Badge>}
+              {simulated && !closed && <Badge variant="default">Simulato</Badge>}
               {isLive && (
                 <Badge variant="live">
                   {match.status === 'halftime' ? 'Intervallo' : 'Live'}
                 </Badge>
               )}
             </div>
+            {simulated && !closed && <div className="-mt-2 mb-3 text-center"><p className="text-xs text-amber-700">{SIMULATION_LEGEND}</p></div>}
 
             {/* Stemmi ai lati, pillola con i gol al centro, fantapunti sotto. Righe condivise: allineato qualunque sia il nome. */}
             <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-x-3 text-center">

@@ -9,6 +9,7 @@ import {
 import { teams, getTeamById } from '@/data/teams';
 import { getRoundByNumber } from '@/data/calendar';
 import { calculateMatch, type TeamMatchStatuses } from './scoring-engine';
+import { simulatePlayerData } from './simulation';
 import { NormalizedMatchData } from '@/providers/types';
 import { generateDefaultLineup } from './lineup-utils';
 
@@ -83,12 +84,17 @@ export function calculateAllMatches(
   matchStatuses?: Map<string, 'scheduled' | 'live' | 'halftime' | 'finished'>,
   lineupProvider?: (teamId: string, roundNumber: number) => Lineup,
   playersById?: Record<string, Player>,
-  teamStatuses?: TeamMatchStatuses
+  teamStatuses?: TeamMatchStatuses,
+  options: { simulate?: boolean } = {}
 ): FantasyMatchResult[] {
   const round = getRoundByNumber(roundNumber);
   if (!round) return [];
 
   const getLineup = lineupProvider || ((teamId: string, rn: number) => generateDefaultLineup(teamId, rn));
+  if (options.simulate) {
+    const lineups = round.pairings.flatMap((p) => [getLineup(p.homeTeamId, roundNumber), getLineup(p.awayTeamId, roundNumber)]);
+    playerDataMap = simulatePlayerData(playerDataMap, lineups, playersById, teamStatuses);
+  }
 
   const results: FantasyMatchResult[] = [];
 
@@ -111,6 +117,8 @@ export function calculateAllMatches(
       status = anyLive ? 'live' : 'finished';
     }
 
+    // Simulazione: anche le sfide non iniziate hanno un risultato (proiezione).
+    if (options.simulate && status === 'scheduled') status = 'live';
     const result = calculateMatch(homeLineup, awayLineup, playerDataMap, status, playersById, teamStatuses);
     results.push(result);
   }

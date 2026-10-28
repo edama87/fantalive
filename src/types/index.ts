@@ -79,6 +79,8 @@ export interface PlayerMatchData {
   paperCount?: number;
   /** Voto FMS importato: totale bonus/malus FMS (fantavoto = voto + bonusOverride). */
   bonusOverride?: number;
+  /** Voto d'ufficio della simulazione (non reale). */
+  simulated?: boolean;
 }
 
 export interface SerieAMatch {
@@ -201,6 +203,8 @@ export interface PlayerScore {
   voteSource?: VoteSource;
   /** Testate (0-3) uscite per la partita, per i consolidati. */
   paperCount?: number;
+  /** Voto d'ufficio della simulazione ("6,0*"). */
+  simulated?: boolean;
 }
 
 export interface BonusBreakdown {
