@@ -1,5 +1,6 @@
 'use client';
 
+import { GoalRuleInfo } from '@/components/match/goal-rule-info';
 import { SIMULATION_LEGEND } from '@/lib/simulation';
 
 import { useEffect } from 'react';
@@ -191,7 +192,7 @@ function RoundResults({ round, matches, myTeamId }: { round: number; matches: Fa
                 >
                   <span className="truncate text-gray-900">{getTeamById(m.homeTeamId)?.name}</span>
                   <span className="text-center">
-                    <span className="block font-bold text-gray-900">{showScore ? `${m.homeGoals} - ${m.awayGoals}` : 'vs'}</span>
+                    <span className="relative block font-bold text-gray-900">{showScore ? `${m.homeGoals} - ${m.awayGoals}` : 'vs'}{showScore && <GoalRuleInfo homeTeamId={m.homeTeamId} awayTeamId={m.awayTeamId} homeTotal={m.homeTotal} awayTotal={m.awayTotal} className="absolute bottom-full left-1/2 mb-0.5 -translate-x-1/2" />}</span>
                     <span className="block text-[11px] text-gray-500">
                       {showScore ? `${formatVote(m.homeTotal)} · ${formatVote(m.awayTotal)}` : hasLineups ? statusLabel(m) : 'Formazioni non disponibili'}
                     </span>

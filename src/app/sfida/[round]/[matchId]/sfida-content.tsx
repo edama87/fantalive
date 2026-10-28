@@ -1,5 +1,6 @@
 'use client';
 
+import { GoalRuleInfo } from '@/components/match/goal-rule-info';
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Header } from '@/components/layout/header';
@@ -167,7 +168,7 @@ export function SfidaContent() {
                 </div>
               ))}
               <div className="col-start-2 row-start-1 flex flex-col items-center pt-9">
-                <GoalsPill home={match.homeGoals} away={match.awayGoals} size="lg" />
+                <span className="relative inline-flex"><GoalsPill home={match.homeGoals} away={match.awayGoals} size="lg" /><GoalRuleInfo homeTeamId={match.homeTeamId} awayTeamId={match.awayTeamId} homeTotal={match.homeTotal} awayTotal={match.awayTotal} className="absolute bottom-full left-1/2 mb-0.5 -translate-x-1/2" /></span>
                 <div className="mt-2 flex w-full justify-between gap-6 px-1 text-sm tabular-nums text-gray-400">
                   <span title="Fantapunti casa">{formatVote(match.homeTotal)}</span>
                   <span title="Fantapunti trasferta">{formatVote(match.awayTotal)}</span>

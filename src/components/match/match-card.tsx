@@ -1,5 +1,6 @@
 'use client';
 
+import { GoalRuleInfo } from '@/components/match/goal-rule-info';
 import { useEffect, useRef, useState } from 'react';
 import { countOnPitch } from '@/lib/on-pitch';
 
@@ -127,7 +128,7 @@ export function MatchCard({ match, roundNumber, showBonusSummary = false, classN
           <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-x-2">
             <Side id={match.homeTeamId} name={homeTeam?.name || match.homeTeamId} mine={isMine(match.homeTeamId)} scores={match.homePlayerScores} playing={homePlayingCount} isLive={isLive} />
             <div className="flex flex-col items-center pt-1">
-              <GoalsPill home={match.homeGoals} away={match.awayGoals} />
+              <span className="relative inline-flex"><GoalsPill home={match.homeGoals} away={match.awayGoals} /><GoalRuleInfo homeTeamId={match.homeTeamId} awayTeamId={match.awayTeamId} homeTotal={match.homeTotal} awayTotal={match.awayTotal} className="absolute bottom-full left-1/2 mb-0.5 -translate-x-1/2" /></span>
               <div className="mt-1.5 flex w-full justify-between gap-4 px-1 text-xs tabular-nums text-gray-400">
                 <span title="Fantapunti casa">{formatVote(match.homeTotal)}</span>
                 <span title="Fantapunti trasferta">{formatVote(match.awayTotal)}</span>
