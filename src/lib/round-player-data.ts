@@ -311,7 +311,7 @@ export function assembleRoundPlayerData(
         existing.isPlaying = row.is_playing === true && row.is_subbed_out !== true && !sentOff;
         const liveMinutes = finiteNumber(row.minutes_played);
         const officialMinutes = officialVotes.find((o) => o.player_id === row.player_id)?.minutes_played;
-        if (existing.isPlaying && liveMinutes != null && finiteNumber(officialMinutes ?? null) == null) existing.minutesPlayed = liveMinutes;
+        if (liveMinutes != null && finiteNumber(officialMinutes ?? null) == null) existing.minutesPlayed = liveMinutes;
       }
       continue;
     }
