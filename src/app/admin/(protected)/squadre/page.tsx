@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { aggregateSeasonStats, type OfficialVoteRow, type SeasonPlayerStats } from '@/lib/season-player-stats';
 import { connection } from 'next/server';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Wallet } from 'lucide-react';
@@ -32,6 +33,23 @@ interface TeamRoster {
 }
 
 const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+
+async function loadSeasonStats(): Promise<{ stats: Map<string, SeasonPlayerStats>; rounds: number[] }> {
+  const rows: OfficialVoteRow[] = [];
+  const db = getServerClient();
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await db
+      .from('official_votes')
+      .select('player_id, round_number, vote_gazzetta, vote_average, fanta_vote')
+      .not('consolidated_at', 'is', null)
+      .range(from, from + 999);
+    if (error) throw error;
+    rows.push(...((data ?? []) as OfficialVoteRow[]));
+    if (!data || data.length < 1000) break;
+  }
+  const rounds = [...new Set(rows.filter((r) => r.vote_gazzetta != null).map((r) => r.round_number))].sort((a, b) => a - b);
+  return { stats: aggregateSeasonStats(rows), rounds };
+}
 
 async function loadOpenRosters(): Promise<TeamRoster[]> {
   const sb = getServerClient();
@@ -77,7 +95,11 @@ function CreditsBadge({ value, source }: { value: number | null; source: 'fms' |
   );
 }
 
-function TeamCard({ team, market }: { team: TeamRoster; market: FmsMarketData | null }) {
+function fmt(n: number | null): string {
+  return n == null ? '—' : n.toFixed(2).replace('.', ',');
+}
+
+function TeamCard({ team, market, stats }: { team: TeamRoster; market: FmsMarketData | null; stats: Map<string, SeasonPlayerStats> | null }) {
   const estimate = market ? estimateTeamCredits(team.name, market.operations) : null;
   const fms = market?.signedUser && norm(market.signedUser.teamName) === norm(team.name) ? market.signedUser.credits : null;
   const credits = fms ?? estimate?.remaining ?? null;
@@ -108,10 +130,24 @@ function TeamCard({ team, market }: { team: TeamRoster; market: FmsMarketData | 
                 {list.map((p) => {
                   const op = opsByPlayer.get(norm(p.name));
                   const price = op ? operationCost(op) : p.price;
+                  const st = stats?.get(p.id);
                   return (
                     <li key={p.id} className="flex items-center justify-between gap-2 py-1">
-                      <span className="min-w-0 truncate text-gray-800">
-                        {p.name} <span className="text-xs text-gray-400">{p.realTeam}</span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-gray-800">
+                          {p.name} <span className="text-xs text-gray-400">{p.realTeam}</span>
+                        </span>
+                        {stats && (
+                          <span className="block text-[11px] tabular-nums text-gray-500">
+                            {st ? (
+                              <>
+                                {st.appearances} pres · MV {fmt(st.average)} · FM {fmt(st.fantaAverage)}
+                              </>
+                            ) : (
+                              '0 pres'
+                            )}
+                          </span>
+                        )}
                       </span>
                       <span className="flex shrink-0 items-center gap-1.5 text-xs">
                         {op?.loan && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-700">prestito</span>}
@@ -164,9 +200,11 @@ export default async function SquadrePage() {
   let error: string | null = null;
   let market: FmsMarketData | null = null;
   let marketError: string | null = null;
+  let season: { stats: Map<string, SeasonPlayerStats>; rounds: number[] } | null = null;
   if (!isSupabaseServerConfigured()) error = 'SUPABASE_SECRET_KEY non configurata.';
   else {
-    const [rosters, mk] = await Promise.allSettled([loadOpenRosters(), fetchFmsMarketData()]);
+    const [rosters, mk, st] = await Promise.allSettled([loadOpenRosters(), fetchFmsMarketData(), loadSeasonStats()]);
+    if (st.status === 'fulfilled') season = st.value;
     if (rosters.status === 'fulfilled') teams = rosters.value;
     else error = 'Impossibile leggere le rose dal database.';
     if (mk.status === 'fulfilled') market = mk.value;
@@ -190,11 +228,20 @@ export default async function SquadrePage() {
           <>
             <div className="space-y-2">
               {teams.map((t) => (
-                <TeamCard key={t.id} team={t} market={market} />
+                <TeamCard key={t.id} team={t} market={market} stats={season?.stats ?? null} />
               ))}
             </div>
             <div className="space-y-1 text-xs text-gray-500">
               {marketError && <p className="text-amber-700">{marketError}</p>}
+              {season ? (
+                <p>
+                  Statistiche su {season.rounds.length} giornat{season.rounds.length === 1 ? 'a' : 'e'} FantaLive ({season.rounds.join(', ')}),
+                  voti consolidati: pres = presenze con voto Gazzetta (s.v. non conta) · MV = media voto Gazzetta · FM = fantamedia
+                  (voto Gazzetta + bonus/malus).
+                </p>
+              ) : (
+                <p className="text-amber-700">Voti stagionali non disponibili.</p>
+              )}
               <p>
                 Crediti: FMS li mostra solo per la squadra collegata ({market?.signedUser?.teamName ?? '—'}). Per le altre è una
                 stima: 60 crediti di mercato meno le operazioni aggiudicate su FMS (prestito a costo fisso 10).
