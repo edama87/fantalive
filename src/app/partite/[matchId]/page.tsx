@@ -9,7 +9,10 @@ import { loadEspnSubstitutions } from '@/lib/serie-a-subs-loader';
 import { loadConsolidatedMatchVotes } from '@/lib/consolidated-votes-loader';
 import { missingOutlets, outletList, OUTLET_LABELS } from '@/lib/pianetafanta';
 import { ConsolidatedMark, VoteSourceLegend } from '@/components/match/vote-source';
-import { loadFantacalcioMatchVotes } from '@/lib/fantacalcio-it-client';
+import { loadFantacalcioCatalog, loadFantacalcioMatchVotes, matchScrapedRows } from '@/lib/fantacalcio-it-client';
+import { loadPlayerOwners } from '@/lib/fanta-owners-server';
+import { getTeamById } from '@/data/teams';
+import type { OwnerBadgeInfo } from './team-votes';
 import { calendar } from '@/data/calendar';
 import { getActiveRound } from '@/lib/active-round-server';
 import { getServerClient } from '@/lib/db/supabase';
@@ -80,6 +83,22 @@ export default async function PartitaVotiPage({
     ? `${canonicalTeamCode(match.homeTeam) ?? match.homeTeam}-${canonicalTeamCode(match.awayTeam) ?? match.awayTeam}`
     : '';
 
+  const owners: Record<string, OwnerBadgeInfo> = {};
+  if (match && leagueRound && players.length > 0) {
+    const [ownerMap, catalog] = await Promise.all([loadPlayerOwners(leagueRound), loadFantacalcioCatalog().catch(() => null)]);
+    if (ownerMap && catalog) {
+      for (const row of matchScrapedRows(match.matchId, players, catalog, { log: false })) {
+        const owner = row.playerId ? ownerMap.get(row.playerId) : undefined;
+        if (!owner) continue;
+        owners[`${row.team}|${row.name}`] = {
+          code: owner.teamId.toUpperCase(),
+          name: getTeamById(owner.teamId)?.name ?? owner.teamId,
+          status: owner.status,
+        };
+      }
+    }
+  }
+
   const homePlayers = players.filter((player) => match && player.team === match.homeTeam);
   const awayPlayers = players.filter((player) => match && player.team === match.awayTeam);
 
@@ -120,8 +139,8 @@ export default async function PartitaVotiPage({
                 </p>
               )}
             </div>
-            <TeamVotes title={match.homeTeam} rows={buildSerieAVoteRows(homePlayers, subs, consolidated)} matchPapers={consolidated ? consolidatedPresent.length : undefined} />
-            <TeamVotes title={match.awayTeam} rows={buildSerieAVoteRows(awayPlayers, subs, consolidated)} matchPapers={consolidated ? consolidatedPresent.length : undefined} />
+            <TeamVotes title={match.homeTeam} rows={buildSerieAVoteRows(homePlayers, subs, consolidated)} matchPapers={consolidated ? consolidatedPresent.length : undefined} owners={owners} />
+            <TeamVotes title={match.awayTeam} rows={buildSerieAVoteRows(awayPlayers, subs, consolidated)} matchPapers={consolidated ? consolidatedPresent.length : undefined} owners={owners} />
             <p className="text-center text-xs text-gray-400">Tocca un giocatore per i dettagli del voto</p>
             <EventLegend className="text-xs text-gray-500 pt-1" />
             <VoteSourceLegend />

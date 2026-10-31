@@ -14,8 +14,33 @@ const ROLE_LABELS: Record<string, string> = { P: 'Portiere', D: 'Difensore', C: 
 const fmtVote = (value: number | null) => (value == null ? 's.v.' : formatVote(value));
 const signed = formatSignedPoints;
 
+export interface OwnerBadgeInfo {
+  code: string;
+  name: string;
+  status: 'starter' | 'bench' | 'out';
+}
+
+const OWNER_TITLE = { starter: 'titolare', bench: 'in panchina', out: 'non convocato' } as const;
+
+/** Stessa convenzione di "Partite da seguire": verde titolare, grigio panchina, attenuato tribuna. */
+function OwnerBadge({ owner }: { owner: OwnerBadgeInfo }) {
+  return (
+    <span
+      title={`${owner.name} · ${OWNER_TITLE[owner.status]}`}
+      className={cn(
+        'inline-flex rounded-md px-1.5 py-0.5 text-[10px] leading-3',
+        owner.status === 'starter' && 'bg-emerald-50 font-semibold text-emerald-800 ring-1 ring-emerald-100',
+        owner.status === 'bench' && 'bg-gray-100 text-gray-600',
+        owner.status === 'out' && 'bg-gray-50 text-gray-400',
+      )}
+    >
+      {owner.code}
+    </span>
+  );
+}
+
 /** `matchPapers`: testate uscite per la partita (3 = consolidato completo). */
-export function TeamVotes({ title, rows, matchPapers }: { title: string; rows: SerieAVoteRow[]; matchPapers?: number }) {
+export function TeamVotes({ title, rows, matchPapers, owners }: { title: string; rows: SerieAVoteRow[]; matchPapers?: number; owners?: Record<string, OwnerBadgeInfo> }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const open = rows.find((row) => row.key === openKey) ?? null;
 
@@ -41,6 +66,11 @@ export function TeamVotes({ title, rows, matchPapers }: { title: string; rows: S
                     <span className="font-medium text-gray-900">{row.name}</span>
                     <EventEmojis bonuses={row.bonuses} />
                   </div>
+                  {owners?.[row.key] && (
+                    <div className="mt-0.5 pl-7">
+                      <OwnerBadge owner={owners[row.key]} />
+                    </div>
+                  )}
                   {row.consolidated && row.vote != null && (
                     <div className="mt-0.5 pl-7 text-[11px] text-gray-400 tabular-nums">
                       G {fmtVote(row.consolidated.gazzetta)} · CS {fmtVote(row.consolidated.corriere)} · TS{' '}
