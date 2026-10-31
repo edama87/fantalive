@@ -36,7 +36,7 @@ function findPlayer(playerId: string, directory?: PlayerDirectory): Player | und
   return directory?.[playerId] ?? getPlayerById(playerId);
 }
 
-function withResolvedFormation(lineup: Lineup, directory?: PlayerDirectory): Lineup {
+export function withResolvedFormation(lineup: Lineup, directory?: PlayerDirectory): Lineup {
   const counts = { D: 0, C: 0, A: 0 };
   for (const slot of lineup.starters) {
     const player = findPlayer(slot.playerId, directory);

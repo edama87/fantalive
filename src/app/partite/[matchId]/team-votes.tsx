@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Sheet } from '@/components/ui/sheet';
 import { SubMarker } from '@/components/match/sub-marker';
@@ -18,23 +18,32 @@ export interface OwnerBadgeInfo {
   code: string;
   name: string;
   status: 'starter' | 'bench' | 'out';
+  subIn?: string;
+  subOut?: string;
 }
 
 const OWNER_TITLE = { starter: 'titolare', bench: 'in panchina', out: 'non convocato' } as const;
 
 /** Stessa convenzione di "Partite da seguire": verde titolare, grigio panchina, attenuato tribuna. */
 function OwnerBadge({ owner }: { owner: OwnerBadgeInfo }) {
+  const title = owner.subIn
+    ? `${owner.name} · entrato al posto di ${owner.subIn}`
+    : owner.subOut
+      ? `${owner.name} · sostituito da ${owner.subOut}`
+      : `${owner.name} · ${OWNER_TITLE[owner.status]}`;
   return (
     <span
-      title={`${owner.name} · ${OWNER_TITLE[owner.status]}`}
+      title={title}
       className={cn(
-        'inline-block max-w-full truncate whitespace-nowrap rounded-md px-1.5 py-0.5 align-top text-[10px] leading-3',
+        'inline-flex max-w-full items-center gap-0.5 rounded-md px-1.5 py-0.5 align-top text-[10px] leading-3',
         owner.status === 'starter' && 'bg-emerald-50 font-semibold text-emerald-800 ring-1 ring-emerald-100',
         owner.status === 'bench' && 'bg-gray-100 text-gray-600',
         owner.status === 'out' && 'bg-gray-50 text-gray-400',
       )}
     >
-      {owner.name}
+      {owner.subIn && <ArrowUp aria-label="entrato" className="h-3 w-3 shrink-0 text-emerald-600" strokeWidth={2.5} />}
+      {owner.subOut && <ArrowDown aria-label="sostituito" className="h-3 w-3 shrink-0 text-red-600" strokeWidth={2.5} />}
+      <span className="min-w-0 truncate whitespace-nowrap">{owner.name}</span>
     </span>
   );
 }

@@ -18,3 +18,17 @@ describe('buildPlayerOwners', () => {
     expect(owners.has('z')).toBe(false);
   });
 });
+
+describe('buildPlayerOwners con cambi automatici', () => {
+  it('panchinaro entrato = titolare con subIn, titolare sostituito = panchina con subOut', () => {
+    const lineups = {
+      'fc-3': { teamId: 'fc', roundNumber: 3, formation: '3-4-3', starters: [{ playerId: 'comert', position: 1 }, { playerId: 'x', position: 2 }], bench: [{ playerId: 'coco', position: 1 }, { playerId: 'y', position: 2 }] },
+    } as unknown as LineupMap;
+    const names: Record<string, string> = { comert: 'COMERT Eray', coco: 'COCO Saul' };
+    const owners = buildPlayerOwners(lineups, [], { fc: [{ starterId: 'comert', benchId: 'coco' }] }, (id) => names[id] ?? id);
+    expect(owners.get('coco')).toEqual({ teamId: 'fc', status: 'starter', subIn: 'COMERT Eray' });
+    expect(owners.get('comert')).toEqual({ teamId: 'fc', status: 'bench', subOut: 'COCO Saul' });
+    expect(owners.get('x')).toEqual({ teamId: 'fc', status: 'starter' });
+    expect(owners.get('y')).toEqual({ teamId: 'fc', status: 'bench' });
+  });
+});

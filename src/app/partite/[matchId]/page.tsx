@@ -94,6 +94,8 @@ export default async function PartitaVotiPage({
           code: owner.teamId.toUpperCase(),
           name: getTeamById(owner.teamId)?.name ?? owner.teamId,
           status: owner.status,
+          subIn: owner.subIn,
+          subOut: owner.subOut,
         };
       }
     }
