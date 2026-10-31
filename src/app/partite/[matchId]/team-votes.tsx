@@ -28,13 +28,13 @@ function OwnerBadge({ owner }: { owner: OwnerBadgeInfo }) {
     <span
       title={`${owner.name} · ${OWNER_TITLE[owner.status]}`}
       className={cn(
-        'inline-flex rounded-md px-1.5 py-0.5 text-[10px] leading-3',
+        'inline-block max-w-full truncate whitespace-nowrap rounded-md px-1.5 py-0.5 align-top text-[10px] leading-3',
         owner.status === 'starter' && 'bg-emerald-50 font-semibold text-emerald-800 ring-1 ring-emerald-100',
         owner.status === 'bench' && 'bg-gray-100 text-gray-600',
         owner.status === 'out' && 'bg-gray-50 text-gray-400',
       )}
     >
-      {owner.code}
+      {owner.name}
     </span>
   );
 }
@@ -67,7 +67,7 @@ export function TeamVotes({ title, rows, matchPapers, owners }: { title: string;
                     <EventEmojis bonuses={row.bonuses} />
                   </div>
                   {owners?.[row.key] && (
-                    <div className="mt-0.5 pl-7">
+                    <div className="mt-0.5 flex min-w-0 pl-7">
                       <OwnerBadge owner={owners[row.key]} />
                     </div>
                   )}
