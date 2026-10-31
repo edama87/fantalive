@@ -17,6 +17,7 @@ import {
   Link2,
   Lightbulb,
   Scale,
+  Wallet,
 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -63,6 +64,13 @@ export default function AdminPage() {
           icon={Users}
           title="Formazioni"
           description="Scarica formazioni da FMS Revo"
+        />
+
+        <AdminMenuItem
+          href="/admin/squadre"
+          icon={Wallet}
+          title="Rose e crediti"
+          description="Rose correnti e crediti residui di ogni squadra"
         />
 
         <AdminMenuItem
