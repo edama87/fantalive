@@ -192,3 +192,38 @@ export async function upsertRoundArticle(
   if (error) throw new Error(error.message);
   return fromRow(data as Row);
 }
+
+/** Giornate con articolo pubblicato, ordinate crescenti. */
+export async function listRoundArticleRounds(
+  sb: SupabaseClient,
+  opts?: { allowSeedFallback?: boolean },
+): Promise<number[]> {
+  const { data, error } = await sb
+    .from('round_articles')
+    .select('round_number')
+    .order('round_number', { ascending: true });
+
+  if (error) {
+    if (opts?.allowSeedFallback !== false && isMissingRelation(error)) {
+      const fromSeed: number[] = [];
+      for (let r = 1; r <= 60; r++) {
+        if (loadSeedArticle(r)) fromSeed.push(r);
+      }
+      return fromSeed;
+    }
+    throw new Error(error.message);
+  }
+
+  const rounds = (data ?? [])
+    .map((row) => Number((row as { round_number: number }).round_number))
+    .filter((n) => Number.isInteger(n) && n > 0);
+
+  if (rounds.length === 0 && opts?.allowSeedFallback) {
+    const fromSeed: number[] = [];
+    for (let r = 1; r <= 60; r++) {
+      if (loadSeedArticle(r)) fromSeed.push(r);
+    }
+    return fromSeed;
+  }
+  return [...new Set(rounds)].sort((a, b) => a - b);
+}

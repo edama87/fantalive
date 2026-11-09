@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { RoundArticleView } from '@/components/giornale/round-article-view';
+import { GiornaleRoundNav } from '@/components/giornale/giornale-round-nav';
 import { RouteSkeleton } from '@/components/ui/route-skeleton';
 import { getRoundByNumber } from '@/data/calendar';
 import type { RoundArticle } from '@/lib/round-articles-shared';
@@ -53,11 +54,12 @@ export default function GiornaleRoundPage() {
         <button
           type="button"
           onClick={() => router.back()}
-          className="mb-4 flex items-center gap-2 text-gray-600 hover:text-gray-900"
+          className="mb-3 flex items-center gap-2 text-gray-600 hover:text-gray-900"
         >
           <ArrowLeft size={18} />
           <span>Indietro</span>
         </button>
+        {Number.isInteger(round) && round > 0 ? <GiornaleRoundNav currentRound={round} /> : null}
         {article ? (
           <RoundArticleView article={article} dateLabel={roundMeta?.date} />
         ) : (

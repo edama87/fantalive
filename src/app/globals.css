@@ -36,3 +36,12 @@ body {
 .animate-pulse-live {
   animation: pulse-live 2s ease-in-out infinite;
 }
+
+/* Hide scrollbars (giornale round chips). */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
