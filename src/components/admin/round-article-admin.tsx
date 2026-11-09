@@ -13,7 +13,6 @@ export function RoundArticleAdmin({ round }: { round: number }) {
   const [headline, setHeadline] = useState('');
   const [subtitle, setSubtitle] = useState('');
   const [body, setBody] = useState('');
-  const [headerImageUrl, setHeaderImageUrl] = useState<string | null>(null);
   const [paragraphImages, setParagraphImages] = useState<ParagraphImage[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -32,7 +31,6 @@ export function RoundArticleAdmin({ round }: { round: number }) {
       setHeadline('');
       setSubtitle('');
       setBody('');
-      setHeaderImageUrl(null);
       setParagraphImages([]);
       setLoaded(true);
       return;
@@ -40,7 +38,6 @@ export function RoundArticleAdmin({ round }: { round: number }) {
     setHeadline(json.article?.headline ?? '');
     setSubtitle(json.article?.subtitle ?? '');
     setBody(json.article?.body ?? '');
-    setHeaderImageUrl(json.article?.headerImageUrl ?? null);
     setParagraphImages(json.article?.paragraphImages ?? []);
     setLoaded(true);
   }, [round]);
@@ -50,6 +47,18 @@ export function RoundArticleAdmin({ round }: { round: number }) {
       void load();
     });
   }, [load]);
+
+  function updateDescription(paragraphIndex: number, description: string) {
+    setParagraphImages((prev) => {
+      const existing = prev.find((x) => x.paragraphIndex === paragraphIndex);
+      if (existing) {
+        return prev.map((x) =>
+          x.paragraphIndex === paragraphIndex ? { ...x, description } : x,
+        );
+      }
+      return prev;
+    });
+  }
 
   async function save() {
     setSaving(true);
@@ -63,7 +72,7 @@ export function RoundArticleAdmin({ round }: { round: number }) {
           headline,
           subtitle: subtitle.trim() ? subtitle : null,
           body,
-          headerImageUrl,
+          headerImageUrl: null,
           paragraphImages,
         }),
       });
@@ -81,19 +90,19 @@ export function RoundArticleAdmin({ round }: { round: number }) {
     }
   }
 
-  async function upload(slot: 'header' | 'paragraph', file: File, paragraphIndex?: number) {
-    const key = slot === 'header' ? 'header' : `p${(paragraphIndex ?? 0) + 1}`;
+  async function upload(file: File, paragraphIndex: number) {
+    const key = `p${paragraphIndex + 1}`;
     setUploading(key);
     setStatus(null);
     try {
+      const existing = paragraphImages.find((x) => x.paragraphIndex === paragraphIndex);
       const fd = new FormData();
       fd.set('file', file);
       fd.set('round', String(round));
-      fd.set('slot', slot);
-      if (slot === 'paragraph' && paragraphIndex !== undefined) {
-        fd.set('paragraphIndex', String(paragraphIndex));
-        fd.set('alt', `Vignetta del paragrafo ${paragraphIndex + 1}`);
-      }
+      fd.set('slot', 'paragraph');
+      fd.set('paragraphIndex', String(paragraphIndex));
+      fd.set('alt', existing?.alt || `Vignetta del paragrafo ${paragraphIndex + 1}`);
+      if (existing?.description) fd.set('description', existing.description);
       const res = await fetch('/api/admin/round-articles/images', { method: 'POST', body: fd });
       const json = (await res.json()) as {
         success?: boolean;
@@ -106,7 +115,6 @@ export function RoundArticleAdmin({ round }: { round: number }) {
         return;
       }
       if (json.article) {
-        setHeaderImageUrl(json.article.headerImageUrl);
         setParagraphImages(json.article.paragraphImages ?? []);
       }
       setStatus(`Vignetta ${key} aggiornata`);
@@ -124,7 +132,7 @@ export function RoundArticleAdmin({ round }: { round: number }) {
           {MASTHEAD_NAME} · articolo G{round}
         </h2>
         <p className="text-xs text-gray-500">
-          Titolo, occhiello, pezzo e vignette (apertura + una per paragrafo).
+          Titolo, occhiello, pezzo e vignette per paragrafo (con descrizione).
         </p>
       </CardHeader>
       <CardContent className="space-y-3 pb-3">
@@ -158,27 +166,6 @@ export function RoundArticleAdmin({ round }: { round: number }) {
               />
             </label>
 
-            <div className="space-y-2 rounded-lg border border-gray-100 bg-gray-50 p-3">
-              <p className="text-xs font-semibold text-gray-600">Vignetta di apertura</p>
-              {headerImageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={headerImageUrl} alt="" className="max-h-28 w-full rounded object-cover" />
-              ) : (
-                <p className="text-xs text-gray-400">Nessuna</p>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                disabled={uploading !== null}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void upload('header', f);
-                  e.target.value = '';
-                }}
-                className="block w-full text-xs"
-              />
-            </div>
-
             <div className="space-y-3">
               <p className="text-xs font-semibold text-gray-600">Vignette per paragrafo</p>
               {paragraphs.map((p, i) => {
@@ -189,17 +176,29 @@ export function RoundArticleAdmin({ round }: { round: number }) {
                     <p className="mb-2 line-clamp-2 text-xs text-gray-600">{p}</p>
                     {img ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={img.url} alt={img.alt} className="mb-2 max-h-24 w-full rounded object-cover" />
+                      <img src={img.url} alt={img.alt || ''} className="mb-2 max-h-24 w-full rounded object-cover" />
                     ) : (
                       <p className="mb-2 text-xs text-gray-400">Nessuna vignetta</p>
                     )}
+                    {img ? (
+                      <label className="mb-2 block text-[11px] font-medium text-gray-500">
+                        Descrizione vignetta
+                        <textarea
+                          value={img.description ?? ''}
+                          onChange={(e) => updateDescription(i, e.target.value)}
+                          rows={2}
+                          className="mt-1 w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs leading-snug"
+                          placeholder="Breve descrizione della scena…"
+                        />
+                      </label>
+                    ) : null}
                     <input
                       type="file"
                       accept="image/*"
                       disabled={uploading !== null}
                       onChange={(e) => {
                         const f = e.target.files?.[0];
-                        if (f) void upload('paragraph', f, i);
+                        if (f) void upload(f, i);
                         e.target.value = '';
                       }}
                       className="block w-full text-xs"

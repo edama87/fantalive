@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { analysisParagraphs, matchCommentPayloadSchema } from '@/lib/match-comments-shared';
-import { articleParagraphs, roundArticlePayloadSchema, MASTHEAD_NAME } from '@/lib/round-articles-shared';
+import {
+  articleParagraphs,
+  normalizeParagraphImages,
+  roundArticlePayloadSchema,
+  MASTHEAD_NAME,
+} from '@/lib/round-articles-shared';
 import { readFileSync } from 'node:fs';
 
 describe('match comments', () => {
@@ -47,14 +52,30 @@ describe('round articles', () => {
     });
     expect(parsed.success).toBe(true);
   });
+
+  it('normalizes plain URL strings and description fields', () => {
+    expect(normalizeParagraphImages(['/giornale/5/a.webp', '/giornale/5/b.webp'])).toEqual([
+      { paragraphIndex: 0, url: '/giornale/5/a.webp', alt: '', description: '' },
+      { paragraphIndex: 1, url: '/giornale/5/b.webp', alt: '', description: '' },
+    ]);
+    expect(
+      normalizeParagraphImages([
+        { paragraph_index: 2, url: '/x.webp', description: 'Scena' },
+      ]),
+    ).toEqual([{ paragraphIndex: 2, url: '/x.webp', alt: '', description: 'Scena' }]);
+  });
 });
 
 describe('giornale vignette seed', () => {
-  it('maps paragraphs 0-4 to images and leaves 5 without', () => {
+  it('maps paragraphs 0-4 with descriptions and no header image', () => {
     const raw = JSON.parse(readFileSync('data/match-comments-g5.json', 'utf8'));
     const imgs = raw.article.paragraphImages;
-    expect(raw.article.headerImageUrl).toBe('/giornale/5/header.webp');
+    expect(raw.article.headerImageUrl).toBeNull();
     expect(imgs.map((x: { paragraphIndex: number }) => x.paragraphIndex)).toEqual([0, 1, 2, 3, 4]);
+    for (const img of imgs) {
+      expect(img.description.length).toBeGreaterThan(20);
+      expect(img.url).toMatch(/\/giornale\/5\/.+\.webp$/);
+    }
     const paras = raw.article.body.split(/\n\s*\n/).map((p: string) => p.trim()).filter(Boolean);
     expect(paras.length).toBe(6);
   });

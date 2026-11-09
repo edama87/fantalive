@@ -1,7 +1,7 @@
 /**
- * Upload vignetta articolo (header o paragrafo).
- * Scrive file ottimizzato in public/giornale/{round}/ e aggiorna round_articles se le colonne esistono.
- * Solo admin. Non crea bucket Supabase.
+ * Upload vignetta di paragrafo per l'articolo di giornata.
+ * Scrive file ottimizzato in public/giornale/{round}/ e aggiorna round_articles.
+ * Solo admin. Non crea bucket Supabase. Nessuna vignetta di apertura.
  */
 import { NextResponse } from 'next/server';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -12,12 +12,12 @@ import { isAdminAuthenticated } from '@/lib/auth/admin';
 import { getServerClient, isSupabaseServerConfigured } from '@/lib/db/supabase';
 import { getRoundArticle, upsertRoundArticle } from '@/lib/round-articles';
 
-
 const metaSchema = z.object({
   round: z.coerce.number().int().positive().max(60),
-  slot: z.enum(['header', 'paragraph']),
-  paragraphIndex: z.coerce.number().int().min(0).max(40).optional(),
+  slot: z.literal('paragraph').default('paragraph'),
+  paragraphIndex: z.coerce.number().int().min(0).max(40),
   alt: z.string().trim().min(1).max(300).optional(),
+  description: z.string().trim().max(800).optional(),
 });
 
 export async function POST(request: Request) {
@@ -34,34 +34,35 @@ export async function POST(request: Request) {
     if (!(file instanceof File)) {
       return NextResponse.json({ success: false, error: 'file mancante' }, { status: 400 });
     }
+    const slotRaw = form.get('slot');
+    if (slotRaw != null && slotRaw !== '' && slotRaw !== 'paragraph') {
+      return NextResponse.json(
+        { success: false, error: 'Solo upload per paragrafo (header non più supportato)' },
+        { status: 400 },
+      );
+    }
     const parsed = metaSchema.safeParse({
       round: form.get('round'),
-      slot: form.get('slot'),
-      paragraphIndex: form.get('paragraphIndex') ?? undefined,
+      slot: 'paragraph',
+      paragraphIndex: form.get('paragraphIndex'),
       alt: form.get('alt') ?? undefined,
+      description: form.get('description') ?? undefined,
     });
     if (!parsed.success) {
       return NextResponse.json({ success: false, error: 'Metadati non validi' }, { status: 400 });
     }
-    const { round, slot } = parsed.data;
-    if (slot === 'paragraph' && parsed.data.paragraphIndex === undefined) {
-      return NextResponse.json({ success: false, error: 'paragraphIndex richiesto' }, { status: 400 });
-    }
+    const { round, paragraphIndex } = parsed.data;
 
     const buf = Buffer.from(await file.arrayBuffer());
-    const width = slot === 'header' ? 1600 : 1000;
     const webp = await sharp(buf)
       .rotate()
-      .resize({ width, withoutEnlargement: true })
+      .resize({ width: 1000, withoutEnlargement: true })
       .webp({ quality: 78 })
       .toBuffer();
 
     const dir = path.join(process.cwd(), 'public', 'giornale', String(round));
     await mkdir(dir, { recursive: true });
-    const filename =
-      slot === 'header'
-        ? 'header.webp'
-        : `p${(parsed.data.paragraphIndex ?? 0) + 1}.webp`;
+    const filename = `p${paragraphIndex + 1}.webp`;
     await writeFile(path.join(dir, filename), webp);
     const url = `/giornale/${round}/${filename}`;
 
@@ -74,29 +75,24 @@ export async function POST(request: Request) {
       );
     }
 
+    const prev = current.paragraphImages.find((p) => p.paragraphIndex === paragraphIndex);
     const alt =
       parsed.data.alt ??
-      (slot === 'header'
-        ? `Vignetta di apertura della ${round}ª giornata`
-        : `Vignetta del paragrafo ${(parsed.data.paragraphIndex ?? 0) + 1}`);
+      prev?.alt ??
+      `Vignetta del paragrafo ${paragraphIndex + 1}`;
+    const description = parsed.data.description ?? prev?.description ?? '';
 
-    const paragraphImages = [...(current.paragraphImages ?? [])];
-    let headerImageUrl = current.headerImageUrl;
-    if (slot === 'header') {
-      headerImageUrl = url;
-    } else {
-      const idx = parsed.data.paragraphIndex!;
-      const without = paragraphImages.filter((p) => p.paragraphIndex !== idx);
-      without.push({ paragraphIndex: idx, url, alt });
-      paragraphImages.splice(0, paragraphImages.length, ...without.sort((a, b) => a.paragraphIndex - b.paragraphIndex));
-    }
+    const paragraphImages = [
+      ...current.paragraphImages.filter((p) => p.paragraphIndex !== paragraphIndex),
+      { paragraphIndex, url, alt, description },
+    ].sort((a, b) => a.paragraphIndex - b.paragraphIndex);
 
     const article = await upsertRoundArticle(sb, {
       round,
       headline: current.headline,
       subtitle: current.subtitle,
       body: current.body,
-      headerImageUrl,
+      headerImageUrl: null,
       paragraphImages,
     });
 

@@ -5,6 +5,7 @@ import path from 'node:path';
 import {
   MASTHEAD_NAME,
   articleParagraphs,
+  normalizeParagraphImages,
   roundArticlePayloadSchema,
   type ParagraphImage,
   type RoundArticle,
@@ -12,7 +13,7 @@ import {
 } from './round-articles-shared';
 
 export type { RoundArticle, RoundArticlePayload, ParagraphImage };
-export { MASTHEAD_NAME, articleParagraphs, roundArticlePayloadSchema };
+export { MASTHEAD_NAME, articleParagraphs, normalizeParagraphImages, roundArticlePayloadSchema };
 
 type Row = {
   id: string;
@@ -24,26 +25,6 @@ type Row = {
   paragraph_images?: unknown;
   updated_at: string;
 };
-
-function normalizeParagraphImages(raw: unknown): ParagraphImage[] {
-  if (!Array.isArray(raw)) return [];
-  const out: ParagraphImage[] = [];
-  for (const item of raw) {
-    if (!item || typeof item !== 'object') continue;
-    const rec = item as Record<string, unknown>;
-    const paragraphIndex =
-      typeof rec.paragraphIndex === 'number'
-        ? rec.paragraphIndex
-        : typeof rec.paragraph_index === 'number'
-          ? rec.paragraph_index
-          : null;
-    const url = typeof rec.url === 'string' ? rec.url.trim() : '';
-    const alt = typeof rec.alt === 'string' ? rec.alt.trim() : '';
-    if (paragraphIndex === null || !url || !alt) continue;
-    out.push({ paragraphIndex, url, alt });
-  }
-  return out.sort((a, b) => a.paragraphIndex - b.paragraphIndex);
-}
 
 function fromRow(row: Row): RoundArticle {
   return {
@@ -175,7 +156,8 @@ export async function upsertRoundArticle(
       paragraph_index: img.paragraphIndex,
       paragraphIndex: img.paragraphIndex,
       url: img.url,
-      alt: img.alt,
+      alt: img.alt ?? '',
+      description: img.description ?? '',
     }));
   }
 

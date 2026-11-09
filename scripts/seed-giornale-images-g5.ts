@@ -1,13 +1,15 @@
 /**
- * Assicura vignette G5 in public/giornale/5 e aggiorna round_articles (header + paragraph_images).
+ * Assicura vignette G5 in public/giornale/5 e aggiorna round_articles.paragraph_images
+ * (con description). Imposta headerImageUrl a null.
  * Richiede ALLOW_MATCH_COMMENTS_SEED=1. Non crea bucket Supabase.
- * Sorgente opzionale: /workspace/vignette-g5/*.jpg (ricompressa) oppure usa già public/.
+ * Sorgente opzionale: /workspace/vignette-g5/*.jpg oppure usa già public/.
  */
-import { existsSync, mkdirSync, readFileSync, copyFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
 import { getServerClient, isSupabaseServerConfigured } from '@/lib/db/supabase';
 import { getRoundArticle, upsertRoundArticle } from '@/lib/round-articles';
+import type { ParagraphImage } from '@/lib/round-articles-shared';
 
 async function ensureWebp(srcJpg: string, destWebp: string, width: number) {
   mkdirSync(path.dirname(destWebp), { recursive: true });
@@ -35,7 +37,6 @@ async function main() {
   mkdirSync(destDir, { recursive: true });
 
   const files = [
-    { jpg: 'header.jpg', webp: 'header.webp', w: 1600 },
     { jpg: 'p1-fc-dc.jpg', webp: 'p1-fc-dc.webp', w: 1000 },
     { jpg: 'p2-le-rp.jpg', webp: 'p2-le-rp.webp', w: 1000 },
     { jpg: 'p3-psg-sf.jpg', webp: 'p3-psg-sf.webp', w: 1000 },
@@ -54,7 +55,7 @@ async function main() {
       subtitle?: string | null;
       body: string;
       headerImageUrl?: string | null;
-      paragraphImages?: { paragraphIndex: number; url: string; alt: string }[];
+      paragraphImages?: ParagraphImage[];
     };
   };
   const a = raw.article;
@@ -65,13 +66,14 @@ async function main() {
     headline: current?.headline ?? a.headline,
     subtitle: current?.subtitle ?? a.subtitle ?? null,
     body: current?.body ?? a.body,
-    headerImageUrl: a.headerImageUrl ?? '/giornale/5/header.webp',
+    headerImageUrl: null,
     paragraphImages: a.paragraphImages ?? [],
   });
   console.log('article images', {
     id: article.id,
     header: article.headerImageUrl,
     paragraphs: article.paragraphImages.length,
+    withDescription: article.paragraphImages.filter((p) => p.description).length,
   });
 }
 
