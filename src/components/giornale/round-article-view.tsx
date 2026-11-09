@@ -45,11 +45,11 @@ function VignetteFigure({ image }: { image: ParagraphImage }) {
       <img
         src={image.url}
         alt={alt}
-        width={1000}
-        height={700}
+        width={1280}
+        height={549}
         loading="lazy"
         decoding="async"
-        className="h-auto w-full object-cover"
+        className="aspect-[21/9] h-auto w-full object-cover"
       />
       {description ? (
         <>

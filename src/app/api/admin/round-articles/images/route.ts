@@ -56,13 +56,13 @@ export async function POST(request: Request) {
     const buf = Buffer.from(await file.arrayBuffer());
     const webp = await sharp(buf)
       .rotate()
-      .resize({ width: 1000, withoutEnlargement: true })
+      .resize({ width: 1280, withoutEnlargement: true })
       .webp({ quality: 78 })
       .toBuffer();
 
     const dir = path.join(process.cwd(), 'public', 'giornale', String(round));
     await mkdir(dir, { recursive: true });
-    const filename = `p${paragraphIndex + 1}.webp`;
+    const filename = `p${paragraphIndex + 1}-w.webp`;
     await writeFile(path.join(dir, filename), webp);
     const url = `/giornale/${round}/${filename}`;
 

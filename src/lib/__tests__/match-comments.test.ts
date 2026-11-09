@@ -74,7 +74,7 @@ describe('giornale vignette seed', () => {
     expect(imgs.map((x: { paragraphIndex: number }) => x.paragraphIndex)).toEqual([0, 1, 2, 3, 4]);
     for (const img of imgs) {
       expect(img.description.length).toBeGreaterThan(20);
-      expect(img.url).toMatch(/\/giornale\/5\/.+\.webp$/);
+      expect(img.url).toMatch(/\/giornale\/5\/.+-w\.webp$/);
     }
     const paras = raw.article.body.split(/\n\s*\n/).map((p: string) => p.trim()).filter(Boolean);
     expect(paras.length).toBe(6);
