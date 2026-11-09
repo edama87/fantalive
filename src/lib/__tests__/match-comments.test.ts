@@ -48,3 +48,14 @@ describe('round articles', () => {
     expect(parsed.success).toBe(true);
   });
 });
+
+describe('giornale vignette seed', () => {
+  it('maps paragraphs 0-4 to images and leaves 5 without', () => {
+    const raw = JSON.parse(readFileSync('data/match-comments-g5.json', 'utf8'));
+    const imgs = raw.article.paragraphImages;
+    expect(raw.article.headerImageUrl).toBe('/giornale/5/header.webp');
+    expect(imgs.map((x: { paragraphIndex: number }) => x.paragraphIndex)).toEqual([0, 1, 2, 3, 4]);
+    const paras = raw.article.body.split(/\n\s*\n/).map((p: string) => p.trim()).filter(Boolean);
+    expect(paras.length).toBe(6);
+  });
+});
