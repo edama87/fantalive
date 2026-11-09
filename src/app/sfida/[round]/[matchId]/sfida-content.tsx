@@ -32,6 +32,7 @@ import { createMockProvider } from '@/providers/mock-provider';
 import { ArrowLeft, Home, Info, Plane } from 'lucide-react';
 import { Sheet } from '@/components/ui/sheet';
 import { ModifierExplanation, MODIFIER_TITLES, type ModifierKind } from '@/components/match/modifier-explanation';
+import { MatchCommentSection } from '@/components/match/match-comment';
 
 export function SfidaContent() {
   const router = useRouter();
@@ -240,6 +241,12 @@ export function SfidaContent() {
         </div>
 
         <IconLegend />
+
+        <MatchCommentSection
+          round={roundNumber}
+          homeTeamId={homeTeamId}
+          awayTeamId={awayTeamId}
+        />
       </div>
     </div>
   );

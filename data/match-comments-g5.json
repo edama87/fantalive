@@ -1,0 +1,56 @@
+{
+  "comments": [
+    {
+      "round": 5,
+      "homeTeamId": "ym",
+      "awayTeamId": "ap",
+      "homeName": "Yellow Mustard",
+      "awayName": "Amatori ProSecco",
+      "analysis": "Amatori ProSecco vince 2-1 in trasferta (75,16 vs 69,16) con un 3-4-3 concreto: Pérez 10,5 e Baldanzi 6,67 dal centrocampo a quattro, Bremer 9,5 a chiudere la difesa. L'attacco ha sofferto (Laurienté 4,83, Varela 5,33 senza bonus), ma i modificatori e il centrocampo hanno tenuto il risultato. La consigliata 4-3-3 sarebbe finita 1-1: togliere Valeri/Masini per Baldanzi/Pérez è stata la mossa decisiva (Masini s.v.). Col senno di poi il migliore era un 3-5-2 a 84,33 (4-1), con Hainaut e Woltemade più in vista.",
+      "ironicNote": "Pérez da 10,5 e l'attacco che fa turismo: a volte bastano i mediani a segnare la giornata al posto dei bomber."
+    },
+    {
+      "round": 5,
+      "homeTeamId": "le",
+      "awayTeamId": "rp",
+      "homeName": "Little Eagles",
+      "awayName": "Real Pedrotte",
+      "analysis": "Little Eagles batte Real Pedrotte 2-1 (74,83 vs 67,16) grazie ai modificatori di casa: +2 campo, +1 centrocampo, +1,5 attacco, e −2 di difesa scaricato sui pedrottini. RP in 3-4-3 ha pagato Bijlow (4) e Højlund (4,8); col migliore 4-5-1 a 75,33 avrebbe ribaltato in 2-1. LE lascia Spence (8,17) in panchina: vittoria meritata sui numeri schierati, ma non sul senno di poi degli ospiti.",
+      "ironicNote": "Quando i modificatori fanno più gol di Højlund, il regolamento diventa il tuo centravanti preferito."
+    },
+    {
+      "round": 5,
+      "homeTeamId": "fc",
+      "awayTeamId": "dc",
+      "homeName": "Football And City",
+      "awayName": "Dinamo Cecchignola 1927",
+      "analysis": "Football And City passa 2-1 (73,00 vs 69,33): un punto sopra la fascia del 72 e partita chiusa. Dinamo lascia in panchina Cissé (9,83) e resta a un 3-5-2 spento; col migliore 4-5-1 a 77,66 ribalterebbe 3-1. Anche FC aveva Njie (10) fuori dal undici: vittoria di misura, con entrambi i banchi più cattivi delle formazioni.",
+      "ironicNote": "Vince chi tocca la fascia 72 per un soffio; perde chi lascia Cissé a fare applausi dalla panchina."
+    },
+    {
+      "round": 5,
+      "homeTeamId": "psg",
+      "awayTeamId": "sf",
+      "homeName": "Parisso San Gennaro",
+      "awayName": "Sfortonia",
+      "analysis": "Pareggio 1-1 (70,50 vs 67,50): il centrocampo di Parisso (+2,5) tiene a bada quello di Sfortonia (−2,5). SF resta a 1,5 punti dalla fascia del 66 — un soffio dal gol in meno. In panchina finiscono Ellertsson (9,5) per PSG e Pellegrino (10) per SF; con le migliori entrambe potevano vincere (PSG 3-6-1 a 76,66, SF 4-3-3 a 74,58).",
+      "ironicNote": "Due panchine da urlo e un pareggio educato: il fantacalcio, dove i bomber preferiscono guardare."
+    },
+    {
+      "round": 5,
+      "homeTeamId": "am",
+      "awayTeamId": "st",
+      "homeName": "Atletico Magari",
+      "awayName": "Salen Team",
+      "analysis": "Atletico Magari–Salen Team 1-1 (70,16 vs 69,66): AM prudente in 5-4-1, tre cambi e malus difesa che regala +1 agli ospiti. In panchina restano Mendy (7,67) e Caprile (7,33); col 4-3-3 migliore (76,66) Magari chiudeva 2-1. Pareggio di misura, con la formazione cauta che ha protetto il punto più di quanto abbia cercato i tre.",
+      "ironicNote": "Cinque difensori per pareggiare: a Magari il coraggio lo tengono in panchina, accanto a Mendy."
+    }
+  ],
+  "masthead": "Il Bundle Quotidiano",
+  "article": {
+    "round": 5,
+    "headline": "City imbattuta, ProSecco respira, Parisso ancora a secco: la Bundlesliga dopo cinque giornate",
+    "subtitle": "FC vola a 15 punti; Magari ed Eagles a 10; tre pareggi e due 2-1 in una giornata di panchine d’oro e modificatori cattivi",
+    "body": "Cinque giornate e un solo leader senza macchia: Football And City chiude il turno con 15 punti, cinque vittorie su cinque e la difesa meno battuta del lotto. Il 2-1 casalingo sulla Dinamo Cecchignola (73 a 69) è l’ennesimo affare chiuso per un soffio sopra la fascia del 72. I padroni di casa lasciano Njie (10) a fare tifo dalla panchina; gli ospiti rispondono peggio, con Cissé (9,8) fuori dall’undici. Col migliore 4-5-1 la Dinamo avrebbe ribaltato 3-1: invece resta quarta a 9, rabbiosa e ancora pericolosissima in attacco stagionale (19 gol fatti).\n\nLittle Eagles batte Real Pedrotte 2-1 e sale a 10 punti, agganciando Atletico Magari. Decisiva la casa: +2 di campo, +1 a centrocampo, +1,5 in attacco e un −2 scaricato sulla difesa pedrottina. Pedrotte, con Bijlow a 4 e Højlund a 4,8, guarda il senno di poi: il 4-5-1 da 75 punti avrebbe portato i tre punti. Spence (8,2) resta in panchina per le Eagles — vittoria di modificatori più che di plancia.\n\nIl turno dei pareggi apre con Parisso San Gennaro–Sfortonia 1-1. Il centrocampo granata vale +2,5, quello sfortonese −2,5: matematica da spogliatoio. Sfortonia resta a un punto e mezzo dalla fascia del 66, con Pellegrino (10) in panchina; Parisso lascia fuori Ellertsson (9,5). Entrambe, col migliore, avrebbero potuto vincere. In classifica è sofferenza: Sfortonia a 5, Parisso fanalino a 2.\n\nAtletico Magari e Salen Team si stringono la mano sull’1-1 (70,16–69,66). Magari sceglie la prudenza del 5-4-1, tre cambi e un malus difensivo che regala +1 agli ospiti. In panchina finiscono Mendy (7,7) e Caprile (7,3): il 4-3-3 migliore chiudeva 2-1. Il punto tiene Magari a 10; Salen resta a 4 e continua a cercare aria.\n\nFuori casa, Amatori ProSecco stende Yellow Mustard 2-1 con un 3-4-3 concreto: Pérez 10,5, Baldanzi 6,67, Bremer 9,5. L’attacco zoppica (Laurienté 4,83, Varela 5,33), ma i tre punti valgono l’aggancio a Pedrotte a quota 6 e un po’ di respiro dopo un avvio complicato. Mustard resta a 3, ancora senza vittorie.\n\nCosì la fotografia: City sola al comando; Magari ed Eagles a inseguire; Dinamo quarta e arrabbiata; poi il gruppetto 6–5–4 con Pedrotte, ProSecco, Sfortonia e Salen; Mustard e Parisso a guardare dal fondo. Giornata di banchi più forti delle formazioni e di fasce gol prese con il contagocce: tipico Bundlesliga, dove il senno di poi arriva sempre in 3-5-2 e il presente si contenta del punto."
+  }
+}

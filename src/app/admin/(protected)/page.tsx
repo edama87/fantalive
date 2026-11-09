@@ -15,6 +15,7 @@ import {
   ClipboardList,
   Loader2,
   Link2,
+  MessageSquareText,
   Lightbulb,
   Scale,
   Wallet,
@@ -43,6 +44,13 @@ export default function AdminPage() {
           icon={Lightbulb}
           title="Formazione consigliata"
           description="Formazione suggerita per la prossima giornata"
+        />
+
+        <AdminMenuItem
+          href="/admin/commenti"
+          icon={MessageSquareText}
+          title="Commenti sfide"
+          description="Analisi e chiusura ironica in fondo alle partite"
         />
 
         <AdminMenuItem

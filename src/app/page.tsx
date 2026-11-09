@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { RoundNav } from '@/components/layout/round-nav';
+import { GiornaleButton } from '@/components/giornale/giornale-button';
 import { parseGiornata, type CumulativeStandingsEntry } from '@/lib/standings';
 import { Header } from '@/components/layout/header';
 import { MatchCard } from '@/components/match/match-card';
@@ -156,11 +157,14 @@ function GiornataLive() {
         <RoundNav selected={currentRound.number} max={calendar.length} current={liveRound.number} currentClosed={active.closed} />
 
         <div className="flex items-center justify-between">
-          <div>
+          <div className="min-w-0">
             <h2 className="text-xl font-bold text-gray-900">Bundlesliga</h2>
             <p className="text-sm text-gray-500">
               {currentRound.number}ª giornata · Serie A {currentRound.serieAMatchday}ª · {currentRound.date}
             </p>
+            <div className="mt-2">
+              <GiornaleButton round={currentRound.number} />
+            </div>
           </div>
           {currentRound.number === liveRound.number && !closed && <Badge variant="live">stima live</Badge>}
           {closed && <Badge variant="default">definitiva</Badge>}
