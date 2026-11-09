@@ -3,9 +3,10 @@
 import { GoalRuleInfo } from '@/components/match/goal-rule-info';
 import { SIMULATION_LEGEND } from '@/lib/simulation';
 
-import { useEffect } from 'react';
+import { useEffect, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { RoundNav } from '@/components/layout/round-nav';
@@ -28,6 +29,7 @@ export function ClassificaClient({
   currentRound,
   currentClosed = false,
   calendarRound,
+  calendarMatches = [],
   totalRounds,
   simulated = false,
 }: {
@@ -36,37 +38,50 @@ export function ClassificaClient({
   currentRound: number;
   currentClosed?: boolean;
   calendarRound: number;
+  calendarMatches?: FantasyMatchResult[];
   totalRounds: number;
   simulated?: boolean;
 }) {
   const router = useRouter();
   const myTeamId = useMyTeamId();
+  const [isPending, startTransition] = useTransition();
   useDeclareViewedRoundClosed(view === 'classifica' && data.round > 0 && data.closed);
 
-  // Giornata in corso: aggiorna i dati del server ogni minuto.
   useEffect(() => {
     if (view !== 'classifica' || !data.partial) return;
     const id = setInterval(() => router.refresh(), REFRESH_MS);
     return () => clearInterval(id);
   }, [view, data.partial, router]);
 
-  const tab = (v: View, label: string, round: number) => (
-    <Link
-      href={`/classifica?vista=${v}&giornata=${round}`}
-      className={cn(
-        'px-4 py-2 rounded-lg font-medium text-sm transition-colors',
-        view === v ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
-      )}
-    >
-      {label}
-    </Link>
-  );
+  const tab = (v: View, label: string, round: number) => {
+    const href = `/classifica?vista=${v}&giornata=${round}`;
+    return (
+      <Link
+        href={href}
+        onClick={(e) => {
+          if (v === view) return;
+          e.preventDefault();
+          startTransition(() => {
+            router.push(href, { scroll: false });
+          });
+        }}
+        className={cn(
+          'px-4 py-2 rounded-lg font-medium text-sm transition-colors',
+          view === v ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+          isPending && 'opacity-70',
+        )}
+      >
+        {label}
+      </Link>
+    );
+  };
 
   return (
     <>
       <div className="flex items-center gap-2">
         {tab('classifica', 'Classifica', data.round || 1)}
         {tab('calendario', 'Calendario', view === 'calendario' ? calendarRound : data.round || currentRound)}
+        {isPending ? <Loader2 size={16} className="animate-spin text-emerald-600" aria-label="Caricamento" /> : null}
       </div>
 
       {view === 'classifica' ? (
@@ -77,14 +92,30 @@ export function ClassificaClient({
         ) : (
           <>
             <RoundNav selected={data.round} max={data.maxRound} current={currentRound} currentClosed={currentClosed} label={(n) => `Dopo la ${n}ª giornata`} />
-            <StandingsTable standings={data.standings} round={data.round} partial={data.partial} closed={data.closed} simulated={simulated && !data.closed} myTeamId={myTeamId} />
-            <RoundResults round={data.round} matches={data.matches} myTeamId={myTeamId} />
+            {isPending ? (
+              <p className="flex items-center gap-2 text-sm text-emerald-700">
+                <Loader2 size={16} className="animate-spin" aria-hidden />
+                Aggiorno la classifica…
+              </p>
+            ) : null}
+            <div className={cn('space-y-4', isPending && 'pointer-events-none opacity-60')}>
+              <StandingsTable standings={data.standings} round={data.round} partial={data.partial} closed={data.closed} simulated={simulated && !data.closed} myTeamId={myTeamId} />
+              <RoundResults round={data.round} matches={data.matches} myTeamId={myTeamId} />
+            </div>
           </>
         )
       ) : (
         <>
           <RoundNav selected={calendarRound} max={totalRounds} current={currentRound} currentClosed={currentClosed} />
-          <CalendarView round={calendarRound} myTeamId={myTeamId} />
+          {isPending ? (
+            <p className="flex items-center gap-2 text-sm text-emerald-700">
+              <Loader2 size={16} className="animate-spin" aria-hidden />
+              Aggiorno il calendario…
+            </p>
+          ) : null}
+          <div className={cn(isPending && 'pointer-events-none opacity-60')}>
+            <CalendarView round={calendarRound} matches={calendarMatches} myTeamId={myTeamId} />
+          </div>
         </>
       )}
     </>
@@ -208,31 +239,79 @@ function RoundResults({ round, matches, myTeamId }: { round: number; matches: Fa
   );
 }
 
-export function CalendarView({ round: roundNumber, myTeamId = null }: { round: number; myTeamId?: string | null }) {
+
+export function CalendarView({
+  round: roundNumber,
+  matches = [],
+  myTeamId = null,
+}: {
+  round: number;
+  matches?: FantasyMatchResult[];
+  myTeamId?: string | null;
+}) {
   const round = calendar.find((r) => r.number === roundNumber);
   if (!round) return null;
+  const byKey = new Map(matches.map((m) => [`${m.homeTeamId}-${m.awayTeamId}`, m]));
   return (
     <Card>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <h3 className="font-semibold text-gray-900">{round.number}ª Giornata</h3>
           <span className="text-sm text-gray-500">Serie A {round.serieAMatchday}ª · {round.date}</span>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-2">
+        <ul className="space-y-2">
           {round.pairings.map((p) => {
             const mine = myTeamId !== null && (p.homeTeamId === myTeamId || p.awayTeamId === myTeamId);
+            const m = byKey.get(`${p.homeTeamId}-${p.awayTeamId}`);
+            const hasLineups = Boolean(m && m.homePlayerScores.length > 0 && m.awayPlayerScores.length > 0);
+            const showScore = Boolean(m && hasLineups && m.status !== 'scheduled');
+            const statusLabel =
+              !m || m.status === 'scheduled'
+                ? hasLineups
+                  ? 'Da giocare'
+                  : 'Formazioni non disponibili'
+                : m.status === 'finished'
+                  ? 'Finale'
+                  : 'In corso';
             return (
-              <Link key={`${p.homeTeamId}-${p.awayTeamId}`} href={`/sfida/${round.number}/${p.homeTeamId}-${p.awayTeamId}`}
-                className={cn('flex items-center justify-between p-3 rounded-lg hover:bg-emerald-50', mine ? 'bg-emerald-50' : 'bg-gray-50')}>
-                <span className={cn('flex-1', myTeamId === p.homeTeamId && 'font-semibold text-emerald-700')}>{getTeamById(p.homeTeamId)?.name}</span>
-                <span className="px-3 text-gray-400">vs</span>
-                <span className={cn('flex-1 text-right', myTeamId === p.awayTeamId && 'font-semibold text-emerald-700')}>{getTeamById(p.awayTeamId)?.name}</span>
-              </Link>
+              <li key={`${p.homeTeamId}-${p.awayTeamId}`}>
+                <Link
+                  href={`/sfida/${round.number}/${p.homeTeamId}-${p.awayTeamId}`}
+                  className={cn(
+                    'grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-lg p-3 text-sm transition-colors hover:bg-emerald-50',
+                    mine ? 'bg-emerald-50' : 'bg-gray-50',
+                  )}
+                >
+                  <span className={cn('truncate text-gray-900', myTeamId === p.homeTeamId && 'font-semibold text-emerald-700')}>
+                    {getTeamById(p.homeTeamId)?.name}
+                  </span>
+                  <span className="text-center">
+                    <span className="relative block font-bold text-gray-900">
+                      {showScore && m ? `${m.homeGoals} - ${m.awayGoals}` : 'vs'}
+                      {showScore && m ? (
+                        <GoalRuleInfo
+                          homeTeamId={m.homeTeamId}
+                          awayTeamId={m.awayTeamId}
+                          homeTotal={m.homeTotal}
+                          awayTotal={m.awayTotal}
+                          className="absolute bottom-full left-1/2 mb-0.5 -translate-x-1/2"
+                        />
+                      ) : null}
+                    </span>
+                    <span className="block text-[11px] text-gray-500">
+                      {showScore && m ? `${formatVote(m.homeTotal)} · ${formatVote(m.awayTotal)}` : statusLabel}
+                    </span>
+                  </span>
+                  <span className={cn('truncate text-right text-gray-900', myTeamId === p.awayTeamId && 'font-semibold text-emerald-700')}>
+                    {getTeamById(p.awayTeamId)?.name}
+                  </span>
+                </Link>
+              </li>
             );
           })}
-        </div>
+        </ul>
       </CardContent>
     </Card>
   );

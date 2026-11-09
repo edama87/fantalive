@@ -22,14 +22,42 @@ export interface StandingsAfterRound {
   matches: FantasyMatchResult[];
 }
 
-export async function getStandingsAfterRound(requested?: number | null, opts: { simulate?: boolean } = {}): Promise<StandingsAfterRound> {
-  const maxRound = (await getActiveRound()).number;
-  const numbers = Array.from({ length: maxRound }, (_, i) => i + 1);
-  const computed = await Promise.all(
-    numbers.map(async (round) => ({ round, ...(await computeRoundMatches(round, { simulate: opts.simulate }).catch(() => ({ matches: [], isLive: false, closed: false }))) })),
+type RoundComputed = {
+  round: number;
+  matches: FantasyMatchResult[];
+  isLive: boolean;
+  closed: boolean;
+};
+
+async function computeRounds(upto: number, simulate?: boolean): Promise<RoundComputed[]> {
+  const numbers = Array.from({ length: Math.max(0, upto) }, (_, i) => i + 1);
+  return Promise.all(
+    numbers.map(async (round) => ({
+      round,
+      ...(await computeRoundMatches(round, { simulate }).catch(() => ({
+        matches: [] as FantasyMatchResult[],
+        isLive: false,
+        closed: false,
+      }))),
+    })),
   );
+}
+
+export async function getStandingsAfterRound(
+  requested?: number | null,
+  opts: { simulate?: boolean } = {},
+): Promise<StandingsAfterRound> {
+  const maxRound = (await getActiveRound()).number;
+
+  // Con giornata scelta: calcola solo 1..N (non le successive).
+  // Senza: serve scandire fino a maxRound per trovare l'ultima giocata.
+  const needUpto =
+    requested != null && requested > 0 ? Math.min(requested, maxRound) : maxRound;
+  const computed = await computeRounds(needUpto, opts.simulate);
+
   const played = lastPlayedRound(computed);
-  const round = requested && requested <= maxRound ? requested : played;
+  const round =
+    requested != null && requested > 0 && requested <= maxRound ? Math.min(requested, maxRound) : played;
   const included = computed.filter((r) => r.round <= round);
   const target = computed.find((r) => r.round === round);
   const matches = target?.matches ?? [];
@@ -41,7 +69,6 @@ export async function getStandingsAfterRound(requested?: number | null, opts: { 
     partial,
     closed,
     isLive: Boolean(target?.isLive),
-    // Variazioni rispetto alla classifica dopo la giornata precedente (anche se N è in corso).
     standings: withPositionChange(
       accumulateStandings(included),
       round > 1 ? accumulateStandings(included.filter((r) => r.round < round)) : null,

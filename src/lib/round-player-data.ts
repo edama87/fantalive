@@ -400,20 +400,12 @@ async function consolidatedCoverage(
 
 export async function getRoundPlayerState(roundNumber: number): Promise<RoundPlayerState> {
   const supabase = getServerClient();
-  const [officialResult, liveVotesResult, liveEventsResult, matchesResult, importsResult, fmsImportsResult] = await Promise.all([
+  // Prima: dati ufficiali + check chiusura FMS. Se chiusa, saltiamo live_votes/live_events.
+  const [officialResult, matchesResult, importsResult, fmsImportsResult] = await Promise.all([
     supabase
       .from('official_votes')
       .select('*')
       .eq('round_number', roundNumber),
-    supabase
-      .from('live_votes')
-      .select('player_id, estimated_vote, minutes_played, is_playing, is_subbed_out, updated_at, source_provider')
-      .eq('round_number', roundNumber),
-    supabase
-      .from('live_events')
-      .select('player_id, event_type, minute, related_player_id')
-      .eq('round_number', roundNumber)
-      .order('minute'),
     supabase
       .from('serie_a_matches')
       .select('id, home_team, away_team, home_score, away_score, status, minute, kickoff_time')
@@ -433,23 +425,37 @@ export async function getRoundPlayerState(roundNumber: number): Promise<RoundPla
   const closed = !fmsImportsResult.error && (fmsImportsResult.count ?? 0) > 0;
 
   const officialVotes = assertQuery<OfficialVoteRow>('official_votes', officialResult);
-  const liveEvents = assertQuery<LiveEventRow>('live_events', liveEventsResult);
   const matches = assertQuery<SerieAMatchRow>('serie_a_matches', matchesResult);
-  let liveVotes = assertQuery<LiveVoteRow>('live_votes', liveVotesResult);
-  const playingIds = liveVotes.filter((row) => row.is_playing === true).map((row) => row.player_id);
-  if (playingIds.length > 0 && matches.some((m) => m.status === 'finished')) {
-    const { data: teams } = await supabase.from('players').select('id, real_team').in('id', playingIds);
-    liveVotes = clearFinishedIsPlaying(
-      liveVotes,
-      new Map((teams ?? []).map((row) => [row.id as string, (row.real_team as string | null) ?? null])),
-      teamStatusesFromFixtures(matches.map(fixtureFromRow))
-    );
+  const imports = assertQuery<ConsolidatedImportRow>('official_vote_imports', importsResult);
+
+  let liveVotes: LiveVoteRow[] = [];
+  let liveEvents: LiveEventRow[] = [];
+
+  if (!closed) {
+    const [liveVotesResult, liveEventsResult] = await Promise.all([
+      supabase
+        .from('live_votes')
+        .select('player_id, estimated_vote, minutes_played, is_playing, is_subbed_out, updated_at, source_provider')
+        .eq('round_number', roundNumber),
+      supabase
+        .from('live_events')
+        .select('player_id, event_type, minute, related_player_id')
+        .eq('round_number', roundNumber)
+        .order('minute'),
+    ]);
+    liveEvents = assertQuery<LiveEventRow>('live_events', liveEventsResult);
+    liveVotes = assertQuery<LiveVoteRow>('live_votes', liveVotesResult);
+    const playingIds = liveVotes.filter((row) => row.is_playing === true).map((row) => row.player_id);
+    if (playingIds.length > 0 && matches.some((m) => m.status === 'finished')) {
+      const { data: teams } = await supabase.from('players').select('id, real_team').in('id', playingIds);
+      liveVotes = clearFinishedIsPlaying(
+        liveVotes,
+        new Map((teams ?? []).map((row) => [row.id as string, (row.real_team as string | null) ?? null])),
+        teamStatusesFromFixtures(matches.map(fixtureFromRow))
+      );
+    }
   }
 
-  const imports = assertQuery<ConsolidatedImportRow>(
-    'official_vote_imports',
-    importsResult
-  );
   const coverage = await consolidatedCoverage(supabase, imports, [
     ...new Set([...liveVotes.map((row) => row.player_id), ...liveEvents.map((row) => row.player_id)]),
   ]);

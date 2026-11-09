@@ -7,7 +7,10 @@ import { calendar } from '@/data/calendar';
 import { getActiveRound, getClosedRounds } from '@/lib/active-round-server';
 import { parseGiornata } from '@/lib/standings';
 import { getStandingsAfterRound } from '@/lib/standings-server';
+import { computeRoundMatches } from '@/lib/round-matches-server';
 import { ClassificaClient } from './classifica-client';
+import type { FantasyMatchResult } from '@/types';
+import type { StandingsAfterRound } from '@/lib/standings-server';
 
 export const instant = false;
 
@@ -22,15 +25,47 @@ export default async function ClassificaPage({
   const giornata = parseGiornata(params.giornata, calendar.length);
   const [active, closedRounds] = await Promise.all([getActiveRound(), getClosedRounds()]);
   const currentRound = active.number;
-
-  // Calendario: tutte le giornate; classifica: fino a quella in corso.
   const simulate = (await cookies()).get(SIMULATION_COOKIE)?.value === '1';
-  const data = await getStandingsAfterRound(view === 'classifica' ? giornata : null, { simulate });
   const calendarRound = giornata ?? currentRound;
+
+  let data: StandingsAfterRound;
+  let calendarMatches: FantasyMatchResult[] = [];
+
+  if (view === 'classifica') {
+    data = await getStandingsAfterRound(giornata, { simulate });
+    // Prefetch giornate vicine in background (cache di processo).
+    const focus = data.round;
+    for (const n of [focus - 1, focus + 1]) {
+      if (n >= 1 && n <= currentRound) {
+        void computeRoundMatches(n, { simulate }).catch(() => null);
+      }
+    }
+  } else {
+    const bundle = await computeRoundMatches(calendarRound, { simulate }).catch(() => ({
+      matches: [] as FantasyMatchResult[],
+      isLive: false,
+      closed: false,
+    }));
+    calendarMatches = bundle.matches;
+    data = {
+      round: currentRound,
+      maxRound: currentRound,
+      partial: false,
+      closed: closedRounds.includes(currentRound),
+      isLive: bundle.isLive,
+      standings: [],
+      matches: [],
+    };
+    for (const n of [calendarRound - 1, calendarRound + 1]) {
+      if (n >= 1 && n <= calendar.length) {
+        void computeRoundMatches(n, { simulate }).catch(() => null);
+      }
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      <Header isLive={data.isLive && data.round === currentRound} />
+      <Header isLive={view === 'classifica' && data.isLive && data.round === currentRound} />
       <div className="mx-auto max-w-3xl px-4 py-4 space-y-4">
         <Suspense>
           <ClassificaClient
@@ -39,6 +74,7 @@ export default async function ClassificaPage({
             currentRound={currentRound}
             currentClosed={closedRounds.includes(currentRound)}
             calendarRound={calendarRound}
+            calendarMatches={calendarMatches}
             totalRounds={calendar.length}
             simulated={simulate}
           />

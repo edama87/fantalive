@@ -102,12 +102,16 @@ export async function fetchPlayersByIds(
   if (unique.length === 0) return players;
 
   const supabase = getPublicClient();
+  const chunks: string[][] = [];
   for (let offset = 0; offset < unique.length; offset += 100) {
-    const chunk = unique.slice(offset, offset + 100);
-    const { data, error } = await supabase
-      .from('players')
-      .select('id, name, role, real_team')
-      .in('id', chunk);
+    chunks.push(unique.slice(offset, offset + 100));
+  }
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      supabase.from('players').select('id, name, role, real_team').in('id', chunk),
+    ),
+  );
+  for (const { data, error } of results) {
     if (error) throw new Error(`fetchPlayersByIds: ${error.message}`);
     for (const row of data || []) {
       players[row.id] = {
