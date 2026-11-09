@@ -7,7 +7,7 @@
       "awayTeamId": "st",
       "homeName": "Little Eagles",
       "awayName": "Salen Team",
-      "analysis": "Little Eagles batte Salen Team 2-1 (76,66 vs 69,00) in una prima giornata già cattiva di modificatori: +1 a centrocampo e −2 di difesa scaricati sugli ospiti, che rispondono con −1 e −1. Lulli (10,2), Bonny (10) e Douvikas (9,8) tengono in piedi l'attacco di Little Eagles; Adams (10) resta in panchina. Salen Team sfiora la fascia del 72 e resta a un gol di distanza: avvio amaro, ma non senza meriti.",
+      "analysis": "Little Eagles batte Salen Team 2-1 (76,66 vs 69,00) in una prima giornata già cattiva di modificatori: +1 a centrocampo e −2 di difesa scaricati sugli ospiti, che rispondono con −1 e −1. Bonny (10) e Lulli (10,2) dalla panchina tengono in piedi Little Eagles; Salen Team risponde con Douvikas (9,8) e lascia Adams (10) in panchina, sfiorando la fascia del 72 ma restando a un gol di distanza: avvio amaro, ma non senza meriti.",
       "ironicNote": "Prima giornata e già i modificatori segnano più di qualche titolare: a Salen Team il regolamento ha messo il primo piede in area."
     },
     {
@@ -16,7 +16,7 @@
       "awayTeamId": "ap",
       "homeName": "Dinamo Cecchignola 1927",
       "awayName": "Amatori ProSecco",
-      "analysis": "Dinamo Cecchignola 1927 apre la Bundlesliga con un 5-0 (84,50 vs 57,50) su Amatori ProSecco. Calò (11,3) e Pobega (9,2) guidano un centrocampo da +2,5; in casa arrivano anche +3 di difesa e +1 d'attacco. Amatori ProSecco affonda sotto i 66 con un −2,5 a centrocampo e lascia in panchina Raimondo (17,7) e Varela (14,8): i numeri in panchina fanno più rumore dell'undici, ma il tabellino resta a zero.",
+      "analysis": "Dinamo Cecchignola 1927 apre la Bundlesliga con un 5-0 (84,50 vs 57,50) su Amatori ProSecco. Calò (11,3) e Pobega (9,2) guidano un centrocampo da +2,5; in casa arrivano anche +3 di difesa e +1 d'attacco. Amatori ProSecco affonda sotto i 66 con un −2,5 a centrocampo e lascia in panchina Varela (14,8); Dinamo Cecchignola 1927, dal canto suo, tiene Raimondo (17,7) fuori dall'undici: i numeri in panchina fanno più rumore di mezza giornata, ma sul tabellino Amatori ProSecco resta a zero.",
       "ironicNote": "Amatori ProSecco porta in panchina due bomber da urlo e in campo prende cinque gol: il fantacalcio, dove a volte la formazione migliore è quella che non scende."
     },
     {
@@ -34,8 +34,8 @@
       "awayTeamId": "sf",
       "homeName": "Real Pedrotte",
       "awayName": "Sfortonia",
-      "analysis": "Real Pedrotte stende Sfortonia 4-0 (82,00 vs 59,16). Provstgaard (11), Isaksen (10,8), Gila (9,7) e Thuram (9,5) spingono sopra la fascia 81; a centrocampo il +3 di casa incontra il −3 degli ospiti. Sfortonia resta sotto i 66, con De Bruyne a 1,5 e Adams (10,2) in panchina. Quattro gol netti e una serata da dimenticare per Sfortonia.",
-      "ironicNote": "Sfortonia lascia Adams a fare tifo e De Bruyne a 1,5: quando il nome sul maglione non basta, restano i quattro gol avversari."
+      "analysis": "Real Pedrotte stende Sfortonia 4-0 (82,00 vs 59,16). Provstgaard (11), Isaksen (10,8), Gila (9,7) e Thuram (9,5) spingono sopra la fascia 81; a centrocampo il +3 di casa incontra il −3 degli ospiti. Sfortonia resta sotto i 66, con De Bruyne a 1,5; Real Pedrotte lascia Adams (10,2) in panchina e fa comunque quattro gol netti. Serata da dimenticare per Sfortonia.",
+      "ironicNote": "Real Pedrotte lascia Adams a fare tifo e vince lo stesso; Sfortonia, con De Bruyne a 1,5, scopre che quando il nome sul maglione non basta restano i quattro gol avversari."
     },
     {
       "round": 1,
@@ -43,15 +43,15 @@
       "awayTeamId": "psg",
       "homeName": "Football And City",
       "awayName": "Parisso San Gennaro",
-      "analysis": "Football And City chiude la prima con un 2-0 (70,83 vs 57,16) su Parisso San Gennaro. Krstovic (9,7) e Zaccagni (7,7) tengono a galla un totale appena sopra le fasce utili; la difesa di casa vale +4. Parisso San Gennaro resta sotto i 66 nonostante +2 difensivo, con De Gea a 2,2 e Simeone (13,8) in panchina. Vittoria di misura, ma già tre punti in classifica.",
-      "ironicNote": "Parisso San Gennaro tiene Simeone in panchina e De Gea sotto la mediocrità: il risultato è un 0 che sa di istruzioni per l'uso."
+      "analysis": "Football And City chiude la prima con un 2-0 (70,83 vs 57,16) su Parisso San Gennaro. Krstovic (9,7) e Zaccagni (7,7) tengono a galla un totale appena sopra le fasce utili; la difesa di casa vale +4. Football And City chiude con De Gea a 2,2 e Simeone (13,8) in panchina; Parisso San Gennaro resta sotto i 66 nonostante +2 difensivo. Vittoria di misura, ma già tre punti in classifica.",
+      "ironicNote": "Football And City tiene Simeone in panchina e De Gea sotto la mediocrità: Parisso San Gennaro resta a zero, con un tabellino che sa di istruzioni per l'uso."
     }
   ],
   "article": {
     "round": 1,
     "headline": "Dinamo Cecchignola 1927 apre a manetta, Real Pedrotte fa quattro: la Bundlesliga è subito cattiva",
     "subtitle": "Cinque vittorie, zero pareggi: Dinamo Cecchignola 1927 e Real Pedrotte già a 5 e 4 gol; Football And City, Atletico Magari e Little Eagles partono con i tre punti",
-    "body": "La Bundlesliga si presenta senza diplomazia: Dinamo Cecchignola 1927 annienta Amatori ProSecco 5-0 (84,5 a 57,5) e chiude la sera in testa con cinque gol fatti e zero subiti. Calò da 11,3 e un centrocampo da +2,5 trascinano sopra ogni fascia; Amatori ProSecco lascia Raimondo (17,7) e Varela (14,8) in panchina e resta sotto i 66. Un esordio che sa di dichiarazione di guerra, con i modificatori di casa a fare da apripista.\n\nReal Pedrotte risponde a tono: 4-0 su Sfortonia (82 a 59), Isaksen e Provstgaard a doppia cifra, +3 contro −3 a centrocampo. Sfortonia affonda sotto i 66; Adams (10,2) guarda dalla panchina mentre De Bruyne chiude a 1,5. Quattro gol e tre punti: Real Pedrotte è già tra le favorite della sera, con una differenza reti da capogiro.\n\nAtletico Magari batte Yellow Mustard 2-1 grazie a un muro difensivo da +5: Rabiot 11,2, Paz 11, Castro 10,2. Yellow Mustard resta sotto il 72 e lascia Carlos Augusto (11) fuori dall'undici. Tre punti di misura, già con il profilo della squadra seria che preferisce il muro al tridente scatenato.\n\nLittle Eagles supera Salen Team 2-1 (76,7–69,0): Lulli, Bonny e Douvikas fanno i numeri, i modificatori (+1 centrocampo, −2 difesa sugli ospiti) fanno il resto. Salen Team sfiora la fascia del 72 e resta a zero punti. Prima giornata, già l'impressione che i dettagli contino più dei nomi stampati sulle maglie.\n\nFootball And City chiude 2-0 su Parisso San Gennaro (70,8–57,2). Krstovic e una difesa da +4 bastano a portare a casa i tre punti; Parisso San Gennaro sotto i 66 con Simeone (13,8) in panchina e De Gea sotto la mediocrità. Vittoria di misura, ma tre punti uguali a quelli dei big che hanno fatto più gol.\n\nCosì la fotografia dopo un turno: Dinamo Cecchignola 1927 sola in vetta a 3 con 5-0 in differenza reti; dietro, Real Pedrotte, Atletico Magari, Little Eagles e Football And City a 3; sotto, Yellow Mustard, Salen Team, Sfortonia, Amatori ProSecco e Parisso San Gennaro a zero. Giornata senza pareggi e già piena di panchine d'oro: tipico inizio Bundlesliga, dove il senno di poi arriva in panchina e il presente si contenta del tabellino.",
+    "body": "La Bundlesliga si presenta senza diplomazia: Dinamo Cecchignola 1927 annienta Amatori ProSecco 5-0 (84,5 a 57,5) e chiude la sera in testa con cinque gol fatti e zero subiti. Calò da 11,3 e un centrocampo da +2,5 trascinano sopra ogni fascia; Dinamo Cecchignola 1927 lascia Raimondo (17,7) a fare tifo dalla panchina, Amatori ProSecco risponde con Varela (14,8) fuori dall'undici e resta sotto i 66. Un esordio che sa di dichiarazione di guerra, con i modificatori di casa a fare da apripista.\n\nReal Pedrotte risponde a tono: 4-0 su Sfortonia (82 a 59), Isaksen e Provstgaard a doppia cifra, +3 contro −3 a centrocampo. Sfortonia affonda sotto i 66, con De Bruyne che chiude a 1,5; Real Pedrotte lascia Adams (10,2) a guardare dalla panchina e fa comunque quattro gol. Tre punti e una differenza reti da capogiro: Real Pedrotte è già tra le favorite della sera.\n\nAtletico Magari batte Yellow Mustard 2-1 grazie a un muro difensivo da +5: Rabiot 11,2, Paz 11, Castro 10,2. Yellow Mustard resta sotto il 72 e lascia Carlos Augusto (11) fuori dall'undici. Tre punti di misura, già con il profilo della squadra seria che preferisce il muro al tridente scatenato.\n\nLittle Eagles supera Salen Team 2-1 (76,7–69,0): Bonny e Lulli fanno i numeri, i modificatori (+1 centrocampo, −2 difesa sugli ospiti) fanno il resto. Salen Team, con Douvikas a 9,8, sfiora la fascia del 72 e resta a zero punti. Prima giornata, già l'impressione che i dettagli contino più dei nomi stampati sulle maglie.\n\nFootball And City chiude 2-0 su Parisso San Gennaro (70,8–57,2). Krstovic e una difesa da +4 bastano a portare a casa i tre punti, con De Gea sotto la mediocrità e Simeone (13,8) lasciato in panchina da Football And City; Parisso San Gennaro resta sotto i 66. Vittoria di misura, ma tre punti uguali a quelli dei big che hanno fatto più gol.\n\nCosì la fotografia dopo un turno: Dinamo Cecchignola 1927 sola in vetta a 3 con 5-0 in differenza reti; dietro, Real Pedrotte, Atletico Magari, Little Eagles e Football And City a 3; sotto, Yellow Mustard, Salen Team, Sfortonia, Amatori ProSecco e Parisso San Gennaro a zero. Giornata senza pareggi e già piena di panchine d'oro: tipico inizio Bundlesliga, dove il senno di poi arriva in panchina e il presente si contenta del tabellino.",
     "headerImageUrl": null,
     "paragraphImages": [
       {
@@ -82,7 +82,7 @@
         "paragraphIndex": 4,
         "url": "/giornale/1/p5-fc-psg-w.webp",
         "alt": "Football And City contro Parisso San Gennaro",
-        "description": "Football And City porta a casa il 2-0; Parisso San Gennaro lascia Simeone a fare tifo."
+        "description": "Football And City porta a casa il 2-0 e lascia Simeone a fare tifo dalla panchina."
       }
     ]
   }
