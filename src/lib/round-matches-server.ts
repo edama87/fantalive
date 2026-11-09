@@ -108,7 +108,7 @@ async function computeAndStore(
 
 /**
  * Calcolo con cache: memoria di processo + React cache (stessa request) +
- * unstable_cache (cross-request Next, 30s / 1h se chiusa).
+ * unstable_cache (cross-request Next, 15s; memoria 1h se chiusa / 15s se aperta).
  * transformPlayerData bypassa la cache persistente.
  */
 export async function computeRoundMatches(
@@ -130,7 +130,7 @@ const cachedRoundMatches = cache(async (roundNumber: number, simulate: boolean) 
     const value = await unstable_cache(
       () => computeAndStore(roundNumber, simulate),
       ['round-matches-v2', String(roundNumber), simulate ? 'sim' : 'real'],
-      { revalidate: 3600, tags: [`round-matches-${roundNumber}`] },
+      { revalidate: 15, tags: [`round-matches-${roundNumber}`] },
     )();
     setMem(roundNumber, simulate, value);
     return value;
