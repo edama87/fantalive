@@ -80,3 +80,24 @@ describe('giornale vignette seed', () => {
     expect(paras.length).toBe(6);
   });
 });
+
+describe('giornale backfill g1-g4', () => {
+  for (const round of [1, 2, 3, 4] as const) {
+    it(`seed g${round} has 5 comments, article, 5 vignette slots`, () => {
+      const raw = JSON.parse(readFileSync(`data/match-comments-g${round}.json`, 'utf8'));
+      expect(raw.masthead).toBe(MASTHEAD_NAME);
+      expect(raw.comments).toHaveLength(5);
+      expect(raw.article.round).toBe(round);
+      expect(raw.article.headerImageUrl).toBeNull();
+      expect(raw.article.headline.length).toBeGreaterThan(20);
+      expect(raw.article.body.split(/\s+/).length).toBeGreaterThan(250);
+      expect(raw.article.paragraphImages).toHaveLength(5);
+      for (const img of raw.article.paragraphImages) {
+        expect(img.description.length).toBeGreaterThan(20);
+        expect(img.url).toMatch(new RegExp(`/giornale/${round}/.+-w\\.webp$`));
+      }
+      const paras = raw.article.body.split(/\n\s*\n/).map((p: string) => p.trim()).filter(Boolean);
+      expect(paras.length).toBe(6);
+    });
+  }
+});

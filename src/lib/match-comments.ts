@@ -37,37 +37,44 @@ function fromRow(row: Row): MatchComment {
   };
 }
 
-function seedPath(): string {
-  return path.join(process.cwd(), 'data', 'match-comments-g5.json');
+function seedPathForRound(round: number): string {
+  return path.join(process.cwd(), 'data', `match-comments-g${round}.json`);
 }
 
-export function loadSeedComments(): MatchComment[] {
-  const file = seedPath();
-  if (!existsSync(file)) return [];
-  const raw = JSON.parse(readFileSync(file, 'utf8')) as {
-    comments?: Array<{
-      round: number;
-      homeTeamId: string;
-      awayTeamId: string;
-      analysis: string;
-      ironicNote: string;
-    }>;
-  };
-  return (raw.comments ?? []).map((c) => ({
-    id: null,
-    round: c.round,
-    homeTeamId: c.homeTeamId,
-    awayTeamId: c.awayTeamId,
-    analysis: c.analysis,
-    ironicNote: c.ironicNote,
-    updatedAt: null,
-    source: 'seed' as const,
-  }));
+export function loadSeedComments(round?: number): MatchComment[] {
+  const rounds = round != null ? [round] : [1, 2, 3, 4, 5];
+  const out: MatchComment[] = [];
+  for (const r of rounds) {
+    const file = seedPathForRound(r);
+    if (!existsSync(file)) continue;
+    const raw = JSON.parse(readFileSync(file, 'utf8')) as {
+      comments?: Array<{
+        round: number;
+        homeTeamId: string;
+        awayTeamId: string;
+        analysis: string;
+        ironicNote: string;
+      }>;
+    };
+    for (const c of raw.comments ?? []) {
+      out.push({
+        id: null,
+        round: c.round,
+        homeTeamId: c.homeTeamId,
+        awayTeamId: c.awayTeamId,
+        analysis: c.analysis,
+        ironicNote: c.ironicNote,
+        updatedAt: null,
+        source: 'seed' as const,
+      });
+    }
+  }
+  return out;
 }
 
 export function findSeedComment(round: number, homeTeamId: string, awayTeamId: string): MatchComment | null {
   return (
-    loadSeedComments().find(
+    loadSeedComments(round).find(
       (c) => c.round === round && c.homeTeamId === homeTeamId && c.awayTeamId === awayTeamId,
     ) ?? null
   );

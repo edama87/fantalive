@@ -40,12 +40,12 @@ function fromRow(row: Row): RoundArticle {
   };
 }
 
-function seedFile(): string {
-  return path.join(process.cwd(), 'data', 'match-comments-g5.json');
+function seedFileForRound(round: number): string {
+  return path.join(process.cwd(), 'data', `match-comments-g${round}.json`);
 }
 
 export function loadSeedArticle(round: number): RoundArticle | null {
-  const file = seedFile();
+  const file = seedFileForRound(round);
   if (!existsSync(file)) return null;
   const raw = JSON.parse(readFileSync(file, 'utf8')) as {
     article?: {
