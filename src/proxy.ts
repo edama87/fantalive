@@ -11,6 +11,8 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
   if (hasMyTeamChoice(request.cookies.get(MY_TEAM_COOKIE)?.value)) return NextResponse.next();
+  // Le note legali devono restare leggibili anche prima della scelta della squadra.
+  if (request.nextUrl.pathname === '/disclaimer') return NextResponse.next();
 
   const url = request.nextUrl.clone();
   const next = `${request.nextUrl.pathname}${request.nextUrl.search}`;
@@ -20,6 +22,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Solo pagine dell'app: escluse API, admin, benvenuto e file statici.
-  matcher: ['/((?!api|admin|benvenuto|_next|favicon.ico|.*\\..*).*)'],
+  // Solo pagine dell'app: escluse API, admin, benvenuto, note legali e file statici.
+  matcher: ['/((?!api|admin|benvenuto|disclaimer|_next|favicon.ico|.*\\..*).*)'],
 };

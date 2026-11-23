@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { seedDisclaimerAcceptance, seedMyTeamChoice } from './helpers/disclaimer';
 
 test.describe('Bottom Navigation', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedDisclaimerAcceptance(page);
+    await seedMyTeamChoice(page);
+  });
+
   test('all bottom nav items render content', async ({ page }) => {
     // Test Live (home) page
     await page.goto('/');

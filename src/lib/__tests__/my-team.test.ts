@@ -44,4 +44,8 @@ describe('first-visit redirect (proxy)', () => {
     expect(proxy(req('/', `${MY_TEAM_COOKIE}=dc`)).headers.get('location')).toBeNull();
     expect(proxy(req('/classifica', `${MY_TEAM_COOKIE}=none`)).headers.get('location')).toBeNull();
   });
+
+  it('lets first-time visitors read the legal page', () => {
+    expect(proxy(req('/disclaimer')).headers.get('location')).toBeNull();
+  });
 });

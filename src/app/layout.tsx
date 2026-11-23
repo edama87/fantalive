@@ -1,7 +1,11 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { BottomNav, SideNav } from "@/components/layout/bottom-nav";
+import { getDisclaimerBootScript } from "@/lib/disclaimer";
+import { DisclaimerGate } from "@/components/layout/disclaimer-gate";
+import { SiteFooter } from "@/components/layout/site-footer";
 import { KickoffReminders } from "@/components/notify/kickoff-reminders";
 import { LiveEventNotifier } from "@/components/notify/live-event-notifier";
 import { ServiceWorkerRegister } from "@/components/notify/sw-register";
@@ -43,10 +47,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="it" className={`${inter.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-gray-50 font-sans pb-16 lg:pb-0 lg:pl-56">
+        <script dangerouslySetInnerHTML={{ __html: getDisclaimerBootScript() }} />
+        <Suspense fallback={null}>
+          <DisclaimerGate />
+        </Suspense>
         <SideNav />
         <main className="flex-1 max-w-lg md:max-w-3xl lg:max-w-6xl mx-auto w-full">
           {children}
         </main>
+        <SiteFooter />
         <BottomNav />
         <KickoffReminders />
         <LiveEventNotifier />
