@@ -8,6 +8,7 @@ import {
   type ParagraphImage,
   type RoundArticle,
 } from '@/lib/round-articles-shared';
+import { articleBroadcastDefaults } from '@/lib/push/broadcast';
 
 export function RoundArticleAdmin({ round }: { round: number }) {
   const [headline, setHeadline] = useState('');
@@ -18,11 +19,16 @@ export function RoundArticleAdmin({ round }: { round: number }) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [confirmingNotify, setConfirmingNotify] = useState(false);
+  const [notifying, setNotifying] = useState(false);
+  const [notifyStatus, setNotifyStatus] = useState<string | null>(null);
 
   const paragraphs = useMemo(() => articleParagraphs(body), [body]);
 
   const load = useCallback(async () => {
     setStatus(null);
+    setNotifyStatus(null);
+    setConfirmingNotify(false);
     setLoaded(false);
     const res = await fetch(`/api/admin/round-articles?round=${round}`);
     const json = (await res.json()) as { success?: boolean; article?: RoundArticle | null; error?: string };
@@ -125,6 +131,51 @@ export function RoundArticleAdmin({ round }: { round: number }) {
     }
   }
 
+
+  const broadcast = useMemo(() => articleBroadcastDefaults(round), [round]);
+
+  async function notifyAll() {
+    setNotifying(true);
+    setNotifyStatus(null);
+    try {
+      const res = await fetch('/api/admin/push/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(broadcast),
+      });
+      const json = (await res.json()) as {
+        success?: boolean;
+        error?: string;
+        subscriptions?: number;
+        sent?: number;
+        skipped?: number;
+        removed?: number;
+        failed?: number;
+      };
+      if (!res.ok || !json.success) {
+        setNotifyStatus(json.error ?? 'Invio fallito');
+        return;
+      }
+      setConfirmingNotify(false);
+      const sent = json.sent ?? 0;
+      const skipped = json.skipped ?? 0;
+      const removed = json.removed ?? 0;
+      const failed = json.failed ?? 0;
+      const total = json.subscriptions ?? 0;
+      if (total === 0) {
+        setNotifyStatus('Nessun dispositivo iscritto alle notifiche.');
+      } else if (sent === 0 && skipped > 0 && failed === 0) {
+        setNotifyStatus(`Già inviata a tutti gli iscritti (${skipped} saltate).`);
+      } else {
+        setNotifyStatus(`Inviate: ${sent}. Saltate: ${skipped}. Rimosse: ${removed}. Fallite: ${failed}.`);
+      }
+    } catch (e) {
+      setNotifyStatus(e instanceof Error ? e.message : 'Errore');
+    } finally {
+      setNotifying(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader className="pb-2 pt-3">
@@ -219,6 +270,46 @@ export function RoundArticleAdmin({ round }: { round: number }) {
               </button>
               {uploading && <span className="text-sm text-gray-500">Upload {uploading}…</span>}
               {status && <span className="text-sm text-gray-500">{status}</span>}
+            </div>
+
+            <div className="space-y-2 rounded-lg border border-gray-100 bg-gray-50 p-3">
+              <p className="text-xs font-semibold text-gray-700">Notifica a tutti</p>
+              <p className="text-xs text-gray-600">
+                <span className="font-medium text-gray-800">{broadcast.title}</span>
+                <br />
+                {broadcast.body}
+              </p>
+              <p className="text-[11px] text-gray-500">Apre {broadcast.url}. Arriva solo a chi ha già attivato le notifiche.</p>
+              {!confirmingNotify ? (
+                <button
+                  type="button"
+                  disabled={notifying}
+                  onClick={() => setConfirmingNotify(true)}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 disabled:opacity-50"
+                >
+                  Notifica a tutti
+                </button>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={notifying}
+                    onClick={() => void notifyAll()}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    {notifying ? 'Invio…' : 'Conferma invio'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={notifying}
+                    onClick={() => setConfirmingNotify(false)}
+                    className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 disabled:opacity-50"
+                  >
+                    Annulla
+                  </button>
+                </div>
+              )}
+              {notifyStatus && <p role="status" className="text-sm text-gray-600">{notifyStatus}</p>}
             </div>
           </>
         )}
