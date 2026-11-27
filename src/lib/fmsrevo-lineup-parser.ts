@@ -40,6 +40,9 @@ export interface ParsedTeamLineup {
   warnings: string[];
   
   hasLineup: boolean;
+  /** True se titolari e panchina coincidono con l'ultima formazione in archivio. */
+  identicalToPrevious?: boolean;
+  previousRound?: number;
 }
 
 export interface LineupParseResult {

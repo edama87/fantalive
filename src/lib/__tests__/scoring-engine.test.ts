@@ -430,3 +430,97 @@ describe('Full Match Calculation', () => {
     ]);
   });
 });
+
+describe('lineup not submitted malus', () => {
+  const player = (id: string, role: Player['role'], teamId: string): Player => ({
+    id,
+    name: id,
+    role,
+    teamId,
+  });
+
+  const eleven = (teamId: string, prefix: string) => {
+    const roles: Player['role'][] = ['P', 'D', 'D', 'D', 'D', 'C', 'C', 'C', 'C', 'A', 'A'];
+    const players: Record<string, Player> = {};
+    const starters = roles.map((role, position) => {
+      const id = `${prefix}-${role}-${position}`;
+      players[id] = player(id, role, teamId);
+      return { playerId: id, position };
+    });
+    return { players, starters };
+  };
+
+  const votes = (ids: string[], vote: number) => {
+    const map = new Map<string, PlayerMatchData>();
+    for (const id of ids) {
+      map.set(id, {
+        playerId: id,
+        estimatedVote: vote,
+        minutesPlayed: 90,
+        isPlaying: false,
+        events: [],
+      });
+    }
+    return map;
+  };
+
+  it('does not change totals when the flag is absent (G1–G6 behaviour)', () => {
+    const home = eleven('sf', 'h');
+    const away = eleven('ap', 'a');
+    const lineupHome: Lineup = { teamId: 'sf', roundNumber: 6, formation: '4-4-2', starters: home.starters, bench: [] };
+    const lineupAway: Lineup = { teamId: 'ap', roundNumber: 6, formation: '4-4-2', starters: away.starters, bench: [] };
+    const data = votes(
+      [...home.starters, ...away.starters].map((s) => s.playerId),
+      6,
+    );
+    const players = { ...home.players, ...away.players };
+    const plain = calculateMatch(lineupHome, lineupAway, data, 'finished', players);
+    const flaggedFalse = calculateMatch(
+      { ...lineupHome, notSubmitted: false },
+      { ...lineupAway, notSubmitted: false },
+      data,
+      'finished',
+      players,
+    );
+    expect(flaggedFalse.homeTotal).toBe(plain.homeTotal);
+    expect(flaggedFalse.awayTotal).toBe(plain.awayTotal);
+    expect(flaggedFalse.homeGoals).toBe(plain.homeGoals);
+    expect(flaggedFalse.awayGoals).toBe(plain.awayGoals);
+    expect(plain.homeModifiers.lineupNotSubmittedMalus).toBe(0);
+    expect(plain.awayModifiers.lineupNotSubmittedMalus).toBe(0);
+  });
+
+  it('applies −3 before goal bands, like the home bonus', () => {
+    const home = eleven('sf', 'h');
+    const away = eleven('ap', 'a');
+    const lineupHome: Lineup = { teamId: 'sf', roundNumber: 7, formation: '4-4-2', starters: home.starters, bench: [] };
+    const lineupAway: Lineup = { teamId: 'ap', roundNumber: 7, formation: '4-4-2', starters: away.starters, bench: [] };
+    const data = votes(
+      [...home.starters, ...away.starters].map((s) => s.playerId),
+      6,
+    );
+    const players = { ...home.players, ...away.players };
+    const submitted = calculateMatch(lineupHome, lineupAway, data, 'finished', players);
+    const missing = calculateMatch(
+      { ...lineupHome, notSubmitted: true },
+      lineupAway,
+      data,
+      'finished',
+      players,
+    );
+
+    expect(submitted.homeModifiers.homeBonus).toBe(2);
+    expect(missing.homeModifiers.lineupNotSubmittedMalus).toBe(-3);
+    expect(missing.homeTotal).toBe(submitted.homeTotal - 3);
+    expect(missing.awayTotal).toBe(submitted.awayTotal);
+    expect(missing.homeModifiers.total).toBe(
+      missing.homeModifiers.defenseModifier +
+        missing.homeModifiers.midfieldModifier +
+        missing.homeModifiers.attackModifier +
+        missing.homeModifiers.homeBonus +
+        (missing.homeModifiers.lineupNotSubmittedMalus ?? 0),
+    );
+    expect(missing.homeGoals).toBe(calculateGoals(missing.homeTotal));
+    expect(calculateGoals(missing.homeTotal)).toBe(calculateGoals(submitted.homeTotal - 3));
+  });
+});

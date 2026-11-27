@@ -9,13 +9,14 @@ import {
 import { getTeamById } from '@/data/teams';
 import type { ModifierDetails, ModifierVoteInput } from '@/types';
 
-export type ModifierKind = 'defense' | 'midfield' | 'attack' | 'home';
+export type ModifierKind = 'defense' | 'midfield' | 'attack' | 'home' | 'notSubmitted';
 
 export const MODIFIER_TITLES: Record<ModifierKind, string> = {
   defense: 'Modificatore difesa avversaria',
   midfield: 'Modificatore centrocampo',
   attack: 'Modificatore attacco',
   home: 'Fattore campo',
+  notSubmitted: 'Formazione non schierata',
 };
 
 const signed = formatSignedPoints;
@@ -166,6 +167,19 @@ export function ModifierExplanation({ kind, details }: { kind: ModifierKind; det
         )}
         <Table rows={rows} />
         <Result value={a.modifier} />
+      </div>
+    );
+  }
+
+  if (kind === 'notSubmitted') {
+    return (
+      <div className="space-y-2">
+        <p>
+          Se una squadra non deposita la formazione entro la scadenza, si riprende l&apos;ultima
+          formazione valida (sulla rosa effettiva della giornata) e si applica un malus di{' '}
+          {signed(details.lineupNotSubmittedMalus || -3)} punti, prima del calcolo dei gol.
+        </p>
+        <Result value={details.lineupNotSubmittedMalus || 0} />
       </div>
     );
   }

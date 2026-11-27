@@ -192,6 +192,13 @@ export function fantavotoFromData(
 
 export const HOME_BONUS = 2;
 
+/** Malus se la formazione non è stata depositata (si riprende l'ultima valida). */
+export const LINEUP_NOT_SUBMITTED_MALUS = -3;
+
+export function lineupNotSubmittedMalus(lineup: Pick<Lineup, 'notSubmitted'>): number {
+  return lineup.notSubmitted ? LINEUP_NOT_SUBMITTED_MALUS : 0;
+}
+
 type VoteLike = number | { playerId?: string; name?: string; vote: number; riserva?: boolean };
 
 function toInput(v: VoteLike): ModifierVoteInput {
@@ -702,6 +709,7 @@ export function calculateTeamScore(
   if (isHome) {
     total += HOME_BONUS;
   }
+  total += lineupNotSubmittedMalus(lineup);
 
   // Append unused bench players for display (do not affect total)
   const scoredIds = new Set(playerScores.map((ps) => ps.player.id));
@@ -848,13 +856,15 @@ export function calculateMatch(
       midfieldModifier: homeMidMod,
       attackModifier: homeResult.attackModifier,
       homeBonus: HOME_BONUS,
-      total: awayDefMod + homeMidMod + homeResult.attackModifier + HOME_BONUS,
+      lineupNotSubmittedMalus: lineupNotSubmittedMalus(home),
+      total: awayDefMod + homeMidMod + homeResult.attackModifier + HOME_BONUS + lineupNotSubmittedMalus(home),
       details: {
         opponentDefense: awayDefense,
         midfield,
         isHome: true,
         attack: homeResult.attackExplanation,
         homeBonus: HOME_BONUS,
+        lineupNotSubmittedMalus: lineupNotSubmittedMalus(home),
       },
     },
     awayModifiers: {
@@ -862,13 +872,15 @@ export function calculateMatch(
       midfieldModifier: awayMidMod,
       attackModifier: awayResult.attackModifier,
       homeBonus: 0,
-      total: homeDefMod + awayMidMod + awayResult.attackModifier,
+      lineupNotSubmittedMalus: lineupNotSubmittedMalus(away),
+      total: homeDefMod + awayMidMod + awayResult.attackModifier + lineupNotSubmittedMalus(away),
       details: {
         opponentDefense: homeDefense,
         midfield,
         isHome: false,
         attack: awayResult.attackExplanation,
         homeBonus: 0,
+        lineupNotSubmittedMalus: lineupNotSubmittedMalus(away),
       },
     },
     homePlayerScores: homeResult.playerScores,

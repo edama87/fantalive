@@ -65,6 +65,7 @@ export interface LeagueRules {
     redCardMalus: number;
     goalConcededMalus: number;
     homeBonus: number;
+    lineupNotSubmittedMalus: number;
   };
 
   goalThresholds: number[];
@@ -148,6 +149,7 @@ export const DEFAULT_LEAGUE_RULES: LeagueRules = {
     redCardMalus: -1,
     goalConcededMalus: -1,
     homeBonus: 2,
+    lineupNotSubmittedMalus: -3,
   },
 
   goalThresholds: [66, 72, 77, 81, 85, 89],

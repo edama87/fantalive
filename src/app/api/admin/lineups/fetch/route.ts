@@ -20,6 +20,53 @@ import { parseLineupsContent } from '@/lib/fmsrevo-lineup-parser';
 import { teams } from '@/data/teams';
 import { fetchOpenRosterPlayersForMatching } from '@/lib/roster-import';
 import { isSupabaseServerConfigured } from '@/lib/db/supabase';
+import { fetchLatestLineupsBefore } from '@/lib/lineups-db';
+import { lineupsHaveSamePlayers } from '@/lib/lineup-utils';
+import type { ParsedTeamLineup } from '@/lib/fmsrevo-lineup-parser';
+
+
+async function annotateIdenticalToPrevious(
+  roundNumber: number,
+  teams: ParsedTeamLineup[]
+): Promise<ParsedTeamLineup[]> {
+  const ids = teams
+    .map((team) => team.matchedTeamId)
+    .filter((id): id is string => Boolean(id));
+  if (ids.length === 0) return teams;
+  let previous: Awaited<ReturnType<typeof fetchLatestLineupsBefore>> = {};
+  try {
+    previous = await fetchLatestLineupsBefore(ids, roundNumber);
+  } catch (error) {
+    console.error('[Admin Lineups] confronto con giornata precedente non disponibile', error);
+    return teams;
+  }
+  return teams.map((team) => {
+    if (!team.matchedTeamId || !team.hasLineup) return team;
+    const prev = previous[team.matchedTeamId];
+    if (!prev) return team;
+    const current = {
+      teamId: team.matchedTeamId,
+      roundNumber,
+      formation: team.formation || prev.formation,
+      starters: team.starters
+        .filter((s) => s.matchedPlayerId)
+        .map((s, i) => ({ playerId: s.matchedPlayerId!, position: s.position ?? i })),
+      bench: team.bench
+        .filter((s) => s.matchedPlayerId)
+        .map((s, i) => ({ playerId: s.matchedPlayerId!, position: s.position ?? i })),
+    };
+    if (!lineupsHaveSamePlayers(current, prev)) return team;
+    return {
+      ...team,
+      identicalToPrevious: true,
+      previousRound: prev.roundNumber,
+      warnings: [
+        ...team.warnings,
+        `Identica alla giornata ${prev.roundNumber}: potrebbe essere una ripresa automatica (malus −3)`,
+      ],
+    };
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -110,7 +157,7 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json({
         success: true,
-        teams: lineupResult.teams,
+        teams: await annotateIdenticalToPrevious(roundNumber, lineupResult.teams),
         serieAMatchday: pdfResult.serieAMatchday,
         fantasyMatchday: pdfResult.fantasyMatchday,
         roundNumber,
@@ -132,7 +179,7 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json({
         success: lineupResult.success,
-        teams: lineupResult.teams,
+        teams: await annotateIdenticalToPrevious(roundNumber, lineupResult.teams),
         serieAMatchday: lineupResult.serieAMatchday,
         roundNumber,
         isPDF: false,

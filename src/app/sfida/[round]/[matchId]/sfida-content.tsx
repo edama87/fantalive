@@ -166,6 +166,11 @@ export function SfidaContent() {
                   <div title={name} className={cn('mt-2 flex min-h-[3rem] items-start justify-center text-base font-bold leading-6 break-words', id === myTeamId && 'text-emerald-700')}>
                     <span className="line-clamp-2">{name}</span>
                   </div>
+                  {(side === 'home' ? match.homeModifiers.lineupNotSubmittedMalus : match.awayModifiers.lineupNotSubmittedMalus) ? (
+                    <span className="mt-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800">
+                      Non schierata −3
+                    </span>
+                  ) : null}
                 </div>
               ))}
               <div className="col-start-2 row-start-1 flex flex-col items-center pt-9">
@@ -178,6 +183,19 @@ export function SfidaContent() {
             </div>
           </CardContent>
         </Card>
+
+        {(match.homeModifiers.lineupNotSubmittedMalus || match.awayModifiers.lineupNotSubmittedMalus) ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            {(() => {
+              const names = [
+                match.homeModifiers.lineupNotSubmittedMalus ? homeTeam.name : null,
+                match.awayModifiers.lineupNotSubmittedMalus ? awayTeam.name : null,
+              ].filter(Boolean);
+              const verb = names.length > 1 ? 'non hanno schierato' : 'non ha schierato';
+              return `${names.join(' e ')} ${verb} la formazione: ripresa l'ultima valida, malus −3 punti.`;
+            })()}
+          </div>
+        ) : null}
 
         <div className="grid grid-cols-2 gap-4">
           <ModifiersCard modifiers={match.homeModifiers} isHome={true} />
@@ -324,6 +342,14 @@ function ModifiersCard({
             <span />
             <span className="text-right font-medium tabular-nums text-gray-300">—</span>
           </div>
+        )}
+        {(modifiers.lineupNotSubmittedMalus ?? 0) !== 0 && (
+          <ModifierRow
+            label="NON SCH."
+            title="Formazione non schierata"
+            value={modifiers.lineupNotSubmittedMalus ?? 0}
+            onOpen={open('notSubmitted')}
+          />
         )}
         <div className={cn(MODIFIER_GRID, 'mt-1 border-t border-gray-100 pt-1.5')}>
           <span className="text-xs font-semibold tracking-wide text-gray-900">TOT</span>

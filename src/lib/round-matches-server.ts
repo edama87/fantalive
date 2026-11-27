@@ -10,7 +10,7 @@ import { calculateAllMatches, convertProviderDataToPlayerMatchData, inferMatchSt
 import { shouldUseMockLiveData } from '@/lib/live-source';
 import { getRoundPlayerState } from '@/lib/round-player-data';
 import { teamStatusesFromFixtures, type RoundFixture } from '@/lib/serie-a-fixtures';
-import { createLineupProviderFromMap, fetchLineupsForRound, fetchPlayersByIds, playerIdsFromLineups } from '@/lib/lineups-db';
+import { createLineupProviderFromMap, fetchLineupsForRoundResolved, fetchPlayersByIds, playerIdsFromLineups } from '@/lib/lineups-db';
 import { createMockProvider } from '@/providers/mock-provider';
 
 type RoundMatchesBundle = { matches: FantasyMatchResult[]; isLive: boolean; closed: boolean };
@@ -45,7 +45,7 @@ async function computeRoundMatchesImpl(
   const round = getRoundByNumber(roundNumber);
   if (!round) return { matches: [], isLive: false, closed: false };
   let closed = false;
-  const lineupsPromise = fetchLineupsForRound(roundNumber).catch(() => ({}));
+  const lineupsPromise = fetchLineupsForRoundResolved(roundNumber).catch(() => ({}));
 
   let playerDataMap: Map<string, PlayerMatchData>;
   let isLive: boolean;
@@ -129,7 +129,7 @@ const cachedRoundMatches = cache(async (roundNumber: number, simulate: boolean) 
     // unstable_cache wrappa la funzione: usiamo TTL lunga e mem cache sopra.
     const value = await unstable_cache(
       () => computeAndStore(roundNumber, simulate),
-      ['round-matches-v2', String(roundNumber), simulate ? 'sim' : 'real'],
+      ['round-matches-v3', String(roundNumber), simulate ? 'sim' : 'real'],
       { revalidate: 15, tags: [`round-matches-${roundNumber}`] },
     )();
     setMem(roundNumber, simulate, value);

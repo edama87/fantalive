@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import {
-  fetchLineupsForRound,
+  fetchLineupsForRoundResolved,
   fetchPlayersByIds,
   playerIdsFromLineups,
 } from '@/lib/lineups-db';
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const lineups = await fetchLineupsForRound(roundNumber);
+    const lineups = await fetchLineupsForRoundResolved(roundNumber);
     const players = await fetchPlayersByIds(playerIdsFromLineups(lineups));
     return NextResponse.json({
       success: true,

@@ -85,3 +85,107 @@ export function generateDefaultLineup(teamId: string, roundNumber: number): Line
     bench,
   };
 }
+
+export type LineupPlayerRoleRef = { role: PlayerRole };
+
+/**
+ * Confronta titolari e panchina (stessi id nello stesso ordine).
+ * Serve a segnalare una formazione FMS identica alla precedente (possibile ripresa automatica).
+ */
+export function lineupsHaveSamePlayers(a: Lineup, b: Lineup): boolean {
+  const ids = (slots: Lineup['starters']) =>
+    [...slots].sort((x, y) => x.position - y.position).map((s) => s.playerId);
+  const aS = ids(a.starters);
+  const bS = ids(b.starters);
+  const aB = ids(a.bench);
+  const bB = ids(b.bench);
+  return aS.length === bS.length && aB.length === bB.length
+    && aS.every((id, i) => id === bS[i])
+    && aB.every((id, i) => id === bB[i]);
+}
+
+/**
+ * Riprende un'ultima formazione valida sulla rosa effettiva della giornata:
+ * toglie chi non è più in rosa e riempie i buchi dalla panchina precedente
+ * (stesso ruolo) o dal resto della rosa.
+ */
+export function adaptLineupToRoster(
+  previous: Lineup,
+  rosterIds: ReadonlySet<string>,
+  options: {
+    playersById?: Record<string, LineupPlayerRoleRef>;
+    roundNumber?: number;
+    teamId?: string;
+    notSubmitted?: boolean;
+  } = {},
+): Lineup {
+  const teamId = options.teamId ?? previous.teamId;
+  const roundNumber = options.roundNumber ?? previous.roundNumber;
+  const roleOf = (id: string): PlayerRole | undefined =>
+    options.playersById?.[id]?.role;
+
+  const prevStarters = [...previous.starters].sort((a, b) => a.position - b.position);
+  const prevBench = [...previous.bench].sort((a, b) => a.position - b.position);
+  const used = new Set<string>();
+  const starters: LineupSlot[] = [];
+  const droppedRoles: Array<PlayerRole | undefined> = [];
+
+  for (const slot of prevStarters) {
+    if (rosterIds.has(slot.playerId)) {
+      starters.push({ playerId: slot.playerId, position: starters.length });
+      used.add(slot.playerId);
+    } else {
+      droppedRoles.push(roleOf(slot.playerId));
+    }
+  }
+
+  const takeReplacement = (wantedRole?: PlayerRole): string | null => {
+    const pools = [
+      prevBench.map((s) => s.playerId),
+      [...rosterIds],
+    ];
+    const preferRole = (needRole: PlayerRole | undefined) => {
+      for (const pool of pools) {
+        for (const id of pool) {
+          if (used.has(id) || !rosterIds.has(id)) continue;
+          if (needRole && roleOf(id) && roleOf(id) !== needRole) continue;
+          used.add(id);
+          return id;
+        }
+      }
+      return null;
+    };
+    return preferRole(wantedRole) ?? (wantedRole ? preferRole(undefined) : null);
+  };
+
+  for (const role of droppedRoles) {
+    const replacement = takeReplacement(role);
+    if (!replacement) continue;
+    starters.push({ playerId: replacement, position: starters.length });
+  }
+
+  // Keep a conventional 11 if we still have room and players left (same role gaps only already filled).
+  const bench: LineupSlot[] = [];
+  for (const slot of prevBench) {
+    if (!rosterIds.has(slot.playerId) || used.has(slot.playerId)) continue;
+    bench.push({ playerId: slot.playerId, position: bench.length });
+    used.add(slot.playerId);
+  }
+
+  const counts: Record<PlayerRole, number> = { P: 0, D: 0, C: 0, A: 0 };
+  for (const slot of starters) {
+    const role = roleOf(slot.playerId);
+    if (role) counts[role] += 1;
+  }
+  const inferred = `${counts.D}-${counts.C}-${counts.A}`;
+  const formation = isAllowedFormation(inferred) ? inferred : previous.formation;
+
+  return {
+    teamId,
+    roundNumber,
+    formation,
+    starters,
+    bench,
+    notSubmitted: options.notSubmitted ?? true,
+  };
+}

@@ -42,7 +42,7 @@ export interface DebriefScenario {
   goalsFor: number;
   goalsAgainst: number;
   outcome: Outcome;
-  modifiers: { defense: number; midfield: number; attack: number; home: number; total: number };
+  modifiers: { defense: number; midfield: number; attack: number; home: number; notSubmitted: number; total: number };
   /** Modificatore difesa che la nostra difesa dà all'avversario. */
   opponentDefenseModifier: number;
   starters: DebriefPlayer[];
@@ -184,6 +184,7 @@ export function scoreScenario(input: DebriefInput, key: ScenarioKey, lineup: Lin
       midfield: mods.midfieldModifier,
       attack: mods.attackModifier,
       home: mods.homeBonus,
+      notSubmitted: mods.lineupNotSubmittedMalus ?? 0,
       total: mods.total,
     },
     opponentDefenseModifier: oppMods.defenseModifier,
@@ -314,7 +315,7 @@ function scenarioFindings(input: DebriefInput, sc: DebriefScenario, lineup: Line
     kind: 'modifier',
     scenario: sc.key,
     points: m.total - m.home,
-    text: `${tag}: modificatori difesa avversaria ${signed(m.defense)}, centrocampo ${signed(m.midfield)}, attacco ${signed(m.attack)}${m.home ? `, casa ${signed(m.home)}` : ''}; la nostra difesa dà ${signed(sc.opponentDefenseModifier)} all'avversario`,
+    text: `${tag}: modificatori difesa avversaria ${signed(m.defense)}, centrocampo ${signed(m.midfield)}, attacco ${signed(m.attack)}${m.home ? `, casa ${signed(m.home)}` : ''}${m.notSubmitted ? `, formazione non schierata ${signed(m.notSubmitted)}` : ''}; la nostra difesa dà ${signed(sc.opponentDefenseModifier)} all'avversario`,
   });
   return out;
 }

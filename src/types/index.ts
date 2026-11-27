@@ -38,6 +38,8 @@ export interface Lineup {
   starters: LineupSlot[];
   bench: LineupSlot[];
   formation: string;
+  /** True se la formazione non è stata depositata: ripresa l'ultima valida e malus −3. */
+  notSubmitted?: boolean;
 }
 
 export type MatchStatus = 'scheduled' | 'live' | 'halftime' | 'finished';
@@ -113,6 +115,8 @@ export interface ModifiersBreakdown {
   midfieldModifier: number;
   attackModifier: number;
   homeBonus: number;
+  /** 0 oppure −3 se la formazione non è stata schierata. */
+  lineupNotSubmittedMalus?: number;
   total: number;
   /** Come è stato calcolato ogni modificatore (per la spiegazione in Sfida). */
   details?: ModifierDetails;
@@ -176,6 +180,7 @@ export interface ModifierDetails {
   isHome: boolean;
   attack: AttackModifierExplanation;
   homeBonus: number;
+  lineupNotSubmittedMalus?: number;
 }
 
 export interface PlayerScore {

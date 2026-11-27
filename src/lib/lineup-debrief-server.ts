@@ -6,7 +6,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Player, PlayerRole } from '@/types';
 import { getRoundByNumber } from '@/data/calendar';
-import { fetchLineupsForRound, fetchPlayersByIds, lineupKey } from '@/lib/lineups-db';
+import { fetchLineupsForRoundResolved, fetchPlayersByIds, lineupKey } from '@/lib/lineups-db';
 import { generateDefaultLineup } from '@/lib/lineup-utils';
 import { getRoundPlayerState } from '@/lib/round-player-data';
 import { teamStatusesFromFixtures } from '@/lib/serie-a-fixtures';
@@ -48,7 +48,7 @@ export async function computeDebrief(sb: SupabaseClient, suggestion: LineupSugge
   const isHome = pairing.homeTeamId === suggestion.teamId;
   const opponentTeamId = isHome ? pairing.awayTeamId : pairing.homeTeamId;
 
-  const [state, lineups] = await Promise.all([getRoundPlayerState(round), fetchLineupsForRound(round)]);
+  const [state, lineups] = await Promise.all([getRoundPlayerState(round), fetchLineupsForRoundResolved(round)]);
   const kickoffs = state.fixtures.map((f) => f.kickoffTime).filter((k): k is string => !!k).sort();
   const rosterIds = await loadRoster(sb, suggestion.teamId, kickoffs[0] ?? null);
 

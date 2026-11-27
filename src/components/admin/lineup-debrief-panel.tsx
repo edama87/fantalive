@@ -63,7 +63,7 @@ function ScenarioCard({ sc, best }: { sc: DebriefScenario; best?: DebriefScenari
       </div>
       <div className="mt-1 text-xs text-gray-500">
         Mod. {sgn(sc.modifiers.total)} (dif {sgn(sc.modifiers.defense)}, cen {sgn(sc.modifiers.midfield)}, att {sgn(sc.modifiers.attack)}
-        {sc.modifiers.home ? `, casa ${sgn(sc.modifiers.home)}` : ''})
+        {sc.modifiers.home ? `, casa ${sgn(sc.modifiers.home)}` : ''}{sc.modifiers.notSubmitted ? `, non schierata ${sgn(sc.modifiers.notSubmitted)}` : ''})
         {gap !== null && gap > 0 && <span className="text-rose-600"> · −{num(gap)} dalla migliore</span>}
       </div>
       <details className="mt-2">

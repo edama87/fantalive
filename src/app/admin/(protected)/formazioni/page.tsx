@@ -37,6 +37,7 @@ interface ReviewableLineup extends ParsedTeamLineup {
   isConfirmed: boolean;
   isSkipped: boolean;
   usePreviousLineup: boolean;
+  notSubmitted: boolean;
 }
 
 export default function FormazioniAdminPage() {
@@ -91,7 +92,8 @@ export default function FormazioniAdminPage() {
         ...t,
         isConfirmed: false,
         isSkipped: false,
-        usePreviousLineup: false,
+        usePreviousLineup: !t.hasLineup,
+        notSubmitted: !t.hasLineup,
       }));
       
       const missingTeamIds = new Set(fantasyTeams.map(t => t.id));
@@ -115,7 +117,8 @@ export default function FormazioniAdminPage() {
             hasLineup: false,
             isConfirmed: false,
             isSkipped: false,
-            usePreviousLineup: false,
+            usePreviousLineup: true,
+            notSubmitted: true,
           });
         }
       }
@@ -164,7 +167,8 @@ export default function FormazioniAdminPage() {
         ...t,
         isConfirmed: false,
         isSkipped: false,
-        usePreviousLineup: false,
+        usePreviousLineup: !t.hasLineup,
+        notSubmitted: !t.hasLineup,
       }));
 
       const missingTeamIds = new Set(fantasyTeams.map((t) => t.id));
@@ -188,7 +192,8 @@ export default function FormazioniAdminPage() {
             hasLineup: false,
             isConfirmed: false,
             isSkipped: false,
-            usePreviousLineup: false,
+            usePreviousLineup: true,
+            notSubmitted: true,
           });
         }
       }
@@ -209,7 +214,7 @@ export default function FormazioniAdminPage() {
     if (!teamId) return;
     setReviewableLineups(prev => prev.map(l => 
       l.matchedTeamId === teamId 
-        ? { ...l, isSkipped: !l.isSkipped, usePreviousLineup: false }
+        ? { ...l, isSkipped: !l.isSkipped, usePreviousLineup: false, notSubmitted: false }
         : l
     ));
   }, []);
@@ -218,7 +223,21 @@ export default function FormazioniAdminPage() {
     if (!teamId) return;
     setReviewableLineups(prev => prev.map(l => 
       l.matchedTeamId === teamId 
-        ? { ...l, usePreviousLineup: !l.usePreviousLineup, isSkipped: false }
+        ? {
+            ...l,
+            usePreviousLineup: !l.usePreviousLineup,
+            isSkipped: false,
+            notSubmitted: !l.usePreviousLineup ? true : l.notSubmitted && l.hasLineup,
+          }
+        : l
+    ));
+  }, []);
+
+  const handleToggleNotSubmitted = useCallback((teamId: string | null) => {
+    if (!teamId) return;
+    setReviewableLineups(prev => prev.map(l =>
+      l.matchedTeamId === teamId
+        ? { ...l, notSubmitted: !l.notSubmitted, isSkipped: false }
         : l
     ));
   }, []);
@@ -254,6 +273,7 @@ export default function FormazioniAdminPage() {
           starterIds: l.starters.map((s) => s.matchedPlayerId),
           benchIds: l.bench.map((b) => b.matchedPlayerId),
           usePreviousLineup: l.usePreviousLineup,
+          notSubmitted: l.usePreviousLineup || l.notSubmitted,
         }))
       );
 
@@ -416,6 +436,7 @@ export default function FormazioniAdminPage() {
             fetchError={fetchError}
             onToggleSkip={handleToggleSkip}
             onToggleFallback={handleToggleFallback}
+            onToggleNotSubmitted={handleToggleNotSubmitted}
             onMatch={handleManualMatch}
             onAdd={handleAddPlayer}
             onBack={handleReset}
@@ -610,6 +631,7 @@ function ReviewStep({
   fetchError,
   onToggleSkip,
   onToggleFallback,
+  onToggleNotSubmitted,
   onMatch,
   onAdd,
   onBack,
@@ -625,6 +647,7 @@ function ReviewStep({
   fetchError: string | null;
   onToggleSkip: (teamId: string | null) => void;
   onToggleFallback: (teamId: string | null) => void;
+  onToggleNotSubmitted: (teamId: string | null) => void;
   onMatch: (
     teamId: string,
     side: 'starters' | 'bench',
@@ -680,6 +703,7 @@ function ReviewStep({
                 teamNames={teamNames}
                 onToggleSkip={() => onToggleSkip(lineup.matchedTeamId)}
                 onToggleFallback={() => onToggleFallback(lineup.matchedTeamId)}
+                onToggleNotSubmitted={() => onToggleNotSubmitted(lineup.matchedTeamId)}
                 onMatch={onMatch}
                 onAdd={onAdd}
               />
@@ -719,6 +743,7 @@ function LineupReviewCard({
   teamNames,
   onToggleSkip,
   onToggleFallback,
+  onToggleNotSubmitted,
   onMatch,
   onAdd,
 }: {
@@ -727,6 +752,7 @@ function LineupReviewCard({
   teamNames: Record<string, string>;
   onToggleSkip: () => void;
   onToggleFallback: () => void;
+  onToggleNotSubmitted: () => void;
   onMatch: (
     teamId: string,
     side: 'starters' | 'bench',
@@ -827,6 +853,11 @@ function LineupReviewCard({
             {lineup.usePreviousLineup && (
               <Badge variant="default" className="bg-purple-100 text-purple-700">
                 Usa formazione precedente
+              </Badge>
+            )}
+            {lineup.notSubmitted && (
+              <Badge variant="default" className="bg-amber-100 text-amber-800">
+                Non schierata −3
               </Badge>
             )}
             {lineup.isSkipped && (
@@ -958,6 +989,18 @@ function LineupReviewCard({
               {lineup.usePreviousLineup ? 'Fallback attivo' : 'Usa precedente'}
             </button>
           )}
+          <button
+            onClick={onToggleNotSubmitted}
+            className={cn(
+              'px-3 py-1 text-sm rounded flex items-center gap-1',
+              lineup.notSubmitted
+                ? 'bg-amber-600 text-white'
+                : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+            )}
+            title="Da regolamento: ultima formazione valida e malus −3"
+          >
+            {lineup.notSubmitted ? 'Malus −3 attivo' : 'Segna non schierata (−3)'}
+          </button>
           <button
             onClick={onToggleSkip}
             className={cn(

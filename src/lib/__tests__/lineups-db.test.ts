@@ -26,6 +26,7 @@ describe('lineups-db helpers', () => {
     expect(lineup.formation).toBe('4-4-2');
     expect(lineup.starters.map((s) => s.playerId)).toEqual(['p1', 'p2']);
     expect(lineup.bench.map((s) => s.playerId)).toEqual(['b1', 'b2']);
+    expect(lineup.notSubmitted).toBe(false);
   });
 
   it('buildUpsertLineupsPayload skips empty starter lists', () => {
@@ -103,6 +104,26 @@ describe('lineups-db helpers', () => {
       formation: '5-3-2',
       starters: ['s1', 's2'],
       bench: ['b1'],
+      notSubmitted: true,
+    });
+  });
+
+  it('keeps an explicit notSubmitted flag on a deposited lineup', () => {
+    const payload = buildUpsertLineupsPayload(7, [
+      {
+        teamId: 'sf',
+        formation: '3-4-3',
+        starterIds: ['a'],
+        benchIds: ['b'],
+        notSubmitted: true,
+      },
+    ]);
+    expect(payload.lineups[0]).toMatchObject({
+      teamId: 'sf',
+      formation: '3-4-3',
+      starters: ['a'],
+      bench: ['b'],
+      notSubmitted: true,
     });
   });
 });
